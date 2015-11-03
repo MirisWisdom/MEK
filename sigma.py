@@ -1,14 +1,16 @@
 '''
 
-A module for approximate integration using the below methods:
-    midpoint, left-endpoint, right-endpoint, trapezoidal, and simpson rule.
+A module for doing various calculus related things:
+    Approximate integration using the below methods:
+        midpoint, left-endpoint, right-endpoint, trapezoidal rule, simpson rule
 
-Also approximates summation of a series of partial sums
+    Approximate summation of a series of partial sums
 
 '''
 
 
 from math import *
+from decimal import *
 from traceback import format_exc
 
 class sigma():
@@ -18,7 +20,6 @@ class sigma():
         self.a = a
         self.b = b
         self._sum = 0
-
         self.abs = bool(kwargs.get('abs'))
 
         self.y = y
@@ -171,6 +172,21 @@ class sigma():
         
         return self._sum
 
+    def sequence(self, a=None, b=None):
+        if a is None: a = self.a
+        if b is None: b = self.b
+        a, b = int(a), int(b)
+        y = self.y
+        
+        if b < a: b, a = a, b
+
+        sequence = [0]*(b-a)
+
+        for i in range(a, b):
+            sequence[i-a] = (y(i))
+            
+        return sequence
+
     @property
     def sum(self):
         return self._sum
@@ -194,6 +210,7 @@ if __name__ == '__main__':
                 "    'trap'   calculates the integral using the trapezoidal rule.\n"+
                 "    'simp'   calculates the integral using the simpsons rule.\n"+
                 "    'series' calculates the series sum at the Nth value.\n\n"+
+                "    'seq'   prints N terms in the sequence at a time until reaching b.\n"+
                 "    'sum'  prints the last sum calculated.\n"+
                 "    'quit' exits the program.\n"+
                 "    'help' prints this message.\n\n")
@@ -242,7 +259,7 @@ if __name__ == '__main__':
                 N = test.n
                 A = test.a
                 B = test.b
-                ABS = test.abs
+                ABS  = test.abs
 
                 if inp[0].lower() == 'y':
                     try:
@@ -251,67 +268,84 @@ if __name__ == '__main__':
                         print(format_exc())
                 elif inp[0].lower() == 'n':
                     inp = inp.strip('nN ')
-                    try:
-                        if inp[0] == '=':
-                            N = int(inp.strip('= '))
-                        else:
-                            print('    n == %s'%test.n)
-                    except:
+                    if len(inp) and inp[0] == '=':
+                        N = int(inp.strip('= '))
+                    else:
                         print('    n == %s'%test.n)
                 elif len(inp) >= 3 and inp[:3].lower() == 'abs':
                     inp = inp.strip('aAbBsS ')
-                    try:
-                        if inp[0] == '=':
-                            inp = inp.strip('= ')
-                            try:
-                                inp = int(inp)
-                            except:
-                                if inp.lower() in ('false', 'no', 'f', 'n'):
-                                    inp = False
-                                elif inp.lower() in ('true', 'yes', 't', 'y'):
-                                    inp = True
-                                
-                            ABS = bool(inp)
-                        else:
-                            print('    abs == %s'%bool(test.abs))
-                    except:
+                    if len(inp) and inp[0] == '=':
+                        inp = inp.strip('= ')
+                        try:
+                            inp = int(inp)
+                        except:
+                            if inp.lower() in ('false', 'no', 'f', 'n'):
+                                inp = False
+                            elif inp.lower() in ('true', 'yes', 't', 'y'):
+                                inp = True
+                            
+                        ABS = bool(inp)
+                    else:
                         print('    abs == %s'%bool(test.abs))
+                elif len(inp) >= 4 and inp[:4].lower() == 'side':
+                    inp = inp.strip('sSiIdDeE ')
+                    if len(inp) and inp[0] == '=':
+                        SIDE = int(inp.strip('= '))
+                        if SIDE > 0: SIDE =  1
+                        if SIDE < 0: SIDE = -1
+                    else:
+                        print('    side == %s'%test.side)
                 elif inp[0].lower() == 'a':
                     inp = inp.strip('aA ')
-                    try:
-                        if inp[0] == '=':
-                            A = float(inp.strip('= '))
-                        else:
-                            print('    A == %s'%test.a)
-                    except:
+                    if len(inp) and inp[0] == '=':
+                        A = float(inp.strip('= '))
+                    else:
                         print('    A == %s'%test.a)
                 elif inp[0].lower() == 'b':
                     inp = inp.strip('bB ')
-                    try:
-                        if inp[0] == '=':
-                            B = float(inp.strip('= '))
-                        else:
-                            print('    b == %s'%test.b)
-                    except:
+                    if len(inp) and inp[0] == '=':
+                        B = float(inp.strip('= '))
+                    else:
                         print('    b == %s'%test.b)
-                elif inp.lower() in ('midpoint', 'mid', 'm'):
+                elif inp.lower() in ('midpoint', 'mid'):
                     print('   ',test.mid())
-                elif inp.lower() in ('left endpoint', 'left', 'l'):
+                elif inp.lower() in ('left endpoint', 'left'):
                     print('   ',test.left())
-                elif inp.lower() in ('right endpoint', 'right', 'r'):
+                elif inp.lower() in ('right endpoint', 'right'):
                     print('   ',test.right())
-                elif inp.lower() in ('trapezoid', 'trapezoidal', 'trap', 't'):
+                elif inp.lower() in ('trapezoid', 'trapezoidal', 'trap'):
                     print('   ',test.trapezoid())
                 elif inp.lower() in ('simpsons', 'simpson', 'quadratic',
                                      'simp', 'quad'):
                     print('   ',test.simpson())
                 elif inp.lower() in ('series sum', 'series'):
                     print('   ',test.series_sum())
+                elif inp.lower() in ('sequence', 'seq'):
+                    if A == B:
+                        continue
+                    XA = int(A)
+                    XB = int(XA + N)
+                    if XB > int(B):
+                        XB = int(B)
+                    while XB <= int(B):
+                        if int(XA + 2*N) >= int(B):
+                            print('    [%s to %s] == %s'%
+                                  (XA,XB-1,test.sequence(XA,XB)))
+                        else:
+                            input('    [%sto %s] == %s'%
+                                  (XA,XB-1,test.sequence(XA,XB)))
+                        if XB >= int(B):
+                            break
+                        XA += int(N)
+                        XB = int(XA + N)
+                        if XB > int(B):
+                            XB = int(B)
+                            
                 elif inp.lower() == 'sum':
                     print('   ',test.sum)
-                elif inp.lower() in ('help', 'h', '?'):
+                elif inp.lower() in ('help', '?'):
                     print(help_str)
-                elif inp.lower() in ('quit', 'q', 'exit'):
+                elif inp.lower() in ('quit', 'exit'):
                     raise SystemExit
                     
                     
