@@ -209,8 +209,8 @@ if __name__ == '__main__':
                 "    'right'  calculates the integral using the right endpoint rule.\n"+
                 "    'trap'   calculates the integral using the trapezoidal rule.\n"+
                 "    'simp'   calculates the integral using the simpsons rule.\n"+
-                "    'series' calculates the series sum at the Nth value.\n\n"+
-                "    'seq'   prints N terms in the sequence at a time until reaching b.\n"+
+                "    'series' calculates the series sum at the Nth value.\n"+
+                "    'seq'    prints N terms in the sequence at a time until reaching b.\n\n"+
                 "    'sum'  prints the last sum calculated.\n"+
                 "    'quit' exits the program.\n"+
                 "    'help' prints this message.\n\n")
