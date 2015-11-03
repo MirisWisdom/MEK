@@ -7,6 +7,9 @@ A module for doing various calculus related things:
     Approximate summation of a series of partial sums
     Display the terms in a sequence
 
+    Forgive the lack of comments, this was initially made
+    to help with the tedious parts of calculus homework
+
 '''
 
 
@@ -191,6 +194,8 @@ class sigma():
     @property
     def sum(self):
         return self._sum
+
+
 
 if __name__ == '__main__':
 
