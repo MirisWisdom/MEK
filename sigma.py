@@ -230,9 +230,9 @@ if __name__ == '__main__':
 
         exec('test = sigma(Y, N, A, B)')
 
-        try:
-            print('\n'+help_str)
-            while True:
+        print('\n'+help_str)
+        while True:
+            try:
                 inp = input().strip()
 
                 if len(inp) == 0:
@@ -320,5 +320,7 @@ if __name__ == '__main__':
                 test.a = A
                 test.b = B
                 test.abs = ABS
-        except Exception:
-            print(format_exc())
+            except Exception:
+                print(format_exc())
+            except KeyboardInterrupt:
+                print('Operation cancelled by user.')
