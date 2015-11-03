@@ -5,6 +5,7 @@ A module for doing various calculus related things:
         midpoint, left-endpoint, right-endpoint, trapezoidal rule, simpson rule
 
     Approximate summation of a series of partial sums
+    Display the terms in a sequence
 
 '''
 
@@ -266,12 +267,6 @@ if __name__ == '__main__':
                         exec('Y = lambda x: '+inp.strip('yY= '))
                     except:
                         print(format_exc())
-                elif inp[0].lower() == 'n':
-                    inp = inp.strip('nN ')
-                    if len(inp) and inp[0] == '=':
-                        N = int(inp.strip('= '))
-                    else:
-                        print('    n == %s'%test.n)
                 elif len(inp) >= 3 and inp[:3].lower() == 'abs':
                     inp = inp.strip('aAbBsS ')
                     if len(inp) and inp[0] == '=':
@@ -287,14 +282,12 @@ if __name__ == '__main__':
                         ABS = bool(inp)
                     else:
                         print('    abs == %s'%bool(test.abs))
-                elif len(inp) >= 4 and inp[:4].lower() == 'side':
-                    inp = inp.strip('sSiIdDeE ')
+                elif inp[0].lower() == 'n':
+                    inp = inp.strip('nN ')
                     if len(inp) and inp[0] == '=':
-                        SIDE = int(inp.strip('= '))
-                        if SIDE > 0: SIDE =  1
-                        if SIDE < 0: SIDE = -1
+                        N = int(inp.strip('= '))
                     else:
-                        print('    side == %s'%test.side)
+                        print('    n == %s'%test.n)
                 elif inp[0].lower() == 'a':
                     inp = inp.strip('aA ')
                     if len(inp) and inp[0] == '=':
@@ -307,13 +300,13 @@ if __name__ == '__main__':
                         B = float(inp.strip('= '))
                     else:
                         print('    b == %s'%test.b)
-                elif inp.lower() in ('midpoint', 'mid'):
+                elif inp.lower() in ('midpoint', 'mid', 'm'):
                     print('   ',test.mid())
-                elif inp.lower() in ('left endpoint', 'left'):
+                elif inp.lower() in ('left endpoint', 'left', 'l'):
                     print('   ',test.left())
-                elif inp.lower() in ('right endpoint', 'right'):
+                elif inp.lower() in ('right endpoint', 'right', 'r'):
                     print('   ',test.right())
-                elif inp.lower() in ('trapezoid', 'trapezoidal', 'trap'):
+                elif inp.lower() in ('trapezoid', 'trapezoidal', 'trap', 't'):
                     print('   ',test.trapezoid())
                 elif inp.lower() in ('simpsons', 'simpson', 'quadratic',
                                      'simp', 'quad'):
