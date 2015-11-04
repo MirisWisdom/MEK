@@ -25,7 +25,7 @@ class sigma():
         self.b = b
         self._sum = 0
         self.abs = bool(kwargs.get('abs'))
-
+        self.precision = kwargs.get('precision', 13)
         self.y = y
 
     def mid(self, n=None, a=None, b=None):
@@ -51,7 +51,7 @@ class sigma():
             
             self._sum = s*dx
             
-        return self._sum
+        return round(self._sum, self.precision)
 
     def left(self, n=None, a=None, b=None):
         self._sum = s = 0
@@ -75,7 +75,7 @@ class sigma():
             
             self._sum = s*dx
             
-        return self._sum
+        return round(self._sum, self.precision)
 
     def right(self, n=None, a=None, b=None):
         self._sum = s = 0
@@ -99,7 +99,7 @@ class sigma():
             
             self._sum = s*dx
             
-        return self._sum
+        return round(self._sum, self.precision)
 
     def trapezoid(self, n=None, a=None, b=None):
         self._sum = s = 0
@@ -125,7 +125,7 @@ class sigma():
             s += (y(a) + y(b))/2
             s *= dx
         
-        self._sum = s
+        self._sum = round(s, self.precision)
         return self._sum
 
     def simpson(self, n=None, a=None, b=None):
@@ -152,7 +152,7 @@ class sigma():
             s += y(a) + y(b) + 4*y(a+dx)
             s *= dx/3
         
-        self._sum = s
+        self._sum = round(s, self.precision)
         
         return self._sum
 
@@ -172,7 +172,7 @@ class sigma():
                 s += y(i)
             
             
-        self._sum = s
+        self._sum = round(s, self.precision)
         
         return self._sum
 
@@ -181,20 +181,20 @@ class sigma():
         if b is None: b = self.b
         a, b = int(a), int(b)
         y = self.y
+        p = self.precision
         
         if b < a: b, a = a, b
 
         sequence = [0]*(b-a)
 
         for i in range(a, b):
-            sequence[i-a] = (y(i))
+            sequence[i-a] = round(y(i), p)
             
         return sequence
 
     @property
     def sum(self):
         return self._sum
-
 
 
 if __name__ == '__main__':
@@ -205,10 +205,12 @@ if __name__ == '__main__':
                 "    'n = xxx' sets the precision of the approximation to xxx.\n"+
                 "    'a = xxx' sets the lower limit to xxx.\n"+
                 "    'b = xxx' sets the upper limit to xxx.\n"+
+                "    'p = xxx' sets the number of places to round final values to.\n"+
                 "    'abs = True/False' sets whether or not using only absolute values.\n\n"+
                 "    'n' prints the current value of n.\n"+
                 "    'a' prints the current value of a.\n"+
                 "    'b' prints the current value of b.\n"+
+                "    'p' prints the current number of places to round final values to.\n"+
                 "    'abs' prints whether or not using only absolute values.\n\n"+
                 "    'mid'    calculates the integral using the midpoint rule.\n"+
                 "    'left'   calculates the integral using the left endpoint rule.\n"+
@@ -265,7 +267,10 @@ if __name__ == '__main__':
                 N = test.n
                 A = test.a
                 B = test.b
+                P = test.precision
                 ABS  = test.abs
+
+                if N <= 0: N = 1
 
                 if inp[0].lower() == 'y':
                     try:
@@ -298,13 +303,19 @@ if __name__ == '__main__':
                     if len(inp) and inp[0] == '=':
                         A = float(inp.strip('= '))
                     else:
-                        print('    A == %s'%test.a)
+                        print('    a == %s'%test.a)
                 elif inp[0].lower() == 'b':
                     inp = inp.strip('bB ')
                     if len(inp) and inp[0] == '=':
                         B = float(inp.strip('= '))
                     else:
                         print('    b == %s'%test.b)
+                elif inp[0].lower() == 'p':
+                    inp = inp.strip('pP ')
+                    if len(inp) and inp[0] == '=':
+                        P = int(inp.strip('= '))
+                    else:
+                        print('    p == %s'%test.precision)
                 elif inp.lower() in ('midpoint', 'mid', 'm'):
                     print('   ',test.mid())
                 elif inp.lower() in ('left endpoint', 'left', 'l'):
@@ -330,7 +341,7 @@ if __name__ == '__main__':
                             print('    [%s to %s] == %s'%
                                   (XA,XB-1,test.sequence(XA,XB)))
                         else:
-                            input('    [%sto %s] == %s'%
+                            input('    [%s to %s] == %s'%
                                   (XA,XB-1,test.sequence(XA,XB)))
                         if XB >= int(B):
                             break
@@ -351,6 +362,7 @@ if __name__ == '__main__':
                 test.n = N
                 test.a = A
                 test.b = B
+                test.precision = P
                 test.abs = ABS
             except Exception:
                 print(format_exc())
