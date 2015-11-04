@@ -28,6 +28,9 @@ class sigma():
         self.precision = kwargs.get('precision', 13)
         self.y = y
 
+    def eval(self, x):
+        return round(self.y(x), self.precision)
+
     def mid(self, n=None, a=None, b=None):
         self._sum = s = 0
         if n is None: n = self.n
@@ -201,16 +204,16 @@ if __name__ == '__main__':
 
     init = 0
     help_str = ("You may use any of the below commands.\n"+
-                "    'y = xxx' sets the function being approximated.\n"+
-                "    'n = xxx' sets the precision of the approximation to xxx.\n"+
-                "    'a = xxx' sets the lower limit to xxx.\n"+
-                "    'b = xxx' sets the upper limit to xxx.\n"+
-                "    'p = xxx' sets the number of places to round final values to.\n"+
-                "    'abs = True/False' sets whether or not using only absolute values.\n\n"+
-                "    'n' prints the current value of n.\n"+
-                "    'a' prints the current value of a.\n"+
-                "    'b' prints the current value of b.\n"+
-                "    'p' prints the current number of places to round final values to.\n"+
+                "    'y = xxxx'  sets the function being approximated.\n"+
+                "    'n = xxxx'  sets the precision of the approximation to xxxx.\n"+
+                "    'a = xxxx'  sets the lower limit to xxxx.\n"+
+                "    'b = xxxx'  sets the upper limit to xxxx.\n"+
+                "    'p = xxxx'  sets the number of places to round final values to xxxx.\n"+
+                "    'abs = y/n' sets whether or not using only absolute values.\n\n"+
+                "    'n'   prints the current value of n.\n"+
+                "    'a'   prints the current value of a.\n"+
+                "    'b'   prints the current value of b.\n"+
+                "    'p'   prints the current number of places to round final values to.\n"+
                 "    'abs' prints whether or not using only absolute values.\n\n"+
                 "    'mid'    calculates the integral using the midpoint rule.\n"+
                 "    'left'   calculates the integral using the left endpoint rule.\n"+
@@ -219,6 +222,7 @@ if __name__ == '__main__':
                 "    'simp'   calculates the integral using the simpsons rule.\n"+
                 "    'series' calculates the series sum at the Nth value.\n"+
                 "    'seq'    prints N terms in the sequence at a time until reaching b.\n\n"+
+                "    'xxxx' evaluates the function at xxx and prints the result.\n"+
                 "    'sum'  prints the last sum calculated.\n"+
                 "    'quit' exits the program.\n"+
                 "    'help' prints this message.\n\n")
@@ -356,6 +360,14 @@ if __name__ == '__main__':
                     print(help_str)
                 elif inp.lower() in ('quit', 'exit'):
                     raise SystemExit
+                else:
+                    #if nothing else fits the input then try to evaluate
+                    #the function at it(first check if its a number)
+                    try:
+                        inp = float(inp)
+                        print('   y(%s) == %s' % (inp, test.eval(inp)))
+                    except:
+                        print(format_exc())
                     
                     
                 test.y = Y
