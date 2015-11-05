@@ -260,7 +260,7 @@ if __name__ == '__main__':
                 "    'quit' exits the program.\n"+
                 "    'help' prints this message.\n\n"+
                 "    '\\xxxx' compiles and executes xxxx as python code.\n"+
-                "         This is just as if you were using the console.\n\n")
+                "         This is almost as if you were using the console.\n\n")
     while True:
         while init == 0:
             print('Enter a valid f(x) function(y). Must use python syntax.\n'+
@@ -367,8 +367,8 @@ if __name__ == '__main__':
                 elif inp.lower() in ('series sum', 'series', 'ss'):
                     print('   ',test.series_sum())
                 elif inp.lower() in ('sequence', 'seq'):
-                    if A == B:
-                        continue
+                    if A > B:
+                        A, B, = B, A
                     XA = int(A)
                     XB = int(XA + N)
                     if XB > int(B):
