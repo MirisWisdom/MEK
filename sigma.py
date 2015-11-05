@@ -372,20 +372,20 @@ if __name__ == '__main__':
                     XA = int(A)
                     XB = int(XA + N)
                     if XB > int(B):
-                        XB = int(B)
-                    while XB <= int(B):
-                        if int(XA + 2*N) >= int(B):
+                        XB = int(B)+1
+                    while XB <= int(B)+1:
+                        if int(XA + 2*N) >= int(B)+1:
                             print('    [%s to %s] == %s'%
                                   (XA,XB-1,test.sequence(XA,XB)))
                         else:
                             input('    [%s to %s] == %s'%
                                   (XA,XB-1,test.sequence(XA,XB)))
-                        if XB >= int(B):
+                        if XB >= int(B)+1:
                             break
                         XA += int(N)
                         XB = int(XA + N)
                         if XB > int(B):
-                            XB = int(B)
+                            XB = int(B)+1
                             
                 elif inp.lower() == 'sum':
                     print('   ',test.sum)
