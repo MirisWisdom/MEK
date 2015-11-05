@@ -17,6 +17,10 @@ from math import *
 from decimal import *
 from traceback import format_exc
 
+def alt(x):
+    #Returns -1 if |x| is odd. Returns 1 otherwise
+    return 1-2*(abs(int(x))&1)
+
 class sigma():
     
     def __init__(self, y, n=10, a=0, b=1, **kwargs):
@@ -30,6 +34,34 @@ class sigma():
 
     def eval(self, x):
         return round(self.y(x), self.precision)
+
+    def arc_length(self, n=None, a=None, b=None):
+        '''
+        This function needs significant improvements.
+        Takes around 15 seconds to calculate the arc of sqrt(1-x*x) at
+        10,000,000 pieces and is still only accurate to 2 decimal places.
+        (spits out 3.14096039)
+        '''
+        self._sum = s = 0
+        if n is None: n = self.n
+        if a is None: a = self.a
+        if b is None: b = self.b
+        if a == b:    return 0
+        if n <= 0:    n = 1
+        y = self.y;   n = int(n)
+            
+        dx = (b-a)/n
+
+        xa = y(a)
+        
+        for i in range(n):
+            xb = y(a+dx*i)
+            s += sqrt(dx*dx + pow(xb-xa, 2) )
+            xa = xb
+        
+        self._sum = s
+            
+        return round(self._sum, self.precision)
 
     def mid(self, n=None, a=None, b=None):
         self._sum = s = 0
@@ -221,6 +253,7 @@ if __name__ == '__main__':
                 "    'trap'   calculates the integral using the trapezoidal rule.\n"+
                 "    'simp'   calculates the integral using the simpsons rule.\n"+
                 "    'series' calculates the series sum at the Nth value.\n"+
+                "    'arc'    calculates the length of the arc of the function from a to b.\n"+
                 "    'seq'    prints N terms in the sequence at a time until reaching b.\n\n"+
                 "    'xxxx' evaluates the function at xxx and prints the result.\n"+
                 "    'sum'  prints the last sum calculated.\n"+
@@ -235,27 +268,47 @@ if __name__ == '__main__':
                   '    sqrt(ln(x)) --->  ln(x)^(1/2)\n'+
                   '    abs(x-1)  ----->  |x-1|\n'+
                   '    log(x, 10)  --->  log_base_10(x)\n'+
-                  '    e%x + 15  ----->  modulus divide e by x')
-            try:    exec('Y = lambda x: '+input().strip()); init = 1
-            except: print(format_exc())
+                  '    e%x + 15  ----->  15 + modulus divide e by x')
+            try:
+                exec('Y = lambda x: '+input().strip())
+                #see if the function works
+                Y(0)
+                init = 1
+            except ArithmeticError:
+                #if the only error is arithmetic, keep going
+                init = 1
+            except KeyboardInterrupt:
+                pass
+            except Exception:
+                print(format_exc())
             
         while init == 1:
             print('\nEnter the number of pieces to approximate by(n).\n'+
                   'Must be a natural/whole number.')
-            try:    N = int(input().strip()); init = 2
-            except: print(format_exc())
+            try:
+                N = int(input().strip()); init = 2
+            except KeyboardInterrupt:
+                pass
+            except Exception:
+                print(format_exc())
             
         while init == 2:
             print('\nEnter the function lower limit(a).\n'+
                   'This also is the starting index for series sums.')
             try:    A = float(input().strip()); init = 3
-            except: print(format_exc())
+            except KeyboardInterrupt:
+                pass
+            except Exception:
+                print(format_exc())
             
         while init == 3:
             print('\nEnter the function upper limit(b).\n'+
                   'This does nothing for a approximating series sum.')
             try:    B = float(input().strip()); init = 4
-            except: print(format_exc())
+            except KeyboardInterrupt:
+                pass
+            except Exception:
+                print(format_exc())
 
         exec('test = sigma(Y, N, A, B)')
 
@@ -276,12 +329,7 @@ if __name__ == '__main__':
 
                 if N <= 0: N = 1
 
-                if inp[0].lower() == 'y':
-                    try:
-                        exec('Y = lambda x: '+inp.strip('yY= '))
-                    except:
-                        print(format_exc())
-                elif len(inp) >= 3 and inp[:3].lower() == 'abs':
+                if len(inp) >= 3 and inp[:3].lower() == 'abs':
                     inp = inp.strip('aAbBsS ')
                     if len(inp) and inp[0] == '=':
                         inp = inp.strip('= ')
@@ -296,30 +344,11 @@ if __name__ == '__main__':
                         ABS = bool(inp)
                     else:
                         print('    abs == %s'%bool(test.abs))
-                elif inp[0].lower() == 'n':
-                    inp = inp.strip('nN ')
-                    if len(inp) and inp[0] == '=':
-                        N = int(inp.strip('= '))
-                    else:
-                        print('    n == %s'%test.n)
-                elif inp[0].lower() == 'a':
-                    inp = inp.strip('aA ')
-                    if len(inp) and inp[0] == '=':
-                        A = float(inp.strip('= '))
-                    else:
-                        print('    a == %s'%test.a)
-                elif inp[0].lower() == 'b':
-                    inp = inp.strip('bB ')
-                    if len(inp) and inp[0] == '=':
-                        B = float(inp.strip('= '))
-                    else:
-                        print('    b == %s'%test.b)
-                elif inp[0].lower() == 'p':
-                    inp = inp.strip('pP ')
-                    if len(inp) and inp[0] == '=':
-                        P = int(inp.strip('= '))
-                    else:
-                        print('    p == %s'%test.precision)
+                elif inp.lower() in ('arc length', 'arc', 'al'):
+                    print('   This function still needs work since it is slow '+
+                          'and has low precision\n   Set N to a high integer, '+
+                          'but even still take its result with a grain of salt.')
+                    print('   ',test.arc_length())
                 elif inp.lower() in ('midpoint', 'mid', 'm'):
                     print('   ',test.mid())
                 elif inp.lower() in ('left endpoint', 'left', 'l'):
@@ -331,7 +360,7 @@ if __name__ == '__main__':
                 elif inp.lower() in ('simpsons', 'simpson', 'quadratic',
                                      'simp', 'quad'):
                     print('   ',test.simpson())
-                elif inp.lower() in ('series sum', 'series'):
+                elif inp.lower() in ('series sum', 'series', 'ss'):
                     print('   ',test.series_sum())
                 elif inp.lower() in ('sequence', 'seq'):
                     if A == B:
@@ -360,6 +389,39 @@ if __name__ == '__main__':
                     print(help_str)
                 elif inp.lower() in ('quit', 'exit'):
                     raise SystemExit
+                elif inp[0].lower() == 'y':
+                    try:
+                        exec('Y = lambda x: '+inp.strip('yY= '))
+                        Y(0)
+                    except ArithmeticError:
+                        #if the only error is arithmetic, keep going
+                        pass
+                    except:
+                        print(format_exc())
+                elif inp[0].lower() == 'n':
+                    inp = inp.strip('nN ')
+                    if len(inp) and inp[0] == '=':
+                        N = int(inp.strip('= '))
+                    else:
+                        print('    n == %s'%test.n)
+                elif inp[0].lower() == 'a':
+                    inp = inp.strip('aA ')
+                    if len(inp) and inp[0] == '=':
+                        A = float(inp.strip('= '))
+                    else:
+                        print('    a == %s'%test.a)
+                elif inp[0].lower() == 'b':
+                    inp = inp.strip('bB ')
+                    if len(inp) and inp[0] == '=':
+                        B = float(inp.strip('= '))
+                    else:
+                        print('    b == %s'%test.b)
+                elif inp[0].lower() == 'p':
+                    inp = inp.strip('pP ')
+                    if len(inp) and inp[0] == '=':
+                        P = int(inp.strip('= '))
+                    else:
+                        print('    p == %s'%test.precision)
                 else:
                     #if nothing else fits the input then try to evaluate
                     #the function at it(first check if its a number)
