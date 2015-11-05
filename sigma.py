@@ -241,7 +241,7 @@ if __name__ == '__main__':
                 "    'a = xxxx'  sets the lower limit to xxxx.\n"+
                 "    'b = xxxx'  sets the upper limit to xxxx.\n"+
                 "    'p = xxxx'  sets the number of places to round final values to xxxx.\n"+
-                "    'abs = y/n' sets whether or not using only absolute values.\n\n"+
+                "    'abs = t/f' sets whether or not using only absolute values.\n\n"+
                 "    'n'   prints the current value of n.\n"+
                 "    'a'   prints the current value of a.\n"+
                 "    'b'   prints the current value of b.\n"+
@@ -258,7 +258,9 @@ if __name__ == '__main__':
                 "    'xxxx' evaluates the function at xxx and prints the result.\n"+
                 "    'sum'  prints the last sum calculated.\n"+
                 "    'quit' exits the program.\n"+
-                "    'help' prints this message.\n\n")
+                "    'help' prints this message.\n\n"+
+                "    '\\xxxx' compiles and executes xxxx as python code.\n"+
+                "         This is just as if you were using the console.\n\n")
     while True:
         while init == 0:
             print('Enter a valid f(x) function(y). Must use python syntax.\n'+
@@ -328,8 +330,10 @@ if __name__ == '__main__':
                 ABS  = test.abs
 
                 if N <= 0: N = 1
-
-                if len(inp) >= 3 and inp[:3].lower() == 'abs':
+                
+                if inp[0] == '\\':
+                    exec(inp.lstrip('\\ '))
+                elif len(inp) >= 3 and inp[:3].lower() == 'abs':
                     inp = inp.strip('aAbBsS ')
                     if len(inp) and inp[0] == '=':
                         inp = inp.strip('= ')
