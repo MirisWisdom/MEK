@@ -5,6 +5,7 @@ A module for doing various calculus related things:
         midpoint, left-endpoint, right-endpoint, trapezoidal rule, simpson rule
 
     Approximate summation of a series of partial sums
+    Approximate arc length of a function
     Display the terms in a sequence
 
     Forgive the lack of comments, this was initially made
@@ -20,6 +21,8 @@ from traceback import format_exc
 def alt(x):
     #Returns -1 if |x| is odd. Returns 1 otherwise
     return 1-2*(abs(int(x))&1)
+
+fact = factorial
 
 class sigma():
     

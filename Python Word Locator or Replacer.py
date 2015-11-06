@@ -18,8 +18,6 @@ Word_Replacements = []
 #for Name in Words_to_Locate:
 #    Word_Replacements.append(Name.upper())
 
-print("READY")
-input()
 
 class Python_Word_Locator_Replacer():
 
@@ -110,6 +108,8 @@ class Python_Word_Locator_Replacer():
                 print(format_exc())
 
 if __name__ == "__main__":
+    print("READY")
+    input()
     Program = Python_Word_Locator_Replacer()
     Program.Run(Flags)
     print("Done")
