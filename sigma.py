@@ -416,6 +416,7 @@ if __name__ == '__main__':
         exec('calc = sigma(Y, N, A, B)')
 
         print('\n'+help_str)
+        warned = False
         while True:
             try:
                 Y = calc.y
@@ -427,17 +428,19 @@ if __name__ == '__main__':
 
                 if N <= 0: N = 1
                 
-                if (B-A)/N > 1:
-                    print(("For everything other than series the width of each"+
-                           "piece will be too large.\na = %s, b = %s, n = %s\n"+
+                if (B-A)/N > 1 and not warned:
+                    print(("Excluding series, the width of each piece "+
+                           "will be too large.\na = %s, b = %s, n = %s\n"+
                            "The width of each piece will be (b-a)/n = %s\n"+
-                           "Choose either a lower b or a larger n so that "+
-                           "(b-a)/n <= 1\n    You may still run the "+
+                           "Choose to either lower 'b' or increase 'n' so "+
+                           "that (b-a)/n <= 1\n    You may still run the "+
                            "calculations, but they will likely be very wrong.")
                           % (A, B, N, (B-A)/N))
-                if N > 50000000:
+                if N > 5000000:
                     print("n is %s. Calculations will take a long time."%N)
+                    
                 inp = input().strip()
+                warned = True
 
                 if len(inp) == 0:
                     continue
@@ -526,18 +529,21 @@ if __name__ == '__main__':
                     inp = inp.strip('nN ')
                     if len(inp) and inp[0] == '=':
                         N = int(inp.strip('= '))
+                        warned = False
                     else:
                         print('    n == %s'%N)
                 elif inp[0].lower() == 'a':
                     inp = inp.strip('aA ')
                     if len(inp) and inp[0] == '=':
                         A = float(inp.strip('= '))
+                        warned = False
                     else:
                         print('    a == %s'%A)
                 elif inp[0].lower() == 'b':
                     inp = inp.strip('bB ')
                     if len(inp) and inp[0] == '=':
                         B = float(inp.strip('= '))
+                        warned = False
                     else:
                         print('    b == %s'%B)
                 elif inp[0].lower() == 'p':
@@ -553,6 +559,7 @@ if __name__ == '__main__':
                             print('    dx cannot be 0')
                             continue
                         N = (B-A)/float(inp.strip('= '))
+                        warned = False
                     else:
                         print('    dx == %s'%((B-A)/N))
                 else:
