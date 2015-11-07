@@ -13,6 +13,7 @@ A module for doing various calculus related things:
 
 '''
 
+import os
 
 from math import *
 from decimal import *
@@ -261,6 +262,7 @@ if __name__ == '__main__':
                 "    'xxxx' evaluates the function at xxx and prints the result.\n"+
                 "    'sum'  prints the last sum calculated.\n"+
                 "    'quit' exits the program.\n"+
+                "    'cls'  clears the window of all text.\n"+
                 "    'help' prints this message.\n\n"+
                 "    '\\xxxx' compiles and executes xxxx as python code.\n"+
                 "         This is almost as if you were using the console.\n\n")
@@ -399,6 +401,8 @@ if __name__ == '__main__':
                     print('   ',calc.sum)
                 elif inp.lower() in ('help', '?'):
                     print(help_str)
+                elif inp.lower() in ('clear screen', 'clear', 'cls'):
+                    os.system('cls')
                 elif inp.lower() in ('quit', 'exit'):
                     raise SystemExit
                 elif inp[0].lower() == 'y':
