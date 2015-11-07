@@ -315,7 +315,7 @@ if __name__ == '__main__':
             except Exception:
                 print(format_exc())
 
-        exec('test = sigma(Y, N, A, B)')
+        exec('calc = sigma(Y, N, A, B)')
 
         print('\n'+help_str)
         while True:
@@ -325,17 +325,22 @@ if __name__ == '__main__':
                 if len(inp) == 0:
                     continue
                     
-                Y = test.y
-                N = test.n
-                A = test.a
-                B = test.b
-                P = test.precision
-                ABS  = test.abs
+                Y = calc.y
+                N = calc.n
+                A = calc.a
+                B = calc.b
+                P = calc.precision
+                ABS  = calc.abs
 
                 if N <= 0: N = 1
                 
                 if inp[0] == '\\':
-                    exec(inp.lstrip('\\ '))
+                    try:
+                        print(eval(inp.lstrip('\\ ')))
+                    except SyntaxError:
+                        #if it couldn't evaluate due to a syntax error, it might
+                        #be because the input is to be executed, not evaluated
+                        exec(inp.lstrip('\\ '))
                 elif len(inp) >= 3 and inp[:3].lower() == 'abs':
                     inp = inp.strip('aAbBsS ')
                     if len(inp) and inp[0] == '=':
@@ -350,25 +355,25 @@ if __name__ == '__main__':
                             
                         ABS = bool(inp)
                     else:
-                        print('    abs == %s'%bool(test.abs))
+                        print('    abs == %s'%bool(calc.abs))
                 elif inp.lower() in ('arc length', 'arc', 'al'):
                     print('   This function still needs work since it is slow '+
                           'and has low precision\n   Set N to a high integer, '+
                           'but even still take its result with a grain of salt.')
-                    print('   ',test.arc_length())
+                    print('   ',calc.arc_length())
                 elif inp.lower() in ('midpoint', 'mid', 'm'):
-                    print('   ',test.mid())
+                    print('   ',calc.mid())
                 elif inp.lower() in ('left endpoint', 'left', 'l'):
-                    print('   ',test.left())
+                    print('   ',calc.left())
                 elif inp.lower() in ('right endpoint', 'right', 'r'):
-                    print('   ',test.right())
+                    print('   ',calc.right())
                 elif inp.lower() in ('trapezoid', 'trapezoidal', 'trap', 't'):
-                    print('   ',test.trapezoid())
+                    print('   ',calc.trapezoid())
                 elif inp.lower() in ('simpsons', 'simpson', 'quadratic',
                                      'simp', 'quad'):
-                    print('   ',test.simpson())
+                    print('   ',calc.simpson())
                 elif inp.lower() in ('series sum', 'series', 'ss'):
-                    print('   ',test.series_sum())
+                    print('   ',calc.series_sum())
                 elif inp.lower() in ('sequence', 'seq'):
                     if A > B:
                         A, B, = B, A
@@ -379,10 +384,10 @@ if __name__ == '__main__':
                     while XB <= int(B)+1:
                         if int(XA + 2*N) >= int(B)+1:
                             print('    [%s to %s] == %s'%
-                                  (XA,XB-1,test.sequence(XA,XB)))
+                                  (XA,XB-1,calc.sequence(XA,XB)))
                         else:
                             input('    [%s to %s] == %s'%
-                                  (XA,XB-1,test.sequence(XA,XB)))
+                                  (XA,XB-1,calc.sequence(XA,XB)))
                         if XB >= int(B)+1:
                             break
                         XA += int(N)
@@ -391,7 +396,7 @@ if __name__ == '__main__':
                             XB = int(B)+1
                             
                 elif inp.lower() == 'sum':
-                    print('   ',test.sum)
+                    print('   ',calc.sum)
                 elif inp.lower() in ('help', '?'):
                     print(help_str)
                 elif inp.lower() in ('quit', 'exit'):
@@ -410,41 +415,41 @@ if __name__ == '__main__':
                     if len(inp) and inp[0] == '=':
                         N = int(inp.strip('= '))
                     else:
-                        print('    n == %s'%test.n)
+                        print('    n == %s'%calc.n)
                 elif inp[0].lower() == 'a':
                     inp = inp.strip('aA ')
                     if len(inp) and inp[0] == '=':
                         A = float(inp.strip('= '))
                     else:
-                        print('    a == %s'%test.a)
+                        print('    a == %s'%calc.a)
                 elif inp[0].lower() == 'b':
                     inp = inp.strip('bB ')
                     if len(inp) and inp[0] == '=':
                         B = float(inp.strip('= '))
                     else:
-                        print('    b == %s'%test.b)
+                        print('    b == %s'%calc.b)
                 elif inp[0].lower() == 'p':
                     inp = inp.strip('pP ')
                     if len(inp) and inp[0] == '=':
                         P = int(inp.strip('= '))
                     else:
-                        print('    p == %s'%test.precision)
+                        print('    p == %s'%calc.precision)
                 else:
                     #if nothing else fits the input then try to evaluate
                     #the function at it(first check if its a number)
                     try:
                         inp = float(inp)
-                        print('   y(%s) == %s' % (inp, test.eval(inp)))
+                        print('   y(%s) == %s' % (inp, calc.eval(inp)))
                     except:
                         print(format_exc())
                     
                     
-                test.y = Y
-                test.n = N
-                test.a = A
-                test.b = B
-                test.precision = P
-                test.abs = ABS
+                calc.y = Y
+                calc.n = N
+                calc.a = A
+                calc.b = B
+                calc.precision = P
+                calc.abs = ABS
             except Exception:
                 print(format_exc())
             except KeyboardInterrupt:
