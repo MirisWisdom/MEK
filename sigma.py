@@ -25,6 +25,9 @@ def alt(x):
     return 1-2*(abs(int(x))&1)
 
 fact = factorial
+ln = log
+log2 = lambda x: log(x, 2)
+log10 = lambda x: log(x, 10)
 
 class sigma():
 
@@ -434,6 +437,9 @@ if __name__ == '__main__':
             except ArithmeticError:
                 #if the only error is arithmetic, keep going
                 init = 1
+            except ValueError:
+                #if the only error is arithmetic, keep going
+                init = 1
             except KeyboardInterrupt:
                 pass
             except Exception:
@@ -572,6 +578,9 @@ if __name__ == '__main__':
                         exec('Y = lambda x: '+inp.strip('yY= '))
                         Y(0)
                     except ArithmeticError:
+                        #if the only error is arithmetic, keep going
+                        pass
+                    except ValueError:
                         #if the only error is arithmetic, keep going
                         pass
                     except:
