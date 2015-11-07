@@ -35,6 +35,7 @@ class sigma():
         self.a = a
         self.b = b
         self._sum = 0
+        self.stop_point = 0
         self.abs = bool(kwargs.get('abs'))
         self.precision = kwargs.get('precision', 13)
         self.y = y
@@ -50,7 +51,7 @@ class sigma():
         10,000,000 pieces and is still only accurate to 2 decimal places.
         (spits out 3.14096039)
         '''
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -64,16 +65,21 @@ class sigma():
         dx = (b-a)/n
 
         xa = y(a)
+
+        try:
+            for i in range(n):
+                xb = y(a+dx*i)
+                s += sqrt(dx*dx + pow(xb-xa, 2) )
+                xa = xb
+        except KeyboardInterrupt:
+            self.time = time() - start
+            self._sum = round(s, self.precision)
+            raise
         
-        for i in range(n):
-            xb = y(a+dx*i)
-            s += sqrt(dx*dx + pow(xb-xa, 2) )
-            xa = xb
-        
-        self._sum = s
+        self._sum = round(s, self.precision)
         self.time = time() - start
             
-        return round(self._sum, self.precision)
+        return self._sum
 
     def arc_length(self, n=None, a=None, b=None):
         '''
@@ -85,7 +91,7 @@ class sigma():
         Simpson's Rule like Method for Arc Length Approximation,
         URL (version: 2014-05-02): http://math.stackexchange.com/q/778533
         '''
-        self._sum = s = s_diff = 0
+        self._sum = self.stop_point = s = s_diff = 0
         self.time = 0.0
         start = time()
         
@@ -99,20 +105,32 @@ class sigma():
         dx = (b-a)/n
         dx_sq = dx*dx
         y0 = y(a)
-        
-        for i in range(n):
-            y1 = y(a + dx*i)
-            s += sqrt(dx_sq + pow(y1-y0, 2) )
-            y0 = y1
 
-        dx = dx*2
-        dx_sq = dx*dx
-        y0 = y(a)
-        
-        for i in range(n//2):
-            y1 = y(a + dx*i)
-            s_diff += sqrt(dx_sq + pow(y1-y0, 2) )
-            y0 = y1
+        try:
+            for i in range(n):
+                y1 = y(a + dx*i)
+                s += sqrt(dx_sq + pow(y1-y0, 2) )
+                y0 = y1
+
+            dx = dx*2
+            dx_sq = dx*dx
+            y0 = y(a)
+        except KeyboardInterrupt:
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
+            
+        try:
+            for i in range(n//2):
+                y1 = y(a + dx*i)
+                s_diff += sqrt(dx_sq + pow(y1-y0, 2) )
+                y0 = y1
+        except KeyboardInterrupt:
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round((4*s - s_diff)/3, self.precision)
+            raise
         
         self.time = time() - start
         self._sum = round((4*s - s_diff)/3, self.precision)
@@ -121,7 +139,7 @@ class sigma():
         
 
     def mid(self, n=None, a=None, b=None):
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -134,24 +152,34 @@ class sigma():
             
         dx = (b-a)/n
         h_dx = dx/2
-        
-        if self.abs:
-            for i in range(n):
-                s += abs(y(a+dx*i + h_dx))
+
+        try:
+            if self.abs:
+                for i in range(n):
+                    s += abs(y(a+dx*i + h_dx))
+                    
+                s *= abs(dx)
+            else:
+                for i in range(n):
+                    s += y(a+dx*i + h_dx)
                 
-            s *= abs(dx)
-        else:
-            for i in range(n):
-                s += y(a+dx*i + h_dx)
-            
-            s *= dx
+                s *= dx
+        except KeyboardInterrupt:
+            if self.abs:
+                s *= abs(dx)
+            else:
+                s *= dx
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
             
         self.time = time() - start
         self._sum = round(s, self.precision)
         return self._sum
 
     def left(self, n=None, a=None, b=None):
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -164,23 +192,33 @@ class sigma():
             
         dx = (b-a)/n
 
-        if self.abs:
-            for i in range(n):
-                s += abs(y(a+dx*i))
+        try:
+            if self.abs:
+                for i in range(n):
+                    s += abs(y(a+dx*i))
+                    
+                s *= abs(dx)
+            else:
+                for i in range(n):
+                    s += y(a+dx*i)
                 
-            s *= abs(dx)
-        else:
-            for i in range(n):
-                s += y(a+dx*i)
-            
-            s *= dx
+                s *= dx
+        except KeyboardInterrupt:
+            if self.abs:
+                s *= abs(dx)
+            else:
+                s *= dx
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
             
         self.time = time() - start
         self._sum = round(s, self.precision)
         return self._sum
 
     def right(self, n=None, a=None, b=None):
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -192,24 +230,34 @@ class sigma():
         y = self.y;   n = int(n)
             
         dx = (b-a)/n
-
-        if self.abs:
-            for i in range(1, n+1):
-                s += abs(y(a+dx*i))
+        
+        try:
+            if self.abs:
+                for i in range(1, n+1):
+                    s += abs(y(a+dx*i))
+                    
+                s *= abs(dx)
+            else:
+                for i in range(1, n+1):
+                    s += y(a+dx*i)
                 
-            s *= abs(dx)
-        else:
-            for i in range(1, n+1):
-                s += y(a+dx*i)
-            
-            s *= dx
+                s *= dx
+        except KeyboardInterrupt:
+            if self.abs:
+                s *= abs(dx)
+            else:
+                s *= dx
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
             
         self.time = time() - start
         self._sum = round(s, self.precision)
         return self._sum
 
     def trapezoid(self, n=None, a=None, b=None):
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -221,26 +269,33 @@ class sigma():
         y = self.y;   n = int(n)
             
         dx = (b-a)/n
-
-        if self.abs:
-            for i in range(1, n):
-                s += abs(y(a+dx*i))
+        
+        try:
+            if self.abs:
+                for i in range(1, n):
+                    s += abs(y(a+dx*i))
+                s = (s + abs(y(a)) + abs(y(b)) ) * abs(dx/2)
+            else:
+                for i in range(1, n):
+                    s += y(a+dx*i)
+                s = (s + y(a) + y(b)) * dx/2
+        except KeyboardInterrupt:
+            if self.abs:
+                s = (s + abs(y(a)) + abs(y(b)) ) * abs(dx/2)
+            else:
+                s = (s + y(a) + y(b)) * dx/2
                 
-            s += abs(y(a)) + abs(y(b))/2
-            s *= abs(dx)
-        else:
-            for i in range(1, n):
-                s += y(a+dx*i)
-            
-            s += (y(a) + y(b))/2
-            s *= dx
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
             
         self.time = time() - start
         self._sum = round(s, self.precision)
         return self._sum
 
     def simpson(self, n=None, a=None, b=None):
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -252,25 +307,33 @@ class sigma():
         y = self.y;   n = int(ceil(n/2))*2
             
         dx = (b-a)/n
-        
-        if self.abs:
-            for i in range(2, n, 2):
-                s += abs(2*y(a + dx*i)) + abs(4*y(a + dx*(i+1)))
+
+        try:
+            if self.abs:
+                for i in range(2, n, 2):
+                    s += abs(2*y(a + dx*i)) + abs(4*y(a + dx*(i+1)))
+                s = (s + abs(y(a)) + abs(y(b)) + abs(4*y(a+dx))) * abs(dx/3)
+            else:
+                for i in range(2, n, 2):
+                    s += 2*y(a + dx*i) + 4*y(a + dx*(i+1))
+                s = (s + y(a) + y(b) + 4*y(a+dx)) * dx/3
+        except KeyboardInterrupt:
+            if self.abs:
+                s = (s + abs(y(a)) + abs(y(b)) + abs(4*y(a+dx))) * abs(dx/3)
+            else:
+                s = (s + y(a) + y(b) + 4*y(a+dx)) * dx/3
                 
-            s += abs(y(a)) + abs(y(b)) + abs(4*y(a+dx))
-            s *= abs(dx/3)
-        else:
-            for i in range(2, n, 2):
-                s += 2*y(a + dx*i) + 4*y(a + dx*(i+1))
-            s += y(a) + y(b) + 4*y(a+dx)
-            s *= dx/3
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
         
         self.time = time() - start
         self._sum = round(s, self.precision)
         return self._sum
 
     def series_sum(self, n=None, a=None):
-        self._sum = s = 0
+        self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
         
@@ -279,12 +342,18 @@ class sigma():
         if n <= 0:    n = 1
         y = self.y
 
-        if self.abs:
-            for i in range(int(a), int(n)):
-                s += abs(y(i))
-        else:
-            for i in range(int(a), int(n)):
-                s += y(i)
+        try:
+            if self.abs:
+                for i in range(int(a), int(n)):
+                    s += abs(y(i))
+            else:
+                for i in range(int(a), int(n)):
+                    s += y(i)
+        except KeyboardInterrupt:
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
             
         self.time = time() - start
         self._sum = round(s, self.precision)
@@ -303,7 +372,7 @@ class sigma():
         if b < a: b, a = a, b
 
         sequence = [0]*(b-a)
-
+        
         for i in range(a, b):
             sequence[i-a] = round(y(i), p)
             
@@ -429,7 +498,7 @@ if __name__ == '__main__':
                 
                 if inp[0] == '\\':
                     try:
-                        print(eval(inp.lstrip('\\ ')))
+                        print('    %s'% eval(inp.lstrip('\\ ')))
                     except SyntaxError:
                         #if it couldn't evaluate due to a syntax error, it might
                         #be because the input is to be executed, not evaluated
@@ -552,3 +621,10 @@ if __name__ == '__main__':
                 print(format_exc())
             except KeyboardInterrupt:
                 print('Operation cancelled by user.')
+                if calc.stop_point is not int(0):
+                    print('Operation cancelled at x=%s' % calc.stop_point)
+                    
+                calc.stop_point = int(0)
+                
+            #make a space between inputs for ease of reading
+            print()
