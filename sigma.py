@@ -28,6 +28,9 @@ ln = log
 log2 = lambda x: log(x, 2)
 log10 = lambda x: log(x, 10)
 
+inf = float('inf')
+n_inf = float('-inf')
+
 class sigma():
 
     time = 0.0
@@ -428,16 +431,17 @@ if __name__ == '__main__':
 
                 if N <= 0: N = 1
                 
-                if (B-A)/N > 1 and not warned:
-                    print(("Excluding series, the width of each piece "+
-                           "will be too large.\na = %s, b = %s, n = %s\n"+
-                           "The width of each piece will be (b-a)/n = %s\n"+
-                           "Choose to either lower 'b' or increase 'n' so "+
-                           "that (b-a)/n <= 1\n    You may still run the "+
-                           "calculations, but they will likely be very wrong.")
-                          % (A, B, N, (B-A)/N))
-                if N > 5000000:
-                    print("n is %s. Calculations will take a long time."%N)
+                if not warned:
+                    if (B-A)/N > 1:
+                        print(("Excluding series, the width of each piece "+
+                               "will be too large.\na = %s, b = %s, n = %s\n"+
+                               "The width of each piece will be (b-a)/n = %s\n"+
+                               "Choose to either lower 'b' or increase 'n' so "+
+                               "that (b-a)/n <= 1\n    You may still run the "+
+                               "calculations, but they will likely be very wrong.")
+                              % (A, B, N, (B-A)/N))
+                    if N > 5000000:
+                        print("n is %s. Calculations will take a long time."%N)
                     
                 inp = input().strip()
                 warned = True
