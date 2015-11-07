@@ -10,7 +10,6 @@ A module for doing various calculus related things:
 
     Forgive the lack of comments, this was initially made
     to help with the tedious parts of calculus homework
-
 '''
 
 import os
@@ -46,14 +45,7 @@ class sigma():
     def eval(self, x):
         return round(self.y(x), self.precision)
 
-    def arc_length_old(self, n=None, a=None, b=None):
-        #OUTDATED BY THE BELOW FUNCTION
-        '''
-        This function needs significant improvements.
-        Takes around 15 seconds to calculate the arc of sqrt(1-x*x) at
-        10,000,000 pieces and is still only accurate to 2 decimal places.
-        (spits out 3.14096039)
-        '''
+    def arc_length(self, n=None, a=None, b=None):
         self._sum = self.stop_point = s = 0
         self.time = 0.0
         start = time()
@@ -66,78 +58,24 @@ class sigma():
         y = self.y;   n = int(n)
             
         dx = (b-a)/n
+        dx_sq = dx*dx
 
-        xa = y(a)
+        y0 = y(a)
 
         try:
-            for i in range(n):
-                xb = y(a+dx*i)
-                s += sqrt(dx*dx + pow(xb-xa, 2) )
-                xa = xb
+            for i in range(1, n+1):
+                y1 = y(a + dx*i)
+                s += sqrt(dx_sq + pow(y1-y0, 2) )
+                y0 = y1
         except KeyboardInterrupt:
             self.time = time() - start
+            self.stop_point = a + dx*i
             self._sum = round(s, self.precision)
             raise
         
         self._sum = round(s, self.precision)
         self.time = time() - start
             
-        return self._sum
-
-    def arc_length(self, n=None, a=None, b=None):
-        '''
-        A slightly more accurate method for calculating arc length than
-        the above method. Uses a simpsons rule style method for approximating
-        arc length. The exact method can be found at the link below.
-        
-        Normal Human (http://math.stackexchange.com/users/147263/normal-human)
-        Simpson's Rule like Method for Arc Length Approximation,
-        URL (version: 2014-05-02): http://math.stackexchange.com/q/778533
-        '''
-        self._sum = self.stop_point = s = s_diff = 0
-        self.time = 0.0
-        start = time()
-        
-        if n is None: n = self.n
-        if a is None: a = self.a
-        if b is None: b = self.b
-        if a == b:    return 0
-        if n <= 0:    n = 1
-        y = self.y;   n = int(ceil(n/2))*2
-            
-        dx = (b-a)/n
-        dx_sq = dx*dx
-        y0 = y(a)
-
-        try:
-            for i in range(n):
-                y1 = y(a + dx*i)
-                s += sqrt(dx_sq + pow(y1-y0, 2) )
-                y0 = y1
-
-            dx = dx*2
-            dx_sq = dx*dx
-            y0 = y(a)
-        except KeyboardInterrupt:
-            self.time = time() - start
-            self.stop_point = a + dx*i
-            self._sum = round(s, self.precision)
-            raise
-            
-        try:
-            for i in range(n//2):
-                y1 = y(a + dx*i)
-                s_diff += sqrt(dx_sq + pow(y1-y0, 2) )
-                y0 = y1
-        except KeyboardInterrupt:
-            self.time = time() - start
-            self.stop_point = a + dx*i
-            self._sum = round((4*s - s_diff)/3, self.precision)
-            raise
-        
-        self.time = time() - start
-        self._sum = round((4*s - s_diff)/3, self.precision)
-        
         return self._sum
         
 
@@ -397,11 +335,13 @@ if __name__ == '__main__':
                 "    'a = xxxx'  sets the lower limit to xxxx.\n"+
                 "    'b = xxxx'  sets the upper limit to xxxx.\n"+
                 "    'p = xxxx'  sets the number of places to round final values to xxxx.\n"+
+                "    'dx = xxxx' sets how wide each approximation piece is by using n = (b-a)/dx\n"+
                 "    'abs = t/f' sets whether or not using only absolute values.\n\n"+
                 "    'n'   prints the current value of n.\n"+
                 "    'a'   prints the current value of a.\n"+
                 "    'b'   prints the current value of b.\n"+
                 "    'p'   prints the current number of places to round final values to.\n"+
+                "    'dx'  prints how wide each approximation piece is.\n"+
                 "    'abs' prints whether or not using only absolute values.\n\n"+
                 "    'mid'    calculates the integral using the midpoint rule.\n"+
                 "    'left'   calculates the integral using the left endpoint rule.\n"+
@@ -478,6 +418,15 @@ if __name__ == '__main__':
         print('\n'+help_str)
         while True:
             try:
+                Y = calc.y
+                N = calc.n
+                A = calc.a
+                B = calc.b
+                P = calc.precision
+                ABS  = calc.abs
+
+                if N <= 0: N = 1
+                
                 if (B-A)/N > 1:
                     print(("For everything other than series the width of each"+
                            "piece will be too large.\na = %s, b = %s, n = %s\n"+
@@ -492,15 +441,6 @@ if __name__ == '__main__':
 
                 if len(inp) == 0:
                     continue
-                    
-                Y = calc.y
-                N = calc.n
-                A = calc.a
-                B = calc.b
-                P = calc.precision
-                ABS  = calc.abs
-
-                if N <= 0: N = 1
                 
                 if inp[0] == '\\':
                     try:
@@ -523,11 +463,8 @@ if __name__ == '__main__':
                             
                         ABS = bool(inp)
                     else:
-                        print('    abs == %s'%bool(calc.abs))
+                        print('    abs == %s'%bool(ABS))
                 elif inp.lower() in ('arc length', 'arc', 'al'):
-                    print('   This function still needs work since it is slow '+
-                          'and has low precision\n   Set N to a high integer, '+
-                          'but even still take its result with a grain of salt.')
                     print('   ',calc.arc_length())
                 elif inp.lower() in ('midpoint', 'mid', 'm'):
                     print('   ',calc.mid())
@@ -590,25 +527,34 @@ if __name__ == '__main__':
                     if len(inp) and inp[0] == '=':
                         N = int(inp.strip('= '))
                     else:
-                        print('    n == %s'%calc.n)
+                        print('    n == %s'%N)
                 elif inp[0].lower() == 'a':
                     inp = inp.strip('aA ')
                     if len(inp) and inp[0] == '=':
                         A = float(inp.strip('= '))
                     else:
-                        print('    a == %s'%calc.a)
+                        print('    a == %s'%A)
                 elif inp[0].lower() == 'b':
                     inp = inp.strip('bB ')
                     if len(inp) and inp[0] == '=':
                         B = float(inp.strip('= '))
                     else:
-                        print('    b == %s'%calc.b)
+                        print('    b == %s'%B)
                 elif inp[0].lower() == 'p':
                     inp = inp.strip('pP ')
                     if len(inp) and inp[0] == '=':
                         P = int(inp.strip('= '))
                     else:
-                        print('    p == %s'%calc.precision)
+                        print('    p == %s'%P)
+                elif len(inp) >= 2 and inp[:2].lower() == 'dx':
+                    inp = inp.strip('dDxX ')
+                    if len(inp) and inp[0] == '=':
+                        if float(inp.strip('= ')) == 0:
+                            print('    dx cannot be 0')
+                            continue
+                        N = (B-A)/float(inp.strip('= '))
+                    else:
+                        print('    dx == %s'%((B-A)/N))
                 else:
                     #if nothing else fits the input then try to evaluate
                     #the function at it(first check if its a number)
