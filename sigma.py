@@ -139,15 +139,15 @@ class sigma():
             for i in range(n):
                 s += abs(y(a+dx*i + h_dx))
                 
-            self._sum = s*abs(dx)
+            s *= abs(dx)
         else:
             for i in range(n):
                 s += y(a+dx*i + h_dx)
             
-            self._sum = s*dx
+            s *= dx
             
         self.time = time() - start
-        self._sum = round(self._sum, self.precision)
+        self._sum = round(s, self.precision)
         return self._sum
 
     def left(self, n=None, a=None, b=None):
@@ -168,15 +168,15 @@ class sigma():
             for i in range(n):
                 s += abs(y(a+dx*i))
                 
-            self._sum = s*abs(dx)
+            s *= abs(dx)
         else:
             for i in range(n):
                 s += y(a+dx*i)
             
-            self._sum = s*dx
+            s *= dx
             
         self.time = time() - start
-        self._sum = round(self._sum, self.precision)
+        self._sum = round(s, self.precision)
         return self._sum
 
     def right(self, n=None, a=None, b=None):
@@ -197,15 +197,15 @@ class sigma():
             for i in range(1, n+1):
                 s += abs(y(a+dx*i))
                 
-            self._sum = s*abs(dx)
+            s *= abs(dx)
         else:
             for i in range(1, n+1):
                 s += y(a+dx*i)
             
-            self._sum = s*dx
+            s *= dx
             
         self.time = time() - start
-        self._sum = round(self._sum, self.precision)
+        self._sum = round(s, self.precision)
         return self._sum
 
     def trapezoid(self, n=None, a=None, b=None):
@@ -262,7 +262,6 @@ class sigma():
         else:
             for i in range(2, n, 2):
                 s += 2*y(a + dx*i) + 4*y(a + dx*(i+1))
-            
             s += y(a) + y(b) + 4*y(a+dx)
             s *= dx/3
         
@@ -288,7 +287,7 @@ class sigma():
                 s += y(i)
             
         self.time = time() - start
-        self._sum = round(self._sum, self.precision)
+        self._sum = round(s, self.precision)
         return self._sum
 
     def sequence(self, a=None, b=None):
@@ -404,6 +403,16 @@ if __name__ == '__main__':
         print('\n'+help_str)
         while True:
             try:
+                if (B-A)/N > 1:
+                    print(("For everything other than series the width of each"+
+                           "piece will be too large.\na = %s, b = %s, n = %s\n"+
+                           "The width of each piece will be (b-a)/n = %s\n"+
+                           "Choose either a lower b or a larger n so that "+
+                           "(b-a)/n <= 1\n    You may still run the "+
+                           "calculations, but they will likely be very wrong.")
+                          % (A, B, N, (B-A)/N))
+                if N > 50000000:
+                    print("n is %s. Calculations will take a long time."%N)
                 inp = input().strip()
 
                 if len(inp) == 0:
@@ -538,6 +547,7 @@ if __name__ == '__main__':
                 calc.b = B
                 calc.precision = P
                 calc.abs = ABS
+                    
             except Exception:
                 print(format_exc())
             except KeyboardInterrupt:
