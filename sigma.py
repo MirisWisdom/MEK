@@ -316,9 +316,13 @@ class sigma():
         if b < a: b, a = a, b
 
         sequence = [0]*(b-a)
-        
-        for i in range(a, b):
-            sequence[i-a] = round(y(i), p)
+
+        if self.abs:
+            for i in range(a, b):
+                sequence[i-a] = round(abs(y(i)), p)
+        else:
+            for i in range(a, b):
+                sequence[i-a] = round(y(i), p)
             
             
         self.time = time() - start
