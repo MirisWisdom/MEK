@@ -334,10 +334,15 @@ class sigma():
 
 
 if __name__ == '__main__':
-
-    init = 0
     help_str = ("You may use any of the below commands.\n"+
                 "    'y = xxxx'  sets the function being approximated.\n"+
+                "    Examples include:\n"+
+                "        pow(2,x)  ----->  2^x\n"+
+                "        x*x/5     ----->  x^2/5\n"+
+                "        sqrt(ln(x)) --->  ln(x)^(1/2)\n"+
+                "        abs(x-1)  ----->  |x-1|\n"+
+                "        log(x, 10)  --->  log_base_10(x)\n"+
+                "        e%x + 15  ----->  15 + modulus divide e by x\n\n"+
                 "    'n = xxxx'  sets the precision of the approximation to xxxx.\n"+
                 "    'a = xxxx'  sets the lower limit to xxxx.\n"+
                 "    'b = xxxx'  sets the upper limit to xxxx.\n"+
@@ -367,60 +372,7 @@ if __name__ == '__main__':
                 "    '\\xxxx' compiles and executes xxxx as python code.\n"+
                 "         This is almost as if you were using the console.\n\n")
     while True:
-        while init == 0:
-            print('Enter a valid f(x) function(y). Must use python syntax.\n'+
-                  'Examples include:\n'+
-                  '    pow(2,x)  ----->  2^x\n'+
-                  '    x*x/5     ----->  x^2/5\n'+
-                  '    sqrt(ln(x)) --->  ln(x)^(1/2)\n'+
-                  '    abs(x-1)  ----->  |x-1|\n'+
-                  '    log(x, 10)  --->  log_base_10(x)\n'+
-                  '    e%x + 15  ----->  15 + modulus divide e by x')
-            try:
-                exec('Y = lambda x: '+input().strip())
-                #see if the function works
-                Y(0)
-                init = 1
-            except ArithmeticError:
-                #if the only error is arithmetic, keep going
-                init = 1
-            except ValueError:
-                #if the only error is arithmetic, keep going
-                init = 1
-            except KeyboardInterrupt:
-                pass
-            except Exception:
-                print(format_exc())
-            
-        while init == 1:
-            print('\nEnter the number of pieces to approximate by(n).\n'+
-                  'Must be a natural/whole number.')
-            try:
-                N = int(input().strip()); init = 2
-            except KeyboardInterrupt:
-                pass
-            except Exception:
-                print(format_exc())
-            
-        while init == 2:
-            print('\nEnter the function lower limit(a).\n'+
-                  'This also is the starting index for series sums.')
-            try:    A = float(input().strip()); init = 3
-            except KeyboardInterrupt:
-                pass
-            except Exception:
-                print(format_exc())
-            
-        while init == 3:
-            print('\nEnter the function upper limit(b).\n'+
-                  'This does nothing for a approximating series sum.')
-            try:    B = float(input().strip()); init = 4
-            except KeyboardInterrupt:
-                pass
-            except Exception:
-                print(format_exc())
-
-        exec('calc = sigma(Y, N, A, B)')
+        calc = sigma(lambda x: pow(e, -(x*x)), 1000000, -1000, 1000)
 
         print('\n'+help_str)
         warned = False
@@ -531,8 +483,6 @@ if __name__ == '__main__':
                     except ValueError:
                         #if the only error is arithmetic, keep going
                         pass
-                    except:
-                        print(format_exc())
                 elif inp[0].lower() == 'n':
                     inp = inp.strip('nN ')
                     if len(inp) and inp[0] == '=':
