@@ -218,16 +218,16 @@ class sigma():
             if self.abs:
                 for i in range(1, n):
                     s += abs(y(a+dx*i))
-                s = (s + abs(y(a)) + abs(y(b)) ) * abs(dx/2)
+                s = (s + (abs(y(a)) + abs(y(b)))/2) * abs(dx)
             else:
                 for i in range(1, n):
                     s += y(a+dx*i)
-                s = (s + y(a) + y(b)) * dx/2
+                s = (s + (y(a) + y(b))/2) * dx
         except KeyboardInterrupt:
             if self.abs:
-                s = (s + abs(y(a)) + abs(y(b)) ) * abs(dx/2)
+                s = (s + (abs(y(a)) + abs(y(b)))/2) * abs(dx)
             else:
-                s = (s + y(a) + y(b)) * dx/2
+                s = (s + (y(a) + y(b))/2) * dx
                 
             self.time = time() - start
             self.stop_point = a + dx*i
