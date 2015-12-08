@@ -31,7 +31,7 @@ def Combine(Main_Dict, *Dicts, **kwargs):
                     Main_Dict[key] = deepcopy(Dict[key])
                 elif kwargs["Copy"].lower() == "shallow":
                     Main_Dict[key] = copy(Dict[key])
-                else:
+                elif kwargs["Copy"].lower() == "ref":
                     Main_Dict[key] = Dict[key]
         
     return(Main_Dict)

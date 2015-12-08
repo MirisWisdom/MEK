@@ -80,6 +80,70 @@ class sigma():
         self.time = time() - start
             
         return self._sum
+
+    def volume_x_axis(self, n=None, a=None, b=None):
+        '''approximates volume of the solid of revolution about the x axis
+        from A to B using simpsons rule combined with the disc method.'''
+        self._sum = self.stop_point = s = 0
+        self.time = 0.0
+        start = time()
+        
+        if n is None: n = self.n
+        if a is None: a = self.a
+        if b is None: b = self.b
+        if a == b:    return 0
+        if n <= 0:    n = 1
+        y = self.y;   n = int(ceil(n/2))*2
+            
+        dx = (b-a)/n
+
+        try:
+            for i in range(2, n, 2):
+                s += 2*pow(y(a + dx*i), 2) + 4*pow(y(a + dx*(i+1)), 2)
+            s = (s + pow(y(a), 2) + pow(y(b), 2) + 4*pow(y(a+dx), 2))*(pi*dx)/3
+        except KeyboardInterrupt:
+            s = (s + pow(y(a), 2) + pow(y(b), 2) + 4*pow(y(a+dx), 2))*(pi*dx)/3
+                
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
+        
+        self.time = time() - start
+        self._sum = round(s, self.precision)
+        return self._sum
+
+    def volume_y_axis(self, n=None, a=None, b=None):
+        '''approximates volume of the solid of revolution about the y axis
+        from A to B using simpsons rule combined with the shells method.'''
+        self._sum = self.stop_point = s = 0
+        self.time = 0.0
+        start = time()
+        
+        if n is None: n = self.n
+        if a is None: a = self.a
+        if b is None: b = self.b
+        if a == b:    return 0
+        if n <= 0:    n = 1
+        y = self.y;   n = int(ceil(n/2))*2
+            
+        dx = (b-a)/n
+
+        try:
+            for i in range(2, n, 2):
+                s += (2*(a + dx*i) *y(a + dx*i) + 4*(a + dx*(i+1))*y(a + dx*(i+1)))
+            s = (s + a*y(a) + b*y(b) + 4*(a+dx)*y(a+dx))*(2*pi*dx)/3
+        except KeyboardInterrupt:
+            s = (s + a*y(a) + b*y(b) + 4*(a+dx)*y(a+dx))*(2*pi*dx)/3
+                
+            self.time = time() - start
+            self.stop_point = a + dx*i
+            self._sum = round(s, self.precision)
+            raise
+        
+        self.time = time() - start
+        self._sum = round(s, self.precision)
+        return self._sum
         
 
     def mid(self, n=None, a=None, b=None):
@@ -349,12 +413,13 @@ if __name__ == '__main__':
                 "    'p = xxxx'  sets the number of places to round final values to xxxx.\n"+
                 "    'dx = xxxx' sets how wide each approximation piece is by using n = (b-a)/dx\n"+
                 "    'abs = t/f' sets whether or not using only absolute values.\n\n"+
-                "    'n'   prints the current value of n.\n"+
-                "    'a'   prints the current value of a.\n"+
-                "    'b'   prints the current value of b.\n"+
-                "    'p'   prints the current number of places to round final values to.\n"+
-                "    'dx'  prints how wide each approximation piece is.\n"+
-                "    'abs' prints whether or not using only absolute values.\n\n"+
+                "    'n'    prints the current value of n.\n"+
+                "    'a'    prints the current value of a.\n"+
+                "    'b'    prints the current value of b.\n"+
+                "    'p'    prints the current number of places to round final values to.\n"+
+                "    'dx'   prints how wide each approximation piece is.\n"+
+                "    'abs'  prints whether or not using only absolute values.\n"+
+                "    'vars' prints the current values of n, a, b, dx, p, abs, and sum.\n\n"+
                 "    'mid'    calculates the integral using the midpoint rule.\n"+
                 "    'left'   calculates the integral using the left endpoint rule.\n"+
                 "    'right'  calculates the integral using the right endpoint rule.\n"+
@@ -363,6 +428,12 @@ if __name__ == '__main__':
                 "    'series' calculates the series sum at the Nth value.\n"+
                 "    'arc'    calculates the length of the arc of the function from a to b.\n"+
                 "    'seq'    prints N terms in the sequence at a time until reaching b.\n\n"+
+                "    'volx'   calculates the volume of the solid of revolution made\n"+
+                "             by rotating f(x) about the x axis from a to b. approximation\n"+
+                "             is done using simpsons rule and the disc volume method.\n"+
+                "    'voly'   calculates the volume of the solid of revolution made\n"+
+                "             by rotating f(x) about the y axis from a to b. approximation\n"+
+                "             is done using simpsons rule and the shells volume method.\n\n"+
                 "    'xxxx' evaluates the function at xxx and prints the result.\n"+
                 "    'sum'  prints the last sum calculated.\n"+
                 "    'quit' exits the program.\n"+
@@ -442,6 +513,10 @@ if __name__ == '__main__':
                     print('   ',calc.simpson())
                 elif inp.lower() in ('series sum', 'series', 'ss'):
                     print('   ',calc.series_sum())
+                elif inp.lower() in ('volx', 'volume x', 'vol x', 'disc', 'discs'):
+                    print('   ',calc.volume_x_axis())
+                elif inp.lower() in ('voly', 'volume y', 'vol y', 'shell', 'shells'):
+                    print('   ',calc.volume_y_axis())
                 elif inp.lower() in ('sequence', 'seq'):
                     if A > B:
                         A, B, = B, A
@@ -520,6 +595,9 @@ if __name__ == '__main__':
                         warned = False
                     else:
                         print('    dx == %s'%((B-A)/N))
+                elif len(inp) >= 4 and inp[:4].lower() == 'vars':
+                    print('    n == %s, a == %s, b == %s'%(N, A, B))
+                    print('    dx == %s, p == %s, abs == %s'%((B-A)/N, P, ABS))
                 else:
                     #if nothing else fits the input then try to evaluate
                     #the function at it(first check if its a number)
