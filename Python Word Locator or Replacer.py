@@ -3,44 +3,25 @@ import re
 from traceback import format_exc
 
 curr_dir = os.path.abspath(os.curdir).replace('/', '\\')
-Words_to_Locate = []
-Word_Replacements = []
+Word_Map = {}
 Flags = None
 Mode = "locate"
 
-
-
-Words_to_Locate = []
-Word_Replacements = []
 #Flags = re.IGNORECASE
 
-
-#for Name in Words_to_Locate:
-#    Word_Replacements.append(Name.upper())
-
+print("READY")
+input()
 
 class Python_Word_Locator_Replacer():
 
     def __init__(self, **kwargs):
-        if "Directory" in kwargs and kwargs["Directory"] is not None:
-            self.Directory = str(kwargs["Directory"])
-        else: self.Directory = curr_dir
+        self.Directory = str(kwargs.get("Directory", curr_dir))
+        self.Word_Map = kwargs.get("Word_Map", Word_Map)
+        self.Mode = kwargs.get("Mode", Mode)
+        self.File_Paths = kwargs.get("File_Paths")
         
-        if "File_Paths" in kwargs and hasattr(kwargs["File_Paths"], '__iter__'):
-            self.File_Paths = kwargs["File_Paths"]
-        else: self.Allocate_Files()
-        
-        if "Words_to_Locate" in kwargs and hasattr(kwargs["Words_to_Locate"], '__iter__'):
-            self.Words_to_Locate = kwargs["Words_to_Locate"]
-        else: self.Words_to_Locate = Words_to_Locate
-        
-        if "Word_Replacements" in kwargs and hasattr(kwargs["Word_Replacements"], '__iter__'):
-            self.Word_Replacements = kwargs["Word_Replacements"]
-        else: self.Word_Replacements = Word_Replacements
-
-        if "Mode" in kwargs and kwargs["Mode"] is not None:
-            self.Mode = kwargs["Mode"]
-        else: self.Mode = Mode
+        if self.File_Paths is None:
+            self.Allocate_Files()
 
 
     def Allocate_Files(self):
@@ -68,10 +49,8 @@ class Python_Word_Locator_Replacer():
                     with open(in_path, "r") as in_file, open(out_path, "w") as out_file:
                         modified_string = in_file.read()
                         
-                        for i in range(min(len(self.Words_to_Locate), len(self.Word_Replacements)) ):
-                            old_word = self.Words_to_Locate[i]
-                            new_word = self.Word_Replacements[i]
-                            
+                        for old_word in self.Word_Map:
+                            new_word = self.Word_Map[old_word]
                             modified_string = re.sub(r'\b%s\b' % old_word, new_word, modified_string)
                     
                         out_file.write(modified_string)
@@ -95,10 +74,11 @@ class Python_Word_Locator_Replacer():
                     with open(in_path, "r") as in_file:
                         in_string = in_file.read()
                         
-                        for word in self.Words_to_Locate:
+                        for word in self.Word_Map:
                             if Search_Flags:
-                                  match = re.findall(r'\b%s\b' % word, in_string, Search_Flags)
-                            else: match = re.findall(r'\b%s\b' % word, in_string)
+                                match = re.findall(r'\b%s\b' % word, in_string, Search_Flags)
+                            else:
+                                match = re.findall(r'\b%s\b' % word, in_string)
 
                             if match:
                                 print("    ", len(match), "Occurances of:", word)
@@ -108,8 +88,6 @@ class Python_Word_Locator_Replacer():
                 print(format_exc())
 
 if __name__ == "__main__":
-    print("READY")
-    input()
     Program = Python_Word_Locator_Replacer()
     Program.Run(Flags)
     print("Done")

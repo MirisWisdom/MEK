@@ -1,5 +1,4 @@
 '''
-
 A module for doing various calculus related things:
     Approximate integration using the below methods:
         midpoint, left-endpoint, right-endpoint, trapezoidal rule, simpson rule
@@ -20,12 +19,13 @@ from decimal import *
 from traceback import format_exc
 
 def alt(x):
-    #Returns -1 if |x| is odd. Returns 1 otherwise
-    return 1-2*(abs(int(x))&1)
+    #Returns -1 if |x| is odd. Returns 1 otherwise.
+    #REQUIRES THAT x BE AN INTEGER, NOT A DECIMAL
+    return 1-2*(abs(x)&1)
 
 fact = factorial
 ln = log
-log2 = lambda x: log(x, 2)
+log2  = lambda x: log(x, 2)
 log10 = lambda x: log(x, 10)
 
 inf = float('inf')
@@ -427,7 +427,7 @@ if __name__ == '__main__':
                 "    'simp'   calculates the integral using the simpsons rule.\n"+
                 "    'series' calculates the series sum at the Nth value.\n"+
                 "    'arc'    calculates the length of the arc of the function from a to b.\n"+
-                "    'seq'    prints N terms in the sequence at a time until reaching b.\n\n"+
+                "    'seq'    prints n terms in the sequence at a time until reaching b.\n\n"+
                 "    'volx'   calculates the volume of the solid of revolution made\n"+
                 "             by rotating f(x) about the x axis from a to b. approximation\n"+
                 "             is done using simpsons rule and the disc volume method.\n"+
@@ -449,42 +449,43 @@ if __name__ == '__main__':
         warned = False
         while True:
             try:
-                Y = calc.y
-                N = calc.n
-                A = calc.a
-                B = calc.b
-                P = calc.precision
+                y = calc.y
+                n = calc.n
+                a = calc.a
+                b = calc.b
+                p = calc.precision
                 ABS  = calc.abs
 
-                if N <= 0: N = 1
+                if n <= 0: n = 1
                 
                 if not warned:
-                    if (B-A)/N > 1:
+                    if (b-a)/n > 1:
                         print(("Excluding series, the width of each piece "+
                                "will be too large.\na = %s, b = %s, n = %s\n"+
                                "The width of each piece will be (b-a)/n = %s\n"+
                                "Choose to either lower 'b' or increase 'n' so "+
                                "that (b-a)/n <= 1\n    You may still run the "+
                                "calculations, but they will likely be very wrong.")
-                              % (A, B, N, (B-A)/N))
-                    if N > 5000000:
-                        print("n is %s. Calculations will take a long time."%N)
+                              % (a, b, n, (b-a)/n))
+                    if n > 5000000:
+                        print("n is %s. Calculations will take a long time."%n)
                     
-                inp = input().strip()
+                INP = input().strip()
                 warned = True
 
-                if len(inp) == 0:
+                if len(INP) == 0:
                     continue
                 
-                if inp[0] == '\\':
+                if INP[0] == '\\':
                     try:
-                        print('    %s'% eval(inp.lstrip('\\ ')))
+                        print('    %s'% eval(INP.lstrip('\\ ')))
                     except SyntaxError:
                         #if it couldn't evaluate due to a syntax error, it might
                         #be because the input is to be executed, not evaluated
-                        exec(inp.lstrip('\\ '))
-                elif len(inp) >= 3 and inp[:3].lower() == 'abs':
-                    inp = inp.strip('aAbBsS ')
+                        exec(INP.lstrip('\\ '))
+                        continue
+                elif len(INP) >= 3 and INP[:3].lower() == 'abs':
+                    inp = INP.strip('aAbBsS ')
                     if len(inp) and inp[0] == '=':
                         inp = inp.strip('= ')
                         try:
@@ -495,125 +496,142 @@ if __name__ == '__main__':
                             elif inp.lower() in ('true', 'yes', 't', 'y'):
                                 inp = True
                             
-                        ABS = bool(inp)
+                        calc.abs = bool(inp)
                     else:
                         print('    abs == %s'%bool(ABS))
-                elif inp.lower() in ('arc length', 'arc', 'al'):
+                    continue
+                elif INP.lower() in ('arc length', 'arc', 'al'):
                     print('   ',calc.arc_length())
-                elif inp.lower() in ('midpoint', 'mid', 'm'):
+                    continue
+                elif INP.lower() in ('midpoint', 'mid', 'm'):
                     print('   ',calc.mid())
-                elif inp.lower() in ('left endpoint', 'left', 'l'):
+                    continue
+                elif INP.lower() in ('left endpoint', 'left', 'l'):
                     print('   ',calc.left())
-                elif inp.lower() in ('right endpoint', 'right', 'r'):
+                    continue
+                elif INP.lower() in ('right endpoint', 'right', 'r'):
                     print('   ',calc.right())
-                elif inp.lower() in ('trapezoid', 'trapezoidal', 'trap', 't'):
+                    continue
+                elif INP.lower() in ('trapezoid', 'trapezoidal', 'trap', 't'):
                     print('   ',calc.trapezoid())
-                elif inp.lower() in ('simpsons', 'simpson', 'quadratic',
+                    continue
+                elif INP.lower() in ('simpsons', 'simpson', 'quadratic',
                                      'simp', 'quad'):
                     print('   ',calc.simpson())
-                elif inp.lower() in ('series sum', 'series', 'ss'):
+                    continue
+                elif INP.lower() in ('series sum', 'series', 'ss'):
                     print('   ',calc.series_sum())
-                elif inp.lower() in ('volx', 'volume x', 'vol x', 'disc', 'discs'):
+                    continue
+                elif INP.lower() in ('volx', 'volume x', 'vol x', 'disc', 'discs'):
                     print('   ',calc.volume_x_axis())
-                elif inp.lower() in ('voly', 'volume y', 'vol y', 'shell', 'shells'):
+                    continue
+                elif INP.lower() in ('voly', 'volume y', 'vol y', 'shell', 'shells'):
                     print('   ',calc.volume_y_axis())
-                elif inp.lower() in ('sequence', 'seq'):
-                    if A > B:
-                        A, B, = B, A
-                    XA = int(A)
-                    XB = int(XA + N)
-                    if XB > int(B):
-                        XB = int(B)+1
-                    while XB <= int(B)+1:
-                        if int(XA + 2*N) >= int(B)+1:
+                    continue
+                elif INP.lower() in ('sequence', 'seq'):
+                    if a > b:
+                        a, b, = b, a
+                    XA = int(a)
+                    XB = int(XA + n)
+                    if XB > int(b):
+                        XB = int(b)+1
+                    while XB <= int(b)+1:
+                        if int(XA + 2*n) >= int(b)+1:
                             print('    [%s to %s] == %s'%
                                   (XA,XB-1,calc.sequence(XA,XB)))
                         else:
                             input('    [%s to %s] == %s'%
                                   (XA,XB-1,calc.sequence(XA,XB)))
-                        if XB >= int(B)+1:
+                        if XB >= int(b)+1:
                             break
-                        XA += int(N)
-                        XB = int(XA + N)
-                        if XB > int(B):
-                            XB = int(B)+1
-                            
-                elif inp.lower() == 'sum':
+                        XA += int(n)
+                        XB = int(XA + n)
+                        if XB > int(b):
+                            XB = int(b)+1
+                    continue
+                elif INP.lower() == 'sum':
                     print('   ',calc.sum)
-                elif inp.lower() in ('help', '?'):
+                    continue
+                elif INP.lower() in ('help', '?'):
                     print(help_str)
-                elif inp.lower() in ('clear screen', 'clear', 'cls'):
+                    continue
+                elif INP.lower() in ('clear screen', 'clear', 'cls'):
                     os.system('cls')
-                elif inp.lower() in ('quit', 'exit'):
+                    continue
+                elif INP.lower() in ('quit', 'exit'):
                     raise SystemExit
-                elif inp.lower() == 'time':
+                elif INP.lower() == 'time':
                     print('   ',calc.time)
-                elif inp[0].lower() == 'y':
+                    continue
+                elif INP[0].lower() == 'y':
                     try:
-                        exec('Y = lambda x: '+inp.strip('yY= '))
-                        Y(0)
+                        exec('y = lambda x: '+INP.strip('yY= '))
+                        y(0)
                     except ArithmeticError:
                         #if the only error is arithmetic, keep going
                         pass
                     except ValueError:
                         #if the only error is arithmetic, keep going
                         pass
-                elif inp[0].lower() == 'n':
-                    inp = inp.strip('nN ')
+                    continue
+                elif INP[0].lower() == 'n':
+                    inp = INP.strip('nN ')
                     if len(inp) and inp[0] == '=':
-                        N = int(inp.strip('= '))
+                        calc.n = int(eval(inp.strip('= ')))
                         warned = False
-                    else:
-                        print('    n == %s'%N)
-                elif inp[0].lower() == 'a':
-                    inp = inp.strip('aA ')
+                        continue
+                    elif len(inp) == 0:
+                        print('    n == %s'%n)
+                        continue
+                elif INP[0].lower() == 'a':
+                    inp = INP.strip('aA ')
                     if len(inp) and inp[0] == '=':
-                        A = float(inp.strip('= '))
+                        calc.a = eval(inp.strip('= '))
                         warned = False
-                    else:
-                        print('    a == %s'%A)
-                elif inp[0].lower() == 'b':
-                    inp = inp.strip('bB ')
+                        continue
+                    elif len(inp) == 0:
+                        print('    a == %s'%a)
+                        continue
+                elif INP[0].lower() == 'b':
+                    inp = INP.strip('bB ')
                     if len(inp) and inp[0] == '=':
-                        B = float(inp.strip('= '))
+                        calc.b = eval(inp.strip('= '))
                         warned = False
-                    else:
-                        print('    b == %s'%B)
-                elif inp[0].lower() == 'p':
-                    inp = inp.strip('pP ')
+                        continue
+                    elif len(inp) == 0:
+                        print('    b == %s'%b)
+                        continue
+                elif INP[0].lower() == 'p':
+                    inp = INP.strip('pP ')
                     if len(inp) and inp[0] == '=':
-                        P = int(inp.strip('= '))
-                    else:
-                        print('    p == %s'%P)
-                elif len(inp) >= 2 and inp[:2].lower() == 'dx':
-                    inp = inp.strip('dDxX ')
+                        calc.precision = int(eval(inp.strip('= ')))
+                        continue
+                    elif len(inp) == 0:
+                        print('    p == %s'%p)
+                        continue
+                elif len(INP) >= 2 and INP[:2].lower() == 'dx':
+                    inp = INP.strip('dDxX ')
                     if len(inp) and inp[0] == '=':
-                        if float(inp.strip('= ')) == 0:
+                        if eval(inp.strip('= ')) == 0:
                             print('    dx cannot be 0')
                             continue
-                        N = (B-A)/float(inp.strip('= '))
+                        calc.n = (b-a)/eval(inp.strip('= '))
                         warned = False
-                    else:
-                        print('    dx == %s'%((B-A)/N))
-                elif len(inp) >= 4 and inp[:4].lower() == 'vars':
-                    print('    n == %s, a == %s, b == %s'%(N, A, B))
-                    print('    dx == %s, p == %s, abs == %s'%((B-A)/N, P, ABS))
-                else:
-                    #if nothing else fits the input then try to evaluate
-                    #the function at it(first check if its a number)
-                    try:
-                        inp = float(inp)
-                        print('   y(%s) == %s' % (inp, calc.eval(inp)))
-                    except:
-                        print(format_exc())
-                    
-                    
-                calc.y = Y
-                calc.n = N
-                calc.a = A
-                calc.b = B
-                calc.precision = P
-                calc.abs = ABS
+                        continue
+                    elif len(inp) == 0:
+                        print('    dx == %s'%((b-a)/n))
+                        continue
+                elif len(INP) >= 4 and INP[:4].lower() == 'vars':
+                    print('    n == %s, a == %s, b == %s'%(n, a, b))
+                    print('    dx == %s, p == %s, abs == %s'%((b-a)/n, p, ABS))
+                    continue
+
+                #if nothing else fits the input then try to evaluate
+                #the function at it(first check if its a number)
+                try:
+                    print('   y(%s) == %s' % (INP, calc.eval(eval(INP))))
+                except:
+                    print(format_exc())
                     
             except Exception:
                 print(format_exc())
