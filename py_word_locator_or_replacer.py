@@ -3,30 +3,31 @@ import re
 from traceback import format_exc
 
 curr_dir = os.path.abspath(os.curdir).replace('/', '\\')
-Word_Map = {}
-Flags = None
-Mode = "locate"
+word_map = {'tagsourcepath':'sourcepath', 'tagpath':'filepath',
+            'tagdata':'data'}
+flags = None
+mode = "locate"
 
-#Flags = re.IGNORECASE
+#flags = re.IGNORECASE
 
 print("READY")
 input()
 
-class Python_Word_Locator_Replacer():
+class python_word_locator_replacer():
 
     def __init__(self, **kwargs):
-        self.Directory = str(kwargs.get("Directory", curr_dir))
-        self.Word_Map = kwargs.get("Word_Map", Word_Map)
-        self.Mode = kwargs.get("Mode", Mode)
-        self.File_Paths = kwargs.get("File_Paths")
+        self.directory = str(kwargs.get("directory", curr_dir))
+        self.word_map  = kwargs.get("word_map", word_map)
+        self.mode      = kwargs.get("mode", mode)
+        self.filepaths = kwargs.get("filepaths")
         
-        if self.File_Paths is None:
-            self.Allocate_Files()
+        if self.filepaths is None:
+            self.allocate_files()
 
 
-    def Allocate_Files(self):
-        self.File_Paths = []
-        for root, directories, files in os.walk(self.Directory):
+    def allocate_files(self):
+        self.filepaths = []
+        for root, directories, files in os.walk(self.directory):
             for filename in files:
                 
                 base, ext = os.path.splitext(filename)
@@ -34,23 +35,23 @@ class Python_Word_Locator_Replacer():
                 
                 if __file__ != filepath:
                     if ext.lower() in (".py", ".pyw"):
-                        self.File_Paths.append(filepath)
+                        self.filepaths.append(filepath)
                                     
-                    self.File_Paths = sorted(self.File_Paths)
+        self.filepaths = sorted(self.filepaths)
 
 
-    def Run(self, Search_Flags=None):
-        for in_path in self.File_Paths:
-            out_path = in_path + '.tmp'
+    def run(self, search_flags=None):
+        for in_path in self.filepaths:
+            out_path    = in_path + '.tmp'
             backup_path = in_path+".backup"
             print(in_path)
             try:
-                if self.Mode.lower() == "replace":
+                if self.mode.lower() == "replace":
                     with open(in_path, "r") as in_file, open(out_path, "w") as out_file:
                         modified_string = in_file.read()
                         
-                        for old_word in self.Word_Map:
-                            new_word = self.Word_Map[old_word]
+                        for old_word in self.word_map:
+                            new_word = self.word_map[old_word]
                             modified_string = re.sub(r'\b%s\b' % old_word, new_word, modified_string)
                     
                         out_file.write(modified_string)
@@ -70,13 +71,13 @@ class Python_Word_Locator_Replacer():
                     except:
                         print("COULDNT RENAME THIS FILE TO BACKUP\n", in_path)
 
-                elif self.Mode.lower() == "locate":
+                elif self.mode.lower() == "locate":
                     with open(in_path, "r") as in_file:
                         in_string = in_file.read()
                         
-                        for word in self.Word_Map:
-                            if Search_Flags:
-                                match = re.findall(r'\b%s\b' % word, in_string, Search_Flags)
+                        for word in self.word_map:
+                            if search_flags:
+                                match = re.findall(r'\b%s\b' % word, in_string, search_flags)
                             else:
                                 match = re.findall(r'\b%s\b' % word, in_string)
 
@@ -88,7 +89,7 @@ class Python_Word_Locator_Replacer():
                 print(format_exc())
 
 if __name__ == "__main__":
-    Program = Python_Word_Locator_Replacer()
-    Program.Run(Flags)
+    program = python_word_locator_replacer()
+    program.run(flags)
     print("Done")
     input()
