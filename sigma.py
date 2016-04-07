@@ -443,6 +443,7 @@ if __name__ == '__main__':
                 "    '\\xxxx' compiles and executes xxxx as python code.\n"+
                 "         This is almost as if you were using the console.\n\n")
     while True:
+        y_str = 'pow(e, -(x*x))'
         calc = sigma(lambda x: pow(e, -(x*x)), 1000000, -1000, 1000)
 
         print('\n'+help_str)
@@ -477,13 +478,14 @@ if __name__ == '__main__':
                     continue
                 
                 if INP[0] == '\\':
+                    inp = INP.lstrip('\\ ')
                     try:
-                        print('    %s'% eval(INP.lstrip('\\ ')))
+                        print('    %s'% eval(inp))
                     except SyntaxError:
                         #if it couldn't evaluate due to a syntax error, it might
                         #be because the input is to be executed, not evaluated
-                        exec(INP.lstrip('\\ '))
-                        continue
+                        exec(inp)
+                    continue
                 elif len(INP) >= 3 and INP[:3].lower() == 'abs':
                     inp = INP.strip('aAbBsS ')
                     if len(inp) and inp[0] == '=':
@@ -564,15 +566,24 @@ if __name__ == '__main__':
                     print('   ',calc.time)
                     continue
                 elif INP[0].lower() == 'y':
+                    inp = INP.strip('yY= ')
+                    if len(inp) == 0:
+                        print('    y = %s'%y_str)
+                        continue
+                    
                     try:
-                        exec('y = lambda x: '+INP.strip('yY= '))
+                        exec('y = lambda x: '+inp)
                         y(0)
+                        calc.y = y
+                        y_str = inp
                     except ArithmeticError:
                         #if the only error is arithmetic, keep going
                         pass
                     except ValueError:
                         #if the only error is arithmetic, keep going
                         pass
+                    except SyntaxError:
+                        print('Invalid expression')
                     continue
                 elif INP[0].lower() == 'n':
                     inp = INP.strip('nN ')
@@ -622,7 +633,7 @@ if __name__ == '__main__':
                         print('    dx == %s'%((b-a)/n))
                         continue
                 elif len(INP) >= 4 and INP[:4].lower() == 'vars':
-                    print('    n == %s, a == %s, b == %s'%(n, a, b))
+                    print('    n == %s,  a == %s, b == %s'%(n, a, b))
                     print('    dx == %s, p == %s, abs == %s'%((b-a)/n, p, ABS))
                     continue
 
