@@ -23,7 +23,7 @@ try:
         for t in range(256):
             #for some reason the y coordinate screws up if at t == 255
             if t == 255:
-                verts[t+(p-1)*256] = vert = (cos(2*pi*(t/255))*sin(pi*(p/255)),
+                verts[t+(p-1)*256] = vert = (cos(2*pi)*sin(pi*(p/255)),
                                              0, cos(pi*(p/255)))
                 obj_file.write('v %s 0 %s\n'%(str(vert[0])[:8], str(vert[2])[:8]))
             else:
