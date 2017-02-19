@@ -21,7 +21,7 @@ from traceback import format_exc
 def alt(x):
     #Returns -1 if |x| is odd. Returns 1 otherwise.
     #REQUIRES THAT x BE AN INTEGER, NOT A DECIMAL
-    return 1-2*(abs(x)&1)
+    return 1-2*(x%2)
 
 fact = factorial
 ln = log
