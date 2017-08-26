@@ -20,14 +20,14 @@ try:
         for filename in sorted(files):
             if filename.lower().endswith(".egg"):
                 egg_filename = filename
-            elif filename.lower().endswith(".wheel"):
+            elif filename.lower().endswith(".whl"):
                 wheel_filename = filename
 
     input("\nPress enter to upload module with twine.")
 
     # upload the module with twine
     os.system("twine upload dist\\%s" % egg_filename)
-    # os.system("twine upload dist\\%s" % wheel_filename)
+    os.system("twine upload dist\\%s" % wheel_filename)
 
 except Exception:
     print(traceback.format_exc())
