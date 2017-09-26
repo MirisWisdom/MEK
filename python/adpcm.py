@@ -33,9 +33,9 @@ def decode_adpcm_samples(samples, channel_ct):
     skip_size   = channel_ct * 2
     code_skip_size = skip_size * 8
 
+    block_ct = len(samples) // (channel_ct * ADPCM_BLOCKSIZE)
     in_data  = array("H", samples)
-    block_ct = len(in_data) // adpcm_size
-    out = array("H", (0 for i in range(block_ct * channel_ct * PCM_BLOCKSIZE)))
+    out      = [0]*(block_ct * channel_ct * PCM_BLOCKSIZE // 2)
 
     for c in range(channel_ct):
         pcm_i = c
@@ -43,37 +43,33 @@ def decode_adpcm_samples(samples, channel_ct):
         for i in range(c * 2, block_ct * adpcm_size, adpcm_size):
             predictor = in_data[i]
             index     = in_data[i + 1]
-
-            out[pcm_i] = predictor
             i += skip_size
 
             if predictor & 32768:
                 predictor -= pcm_mask
 
+            out[pcm_i] = predictor
+            pcm_i += channel_ct
+
             for j in range(i, i + code_skip_size, skip_size):
                 codes = in_data[j] + (in_data[j + 1] << 16)
 
                 for shift in code_shifts:
-                    code = codes >> shift
-                    step = step_table[index]
-                    pcm_i += channel_ct
-                    index += index_table[code & 15]
                     if   index > 88: index = 88
                     elif index < 0:  index = 0
 
+                    code = codes >> shift
+                    step = step_table[index]
+                    index += index_table[code & 15]
+
                     if code & 8:
-                        predictor -= ((step >> 1) + (code & 7)  * step) >> 2
+                        predictor -= ((step >> 1) + (code & 7) * step) >> 2
+                        if predictor < -32768: predictor = -32768
                     else:
                         predictor += ((step >> 1) + (code & 15) * step) >> 2
+                        if predictor >  32767: predictor =  32767
 
-                    if predictor < -32768:
-                        out[pcm_i] = 32768
-                        predictor  = -32768
-                    elif predictor > 32767:
-                        out[pcm_i] = predictor = 32767
-                    elif predictor < 0:
-                        out[pcm_i] = predictor + pcm_mask
-                    else:
-                        out[pcm_i] = predictor
+                    out[pcm_i] = predictor
+                    pcm_i += channel_ct
 
-    return out
+    return array("h", out)
