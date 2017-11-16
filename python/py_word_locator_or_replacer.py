@@ -3,8 +3,8 @@ import re
 from traceback import format_exc
 
 curr_dir = os.path.abspath(os.curdir).replace('/', '\\')
-word_map = {'set_data':0}
-flags = None
+word_map = {}
+flags = 0
 mode = "locate"
 
 # flags = re.IGNORECASE
@@ -42,17 +42,29 @@ class python_word_locator_replacer():
         for in_p in self.filepaths:
             out_p = in_p + '.tmp'
             backup_path = in_p + ".backup"
-            print(in_p)
+            print_str = ""
             try:
                 if self.mode.lower() == "replace":
-                    with open(in_p, "r") as in_f, open(out_p, "w") as out_f:
-                        modified_string = in_f.read()
+                    with open(in_p, "r") as in_f:
+                        orig_string = modified_string = in_f.read()
 
                         for old_word in self.word_map:
                             new_word = self.word_map[old_word]
+                            matches = re.findall(
+                                r'\b%s\b' % old_word, orig_string)
+                            if not matches:
+                                continue
+
+                            print_str += (
+                                "    Replaced %s Occurances of '%s' with '%s'\n"
+                                % (len(matches), old_word, new_word))
                             modified_string = re.sub(r'\b%s\b' % old_word,
                                                      new_word, modified_string)
 
+                    if not print_str:
+                        continue
+
+                    with open(out_p, "w") as out_f:
                         out_f.write(modified_string)
 
                     # Try to delete old file
@@ -71,7 +83,8 @@ class python_word_locator_replacer():
                         except:
                             pass
                     except:
-                        print("COULDNT RENAME THIS FILE TO BACKUP\n", in_p)
+                        print_str += (
+                            "COULDNT RENAME THIS FILE TO BACKUP\n%s\n", in_p)
 
                 elif self.mode.lower() == "locate":
                     with open(in_p, "r") as in_f:
@@ -85,12 +98,17 @@ class python_word_locator_replacer():
                                 match = re.findall(r'\b%s\b' % word, in_string)
 
                             if match:
-                                print("    %s Occurances of:%s" %
-                                      (len(match), word))
+                                print_str += ("    %s Occurances of '%s'\n" %
+                                              (len(match), word))
 
             except:
                 print(in_p)
                 print(format_exc())
+                continue
+
+            if print_str:
+                print(in_p)
+                print(print_str)
 
 if __name__ == "__main__":
     program = python_word_locator_replacer()
