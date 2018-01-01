@@ -1,8 +1,9 @@
 import os
+import sys
 import threadsafe_tkinter as tk
 
 from os.path import dirname, join, splitext, relpath
-from time import time
+from time import time, sleep
 from threading import Thread
 from tkinter.filedialog import askopenfilenames
 from tkinter.font import Font
@@ -13,209 +14,11 @@ from supyr_struct.defs.constants import *
 from binilla.util import *
 from binilla.widgets import BinillaWidget
 
+from hek_pool.constants import *
+from hek_pool.help_window import HekPoolHelpWindow
+
+
 curr_dir = dirname(__file__)
-
-text_tags = dict(
-    processing = '#%02x%02x%02x' % (255, 180,   0),  # yellow
-    processed  = '#%02x%02x%02x' % (  0, 200,  50),  # green
-    )
-
-COMMENT_START_STRS = ["#", ";", "/"]
-
-tool_command_help = {
-    "animations": "",
-    "bitmap": "",
-    "bitmaps": "",
-    "build-cache-file": "",
-    "build-cache-file-ex": "",
-    "build-cache-file-new": "",
-    "build-cpp-definition": "",
-    "build-packed-file": "",
-    "collision-geometry": "",
-    "compile-scripts": "",
-    "compile-shader-postprocess": "",
-    "help": "",
-    "hud-messages": "",
-    "import-device-defaults": "",
-    "import-structure-lightmap-uvs": "",
-    "lightmaps": "",
-    "merge-scenery": "",
-    "model": "",
-    "physics": "",
-    "process-sounds": "",
-    "remove-os-tag-data": "",
-    "runtime-cache-view": "",
-    "sounds": "",
-    "sounds_by_type": "",
-    "strings": "",
-    "structure": "",
-    "structure-breakable-surfaces": "",
-    "structure-lens-flares": "",
-    "tag-load-test": "",
-    "unicode-strings": "",
-    "windows-font": "",
-    "zoners_model_upgrade": "",
-    }
-
-
-tool_commands = {
-    "animations": (
-        ("source-directory", ""),
-        ),
-    "bitmap": (
-        ("source-file", ""),
-        ),
-    "bitmaps": (
-        ("source-directory", ""),
-        ),
-    "build-cache-file": (
-        ("scenario-name", ""),
-        ),
-    "build-cache-file-ex": (
-        ("mod-name",           ""),
-        ("create-anew",         0),
-        ("store-resources",     0),
-        ("use-memory-upgrades", 0),
-        ("scenario-name",      ""),
-        ),
-    "build-cache-file-new": (
-        ("create-anew",         0),
-        ("store-resources",     0),
-        ("use-memory-upgrades", 0),
-        ("scenario-name",      ""),
-        ),
-    "build-cpp-definition": (
-        ("tag-group",         ""),
-        ("add-boost-asserts",  0),
-        ),
-    "build-packed-file": (
-        ("source-directory",    ""),
-        ("output-directory",    ""),
-        ("file-definition-xml", ""),
-        ),
-    "collision-geometry": (
-        ("source-directory", ""),
-        ),
-    "compile-scripts": (
-        ("scenario-name", ""),
-        ),
-    "compile-shader-postprocess": (
-        ("shader-directory", ""),
-        ),
-    "help": (
-        ("os-tool-command", "", (
-            "animations",
-            "bitmap",
-            "bitmaps",
-            "build-cache-file",
-            "build-cache-file-ex",
-            "build-cache-file-new",
-            "build-cpp-definition",
-            "build-packed-file",
-            "collision-geometry",
-            "compile-scripts",
-            "compile-shader-postprocess",
-            "hud-messages",
-            "import-device-defaults",
-            "import-structure-lightmap-uvs",
-            "lightmaps",
-            "merge-scenery",
-            "model",
-            "physics",
-            "process-sounds",
-            "remove-os-tag-data",
-            "runtime-cache-view",
-            "sounds",
-            #"sounds_by_type",
-            "structure",
-            "structure-breakable-surfaces",
-            "structure-lens-flares",
-            "tag-load-test",
-            "unicode-strings",
-            "windows-font",
-            #"zoners_model_upgrade",
-            )
-         ),
-        ),
-    "hud-messages": (
-        ("path",          ""),
-        ("scenario-name", ""),
-        ),
-    "import-device-defaults": (
-        ("type",          "", ("defaults", "profiles")),
-        ("savegame-path", ""),
-        ),
-    "import-structure-lightmap-uvs": (
-        ("structure-bsp", ""),
-        ("obj-file",      ""),
-        ),
-    "lightmaps": (
-        ("scenario",        ""),
-        ("bsp-name",        ""),
-        ("quality",        0.0),
-        ("stop-threshold", 0.5),
-        ),
-    "merge-scenery": (
-        ("source-scenario",      ""),
-        ("destination-scenario", ""),
-        ),
-    "model": (
-        ("source-directory", ""),
-        ),
-    "physics": (
-        ("source-file", ""),
-        ),
-    "process-sounds": (
-        ("root-path", ""),
-        ("substring", ""),
-        ("effect", "gain+",
-             ("gain+", "gain-", "gain=",
-              "maximum-distance", "minimum-distance"),
-             ),
-        ("value", 0.0),
-        ),
-    "remove-os-tag-data": (
-        ("tag-name",         ""),
-        ("tag-type",         ""),
-        ("recursive", 0, (0, 1)),
-        ),
-    "runtime-cache-view": (),
-    "sounds": (
-        ("directory-name",            ""),
-        ("platform",                  "", ("ogg", "xbox", "wav")),
-        ("use-high-quality(ogg_only)", 1,  (0, 1)),
-        ),
-    #"sounds_by_type": (
-    #    ("directory-name", ""),
-    #    ("type",           ""),
-    #    ),
-    "strings": (
-        ("source-directory", ""),
-        ),
-    "structure": (
-        ("scenario-directory", ""),
-        ("bsp-name",           ""),
-        ),
-    "structure-breakable-surfaces": (
-        ("structure-name",   ""),
-        ),
-    "structure-lens-flares": (
-        ("bsp-name", ""),
-        ),
-    "tag-load-test": (
-        ("tag-name", ""),
-        ("group",    ""),
-        ("prompt-to-continue",       0, (0, 1)),
-        ("load-non-resolving-refs",  0, (0, 1)),
-        ("print-size",               0, (0, 1)),
-        ("verbose",                  0, (0, 1)),
-        ),
-    "unicode-strings": (
-        ("source-directory", ""),
-        ),
-    "windows-font": (),
-    #"zoners_model_upgrade": (),
-    }
 
 
 class HekPool(tk.Tk, BinillaWidget):
@@ -228,13 +31,14 @@ class HekPool(tk.Tk, BinillaWidget):
 
     fixed_font = None
 
+    help_window = None
+
     open_log = None
     clear_log = None
     proc_limit = None
 
     tool_paths = ()
     command_lists = ()
-    command_lists_flags = ()
 
     curr_tool_index = -1
     curr_command_list_name = None
@@ -244,15 +48,12 @@ class HekPool(tk.Tk, BinillaWidget):
     app_name = "Pool"  # the name of the app(used in window title)
     version = '1.0.0'
     log_filename = 'hek_pool.log'
-    debug = 0
-    debug_mode = False
 
     def __init__(self, *args, **kwargs):
         self.last_load_dir = curr_dir
         self.processes = {}
         self.tool_paths = []
         self.command_lists = {}
-        self.command_lists_flags = {}
 
         self.app_name = kwargs.pop('app_name', self.app_name)
         self.app_name = str(kwargs.pop('version', self.app_name))
@@ -270,8 +71,8 @@ class HekPool(tk.Tk, BinillaWidget):
         self.minsize(width=400, height=300)
 
         # make the tkinter variables
-        self.open_log = tk.BooleanVar(self)
         self.clear_log = tk.BooleanVar(self)
+        self.open_log = tk.BooleanVar(self, 1)
         self.proc_limit = tk.IntVar(self, 5)
 
         # make the menubar
@@ -279,6 +80,8 @@ class HekPool(tk.Tk, BinillaWidget):
         self.tools_menu = tk.Menu(self.main_menu, tearoff=0,
                                   postcommand=self.generate_tools_menu)
         self.config(menu=self.main_menu)
+        self.main_menu.add_command(label="Tool help",
+                                   command=self.show_help)
         self.main_menu.add_command(label="Add Tool",
                                    command=self.tool_path_browse)
         self.main_menu.add_command(label="Remove Tool",
@@ -286,65 +89,91 @@ class HekPool(tk.Tk, BinillaWidget):
         self.main_menu.add_cascade(label="Select Tool",
                                    menu=self.tools_menu)
 
-        self.commands_text = tk.Text(self, font=self.fixed_font)
-        self.commands_text.tag_config(
-            "processing", background=text_tags['processing'])
-        self.commands_text.tag_config(
-            "processed", background=text_tags['processed'])
+        # make the main controls area
+        self.controls_frame = tk.LabelFrame(
+            self, text="")
 
-        # make the frames
-        '''
-        self.directory_frame = tk.LabelFrame(self, text="Directory to scan")
-        self.def_ids_frame = tk.LabelFrame(
-            self, text="Select which tag types to scan")
-        self.button_frame = tk.Frame(self.def_ids_frame)
+        # make the command text area
+        self.commands_frame = tk.LabelFrame(
+            self, text="Enter Tool commands to batch process (one per line)")
+        self.commands_text = tk.Text(
+            self.commands_frame, font=self.fixed_font,
+            maxundo=1000, undo=True, wrap=tk.NONE)
+        self.vsb = tk.Scrollbar(self.commands_frame, orient='vertical',
+                                command=self.commands_text.yview)
+        self.hsb = tk.Scrollbar(self.commands_frame, orient='horizontal',
+                                command=self.commands_text.xview)
+        self.commands_text.config(yscrollcommand=self.vsb.set,
+                                  xscrollcommand=self.hsb.set)
 
-        self.def_ids_scrollbar = tk.Scrollbar(
-            self.def_ids_frame, orient="vertical")
-        self.def_ids_listbox = tk.Listbox(
-            self.def_ids_frame, selectmode='multiple', highlightthickness=0,
-            yscrollcommand=self.def_ids_scrollbar.set)
-        self.def_ids_scrollbar.config(command=self.def_ids_listbox.yview)
+        self.commands_text.tag_config("all")
+        self.commands_text.tag_config("processing",
+                                      background=TEXT_TAGS['processing'][0],
+                                      foreground=TEXT_TAGS['processing'][1])
+        self.commands_text.tag_config("processed",
+                                      background=TEXT_TAGS['processed'][0],
+                                      foreground=TEXT_TAGS['processed'][1])
+        self.commands_text.tag_config("commented", overstrike=1)
+        self.commands_text.tag_config("directive", underline=1)
 
-        for w in (self.directory_entry, ):
-            w.pack(padx=(4, 0), pady=2, side='left', expand=True, fill='x')
+        self.commands_text.tag_add("all", "1.0", tk.END)
+        bindtags = list(self.commands_text.bindtags())
+        bindtags[0], bindtags[1] = bindtags[1], bindtags[0]
+        self.commands_text.bindtags(bindtags)
+        self.commands_text.bind('<Any-KeyPress>',    self.event_in_text)
+        self.commands_text.bind('<Button-1>',        self.event_in_text)
+        self.commands_text.bind('<ButtonRelease-1>', self.event_in_text)
+        self.commands_text.bind('<<Paste>>', self.reset_line_style)
 
-        for w in (self.dir_browse_button, ):
-            w.pack(padx=(0, 4), pady=2, side='left')
+        # make the start buttons
+        self.buttons_frame = tk.Frame(self)
+        self.process_button = tk.Button(
+            self.buttons_frame, text="Process selected",
+            command=self.execute_selected_commands)
+        self.process_all_button = tk.Button(
+            self.buttons_frame, text="Process all",
+            command=self.execute_commands)
+        self.cancel_button = tk.Button(
+            self.buttons_frame, text="Cancel",
+            command=self.cancel_unprocessed)
 
-        for w in (self.scan_button, self.cancel_button):
-            w.pack(padx=4, pady=2)
+        # pack everything
+        for frame in (self.controls_frame, self.buttons_frame,
+                      self.commands_frame):
+            frame.pack(fill="both", padx=5, pady=5)
 
-        self.def_ids_scrollbar.pack(side='left', fill="y")
-        self.directory_frame.pack(fill='x', padx=1)'''
-        self.commands_text.pack(fill='both', expand=True)
+        for btn in (self.process_button, self.process_all_button,
+                    self.cancel_button):
+            btn.pack(side="left", fill="x", padx=5, pady=5, expand=True)
+
+        self.hsb.pack(side="bottom", fill='x', expand=True)
+        self.vsb.pack(side="right",  fill='y', expand=True)
+        self.commands_text.pack(side='left', fill='both', expand=True)
+
         self.apply_config()
         self.apply_style()
 
-    @property
-    def remaining_commands(self):
-        pass
+    def get_text_state(self):
+        return self.commands_text.config()['state'][-1]
+
+    def get_command_count(self):
+        return int(self.commands_text.index(tk.END).split('.')[0])
 
     def apply_style(self):
-        self.config(bg=self.default_bg_color)
-        for w in():#self.directory_frame, ):
+        for w in (self, self.buttons_frame):
+            w.config(bg=self.default_bg_color)
+
+        for w in (self.controls_frame, self.commands_frame):
             w.config(fg=self.text_normal_color, bg=self.default_bg_color)
 
-        self.commands_text.config(fg=self.io_fg_color, bg=self.io_bg_color)
-        #self.button_frame.config(bg=self.default_bg_color)
+        self.commands_text.config(fg=self.io_fg_color, bg=self.io_bg_color,
+                                  insertbackground=self.io_fg_color)
 
-        for w in ():#self.dir_browse_button, ):
+        for w in (self.process_button, self.process_all_button,
+                  self.cancel_button):
             w.config(bg=self.button_color, activebackground=self.button_color,
                      fg=self.text_normal_color, bd=self.button_depth,
                      disabledforeground=self.text_disabled_color)
-
-        for w in ():#self.directory_entry, ):
-            w.config(bd=self.entry_depth,
-                bg=self.entry_normal_color, fg=self.text_normal_color,
-                disabledbackground=self.entry_disabled_color,
-                disabledforeground=self.text_disabled_color,
-                selectbackground=self.entry_highlighted_color,
-                selectforeground=self.text_highlighted_color)
 
     def apply_config(self):
         config_file = self.config_file
@@ -353,69 +182,115 @@ class HekPool(tk.Tk, BinillaWidget):
 
         self.tool_paths = [b.path for b in config_file.tool_paths]
         self.command_lists = {}
-        self.command_lists_flags = {}
         for block in config_file.tool_commands:
             self.command_lists[b.name] = b.commands
-            self.command_lists_flags[b.name] = b.command_flags
 
         self.curr_tool_index = config_file.last_tool_path - 1
         self.select_tool_path(self.curr_tool_index)
 
-    def _start_process(self, cmd_line, exec_path, exec_args, cmd_args):
-        self.processes.setdefault(cmd_line, cmd_line)  # make sure this one is
-        assert self.processes[cmd_line] is cmd_line    # not currently in use.
+    def display_edit_widgets(self, line=None):
+        # TODO
+        pass
+
+    def _start_process(self, cmd_line, exec_path,
+                       exec_args=(), cmd_args=(), **kw):
+        if cmd_line is None:
+            # if this is a tool command, make sure it's not currently running
+            self.processes.setdefault(cmd_line, cmd_line)
+            assert self.processes[cmd_line] is cmd_line
 
         def proc_wrapper(app, line, *args, **kwargs):
             try:
-                do_subprocess(*args, **kw)
+                processes = kwargs.pop("processes", {})
+                completed = kwargs.pop("completed", {})
+                do_subprocess(*args, **kwargs)
             except Exception:
                 print(format_exc())
 
-            if app is None:
+            if line is None:
                 return
-            app.processes.pop(tid, None)
 
-            if len(app.processes) == 0:
-                app._execution_state = 0
+            completed[line] = processes.pop(line, None)
+            if not app or processes is not app.processes:
+                return
 
             # set the command's text to the 'processed' color
-            # maybe do this with tagged regions
-            app.set_line_color(line, "processed")
+            if app._execution_state:
+                app.set_line_style(line, "processed")
 
         proc_controller = ProcController()
-        kwargs.update(proc_controller=proc_controller)
+        kw.update(proc_controller=proc_controller)
         new_thread = Thread(
-            target=proc_wrapper, daemon=True,
-            args=(self, cmd_line, exec_path, exec_args, cmd_args))
-        self.processes[cmd_line] = dict(
-            thread=new_thread, proc_controller=proc_controller,
-            exec_path=exec_path, exec_args=exec_args, cmd_args=cmd_args)
+            target=proc_wrapper, daemon=True, kwargs=kw,
+            args=(self, cmd_line, exec_path, cmd_args, exec_args))
+        if cmd_line is not None:
+            self.processes[cmd_line] = dict(
+                thread=new_thread, proc_controller=proc_controller,
+                exec_path=exec_path, exec_args=exec_args, cmd_args=cmd_args)
         new_thread.start()
 
-    def set_line_color(self, line=None, color=None):
+    def reset_line_style(self, e=None):
+        for line in range(1, self.get_command_count()):
+            self.update_line_style("%d.0" % line)
+
+    def update_line_style(self, index):
+        pos = index.split('.')
+        posy, posx = int(pos[0]), int(pos[1])
+        cmd_str = self.commands_text.get(
+            '%d.0' % posy, '%d.end' % posy).strip(" ")
+
+        line_color = None
+        if not cmd_str:
+            pass
+        elif cmd_str[0] in COMMENT_START_STRS:
+            line_color = "commented"
+        elif cmd_str[0] in DIRECTIVE_START_STRS:
+            line_color = "directive"
+
+        self.set_line_style(posy, line_color)
+
+    def event_in_text(self, e):
+        if self.get_text_state() != tk.NORMAL:
+            return
+
+        index = self.commands_text.index(tk.INSERT)
+        self.update_line_style(index)
+        self.display_edit_widgets(int(index.split('.')[0]))
+
+    def set_line_style(self, line=None, color=None):
         if line is None:
             start, end = "1.0", tk.END
         else:
             start, end = "%d.0" % line, "%d.end" % line
 
-        if color is None:
-            for color in text_tags:
-                self.commands_text.tag_remove(color, start, end)
-        else:
+        remove_all = color in ("commented", "directive")
+
+        for color_to_remove in TEXT_TAGS:
+            if color is None or remove_all or color_to_remove not in(
+                    "commented", "directive"):
+                self.commands_text.tag_remove(color_to_remove, start, end)
+
+        if color:
             self.commands_text.tag_add(color, start, end)
 
     def get_command(self, line):
         cmd_str = self.commands_text.get(
             '%d.0' % line, '%d.end' % line).strip("\n").strip(" ")
+
         disabled = False
         no_comment_cmd_str = cmd_str
         for c in COMMENT_START_STRS:
             no_comment_cmd_str = no_comment_cmd_str.lstrip(c)
 
-        disabled = len(no_comment_cmd_str) == len(cmd_str)
-        cmd_str = no_comment_cmd_str.lstrip(" ")
+        disabled = len(no_comment_cmd_str) != len(cmd_str)
+        cmd_str = no_comment_cmd_str.strip(" ")
+        if not cmd_str:
+            return "", True
 
-        cmd_name, cmd_str = cmd_str.split(' ', 1)
+        if ' ' in cmd_str:
+            cmd_name, cmd_str = cmd_str.split(' ', 1)
+        else:
+            cmd_name, cmd_str = cmd_str, ""
         cmd_args = [cmd_name]
 
         in_str, param_str = False, ""
@@ -427,115 +302,178 @@ class HekPool(tk.Tk, BinillaWidget):
             elif c == '"':
                 in_str = not in_str
                 param_str += c
+            else:
+                param_str += c
 
         if param_str:
             if in_str:
                 param_str += '"'
             cmd_args.append(param_str)
 
+        disabled |= not cmd_args
         return cmd_args, disabled
 
-    def set_flag(self, flag_name, var):
-        name, all_flags = self.curr_command_list_name, self.command_lists_flags
-        if name in all_flags:
-            all_flags[name].set_to(flag_name, bool(var.get()))
-        else:
-            print("No set of flags named '%s'" % name)
+    def cancel_unprocessed(self):
+        self._stop_processing = True
 
-    def get_command_flags(self, line):
-        exec_args = []
-        if self.curr_command_list_name not in self.command_lists_flags:
-            return exec_args
-
-        flags = self.command_lists_flags[self.curr_command_list_name]
-        if flags.keep_window_open:
-            exec_args.append('k')
-        else:
-            exec_args.append('c')
-
-        return exec_args
-
-    def get_can_execute_command(self, cmd_args):
-        # TODO
-        return True
-
-    def execute_commands(self, e=None):
+    def execute_commands(self, start=None, stop=None):
         if not self._execution_thread:
             pass
         elif self._execution_thread.is_alive():
             return
-        self._execution_thread = Thread(target=self._execute_commands, daemon=1)
+        self._execution_thread = Thread(target=self._execute_commands, daemon=1,
+                                        kwargs=dict(start=start, stop=stop))
         self._execution_thread.start()
 
-    def _execute_commands(self):
+    def execute_selected_commands(self):
+        try:
+            start = tuple(self.commands_text.index(tk.SEL_FIRST).split('.'))
+            stop  = tuple(self.commands_text.index(tk.SEL_LAST).split('.'))
+        except tk.TclError:
+            return
+
+        start_y, start_x = int(start[0]), int(start[1])
+        stop_y,  stop_x  = int(stop[0]),  int(stop[1])
+        if start_x and self.commands_text.get("%s.%s" % start) in ('\n', '\r'):
+            start_y += 1
+        if stop_x and self.commands_text.get("%s.%s" % stop) in ('\n', '\r'):
+            stop_y += 1
+        self.execute_commands(start_y, stop_y)
+
+    def get_tool_path(self):
+        if self.curr_tool_index not in range(len(self.tool_paths)):
+            return ""
+        return self.tool_paths[self.curr_tool_index]
+
+    def get_tool_cwd(self):
+        if self.curr_tool_index not in range(len(self.tool_paths)):
+            return ""
+        return dirname(self.tool_paths[self.curr_tool_index])
+
+    def _execute_commands(self, start=None, stop=None):
+        tool_path = self.get_tool_path()
         if self._execution_state:
+            return
+        elif not tool_path:
+            print("No Tool selected to process commands")
             return
         self._execution_state = True
 
-        log_path = ""
+        error = None
+        log_paths = set()
         open_log, clear_log = self.open_log.get(), self.clear_log.get()
         try:
             self.commands_text.config(state=tk.DISABLED)
-            start = time()
-            exec_path = self.get_tag_path()
-            log_path = join(dirname(exec_path), 'debug.txt')
-            command_count, i = self.remaining_commands, 0
-            processes, proc_limit = self.processes, self.tk_proc_limit
-            if clear_log:
-                try:
-                    f = open(log_path, "w+b")
-                    f.close()
-                except Exception:
-                    pass
+            time_start = time()
+            if start is None: start = 1
+            if stop is None:  stop  = self.get_command_count()
 
-            curr_max_proc_ct = 0
-            while i < command_count and not self._stop_processing:
+            tool_path = self.get_tool_path()
+            cwd = self.get_tool_cwd()
+            processes, proc_limit = self.processes, self.proc_limit
+
+            i = start
+            last_break, blank_ct, direc_ct = 0, 0, 0
+            completed, processes, cmd_args_dict = {}, {}, dict(k=False)
+            self.processes = processes
+            while i <= stop and not self._stop_processing:
                 curr_proc_ct = len(processes)
 
-                # continually execute processes until the max quota is hit
-                if curr_proc_ct >= proc_limit.get():
+                if len(completed) + blank_ct + direc_ct + start <= last_break:
+                    sleep(0.1)
+                    continue
+                elif curr_proc_ct >= proc_limit.get():
+                    # continually execute processes until the max quota is hit
                     sleep(0.1)
                     continue
 
                 exec_args, disabled = self.get_command(i)
-                cmd_args  = self.get_command_flags(i)
+                if not exec_args:
+                    # ignore empty lines
+                    last_break = i
+                    blank_ct += 1
+                elif disabled:
+                    # ignore commented commands
+                    blank_ct += 1
+                elif exec_args[0] and exec_args[0][0] in DIRECTIVE_START_STRS:
+                    # directive to change some variable
+                    direc_ct += 1
+                    j = 0
+                    if not exec_args[j].lstrip('#').strip(' ').lower():
+                        # directive type is separated from # by spaces
+                        j += 1
+
+                    typ = None if len(exec_args) == j     else exec_args[j]
+                    val = None if len(exec_args) == j + 1 else exec_args[j + 1]
+
+                    if typ is None:
+                        # malformed directive
+                        i += 1
+                        continue
+
+                    typ = typ.lstrip('#').strip(' ').lower()
+                    if typ == 'cwd' and val:
+                        # if spaces are in the filepath, put them back in.
+                        # also, strip parenthese since cmd doesn't know how.
+                        cwd = ''.join("%s " % s for s in
+                                      exec_args[j + 1:])[:-1].strip('"')
+                    elif typ in ('k', 'keep', 'keep_window'):
+                        # need to check if we are running with an interactive
+                        # console, since if we are we CANNOT keep the process
+                        # open since it will hose up the interpreter forever.
+                        if not(sys.stdout and os.isatty(sys.stdout.fileno())):
+                            cmd_args_dict['k'] = True
+                    elif typ in ('c', 'close', 'close_window'):
+                        cmd_args_dict['k'] = False
+
+                    self.set_line_style(i, "processed")
+                else:
+                    # this is a command we can actually execute!
+
+                    print('"%s"' % tool_path,
+                          ''.join(" %s" % a for a in exec_args))
+
+                    log_path = join(cwd, 'debug.txt')
+                    if log_path not in log_paths:
+                        if clear_log:
+                            try:
+                                with open(log_path, "w") as f:
+                                    f.truncate()
+                            except Exception:
+                                pass
+                        log_paths.add(log_path)
+
+                    # start the command
+                    cmd_args = (a for a in cmd_args_dict if cmd_args_dict[a])
+                    self._start_process(
+                        i, tool_path, exec_args, cmd_args, cwd=cwd,
+                        completed=completed, processes=processes)
+
+                    # set the command's text to the 'processing' color
+                    self.set_line_style(i, "processing")
+
                 i += 1
-                if disabled or not exec_args:
-                    # ignore commented and empty commands
-                    continue
-                elif curr_max_proc_ct and curr_proc_ct == curr_max_proc_ct:
-                    # same number of processes as last checked. don't
-                    # need to check self.get_can_execute_command again
-                    continue
-                elif not self.get_can_execute_command(cmd_args):
-                    curr_max_proc_ct = curr_proc_ct
-                    continue
 
-                curr_max_proc_ct = 0
+            if not self._stop_processing:
+                while len(processes):
+                    # wait until all processes finish
+                    sleep(0.1)
 
-                # start the command
-                self._start_process(i - 1, exec_path, exec_args, cmd_args)
-
-                # set the command's text to the 'processing' color
-                # maybe do this with tagged regions
-                self.set_line_color(line, "processing")
-
-            while not len(processes):
-                # wait until all processes finish
-                sleep(0.1)
-
-            error = None
-        except Exception as error:
-            pass
+            self._stop_processing = False
+        except Exception as e:
+            error = e
 
         self._execution_state = False
         print("Finished executing Tool commands. " +
-              "Took %s seconds" % (time() - start))
+              "Took %s seconds" % (time() - time_start))
+        print('-'*79)
+        print()
         if open_log:
-            try: do_subprocess(log_path, cmd_args=("c",))
-            except Exception: pass
+            for log_path in log_paths:
+                try: self._start_process(None, "notepad.exe", (log_path, ))
+                except Exception: pass
         self.commands_text.config(state=tk.NORMAL)
-        self.set_line_color()
+        self.reset_line_style()
 
         if error: raise error
 
@@ -585,7 +523,9 @@ class HekPool(tk.Tk, BinillaWidget):
             self.curr_tool_index = len(self.tool_paths) - 1
 
         if not len(self.tool_paths):
-            self.main_menu.entryconfig(3, label="Select Tool")
+            self.main_menu.entryconfig(4, label="Select Tool")
+        else:
+            self.select_tool_path(self.curr_tool_index)
 
     def select_tool_path(self, index):
         assert isinstance(index, int)
@@ -605,7 +545,7 @@ class HekPool(tk.Tk, BinillaWidget):
         else:
             trimmed_path = tag_path
 
-        self.main_menu.entryconfig(3, label=trimmed_path)
+        self.main_menu.entryconfig(4, label=trimmed_path)
 
     def tool_path_browse(self):
         for fp in askopenfilenames(
@@ -616,23 +556,24 @@ class HekPool(tk.Tk, BinillaWidget):
             self.last_load_dir = dirname(fp)
             self.insert_tool_path(fp)
 
-    def add_tool_cmd(self):
+    def insert_tool_cmd(self, cmd_type):
+        params = TOOL_COMMANDS.get(cmd_type, ())
+        cmd_str = ''.join(' %s' % param[1] for param in params)
+        self.commands_text.insert(tk.END, cmd_type + cmd_str + '\n')
+
+    def add_tool_cmd_list(self):
         # ask to name the command
         pass
 
-        # add entry to command_lists_flags as well
-
-    def remove_tool_cmd(self):
+    def remove_tool_cmd_list(self):
         # ask to remove the command
         pass
 
-        # remove entry from command_lists_flags as well
-
-    def change_tool_cmd(self, cmd_name):
+    def change_tool_cmd_list(self, cmd_name):
         if self._execution_state or cmd_name not in self.command_lists:
             return
 
-        curr_state = self.commands_text.config()['state']
+        curr_state = self.get_text_state()
         if curr_state != tk.NORMAL:
             self.commands_text.config(state=tk.NORMAL)
 
@@ -642,15 +583,23 @@ class HekPool(tk.Tk, BinillaWidget):
         if curr_state != tk.NORMAL:
             self.commands_text.config(state=curr_state)
 
+    def show_help(self):
+        if self.help_window is None:
+            self.help_window = HekPoolHelpWindow(self)
+            self.help_window.protocol("WM_DELETE_WINDOW", self.close_help)
+
+    def close_help(self):
+        self.help_window.destroy()
+        self.help_window = None
+
     def close(self):
         if not self._execution_state:
             pass
         elif not messagebox.askyesnocancel(
-                "Not all Tool commands have been started/finished!",
-                ("Currently running %s Tool processes with %s waiting to start.\n"
-                 "Do you wish to cancel the ones waiting and close this window?") %
-                (len(self.processes), self.remaining_commands),
+                "Not all commands have been started/finished!",
+                "Some Tool processes have not yet been started.\n"
+                "Do you wish to cancel the ones still waiting and exit?",
                 icon='warning', parent=self):
             return
-        tk.Toplevel.destroy(self)
+        tk.Tk.destroy(self)
         self._stop_processing = True

@@ -8,24 +8,6 @@ def get():
     return config_def
 
 
-filepath = Container("filepath",
-    UInt16("path_len"),
-    StrUtf8("path", SIZE=".path_len")
-    )
-
-command_flags = Bool32("command_flags",
-    "keep_window_open",
-    )
-
-tool_command_list = Container("tool_command_list",
-    UInt32("name_len"),
-    UInt32("cmd_len"),
-    UInt32("flags_ct"),
-    StrUtf8("name",     SIZE=".name_len"),
-    StrUtf8("commands", SIZE=".cmd_len"),
-    Array("command_flags", SUB_STRUCT=command_flags, SIZE=".flags_ct"),
-    )
-
 config_header = Struct("header",
     UEnum32("id", ('Pool', 'looP'), DEFAULT='looP'),
     UInt32("version", DEFAULT=1),
@@ -43,7 +25,6 @@ array_counts = Struct("array_counts",
     UInt32("directory_path_count"),
     UInt32("tool_paths_count"),
     UInt32("tool_cmd_list_count"),
-
     SIZE=64,
     )
 
@@ -53,6 +34,18 @@ app_window = Struct("app_window",
     SInt16("app_offset_x"),
     SInt16("app_offset_y"),
     SIZE=64,
+    )
+
+filepath = Container("filepath",
+    UInt16("path_len"),
+    StrUtf8("path", SIZE=".path_len")
+    )
+
+tool_command_list = Container("tool_command_list",
+    UInt32("name_len"),
+    UInt32("cmd_len"),
+    StrUtf8("name",     SIZE=".name_len"),
+    StrUtf8("commands", SIZE=".cmd_len"),
     )
 
 config_def = TagDef("hek_pool_config",
