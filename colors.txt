@@ -1,0 +1,26 @@
+
+commented = {
+    bg = "000000"
+    fg = "dc0000"
+    }
+
+default = {
+    bg = "000000"
+    bg_highlight = "646464"
+    fg = "c0c0c0"
+    }
+
+directive = {
+    bg = "000000"
+    fg = "dc8200"
+    }
+
+processed = {
+    bg = "00c832"
+    fg = "000000"
+    }
+
+processing = {
+    bg = "ffb400"
+    fg = "000000"
+    }

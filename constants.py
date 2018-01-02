@@ -1,20 +1,51 @@
 from supyr_struct.defs.frozen_dict import FrozenDict
 
-TEXT_TAGS = FrozenDict(
-    processing = (
-        '#%02x%02x%02x' % (255, 180,   0),  # yellow
-        '#%02x%02x%02x' % (  0,   0,   0),  # black
-        ),
-    processed  = (
-        '#%02x%02x%02x' % (  0, 200,  50),  # green
-        '#%02x%02x%02x' % (  0,   0,   0),  # black
-        ),
-    directive = (),
-    commented = (),
-    )
+STYLE_CFG_NAME = "colors.txt"
+LAST_CMD_LIST_NAME = ".recent"
+
+BLACK_COLOR = '#%02x%02x%02x' % (0, 0, 0)  # black
 
 COMMENT_START_STRS = (';', '/', )
 DIRECTIVE_START_STRS = ('#', )
+
+text_tags_colors = dict(
+    default    = dict(
+        bg = BLACK_COLOR,
+        fg = '#%02x%02x%02x' % (192, 192, 192),  # very light grey
+        bg_highlight = '#%02x%02x%02x' % (100, 100, 100)  # light grey
+        ),
+    processing = dict(
+        bg = '#%02x%02x%02x' % (255, 180,   0),  # yellow
+        fg = BLACK_COLOR
+        ),
+    processed  = dict(
+        bg = '#%02x%02x%02x' % (  0, 200,  50),  # green
+        fg = BLACK_COLOR
+        ),
+    directive = dict(
+        #bg = BLACK_COLOR,
+        fg = '#%02x%02x%02x' % (220, 130,   0),  # orange
+        ),
+    commented = dict(
+        #bg = BLACK_COLOR,
+        fg = '#%02x%02x%02x' % (220,   0,   0),  # red
+        ),
+    )
+
+DIRECTIVES = FrozenDict({
+    "k": (),
+    "c": (),
+    "cwd": (
+        ("directory", '""'),
+        ),
+    "set": (
+        ("var-name", '""'),
+        ("var-value", '""'),
+        ),
+    "del": (
+        ("var-name", '""'),
+        ),
+    })
 
 TOOL_COMMANDS = FrozenDict({
     "animations": (
@@ -54,9 +85,9 @@ TOOL_COMMANDS = FrozenDict({
     "collision-geometry": (
         ("source-directory", '""'),
         ),
-    "compile-scripts": (
-        ("scenario-name", '""'),
-        ),
+    #"compile-scripts": (
+    #    ("scenario-name", '""'),
+    #    ),
     "compile-shader-postprocess": (
         ("shader-directory", '""'),
         ),
@@ -71,7 +102,7 @@ TOOL_COMMANDS = FrozenDict({
             "build-cpp-definition",
             "build-packed-file",
             "collision-geometry",
-            "compile-scripts",
+            #"compile-scripts",
             "compile-shader-postprocess",
             "help",
             "hud-messages",
@@ -92,7 +123,7 @@ TOOL_COMMANDS = FrozenDict({
             "tag-load-test",
             "unicode-strings",
             "windows-font",
-            "zoners_model_upgrade",
+            #"zoners_model_upgrade",
             )
          ),
         ),
@@ -172,5 +203,5 @@ TOOL_COMMANDS = FrozenDict({
         ("source-directory", '""'),
         ),
     "windows-font": (),
-    "zoners_model_upgrade": (),
+    #"zoners_model_upgrade": (),
     })
