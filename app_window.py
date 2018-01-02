@@ -241,7 +241,9 @@ class HekPool(tk.Tk):
     def _edit_style_in_notepad(self):
         style_path = join(self.working_dir, STYLE_CFG_NAME)
         if not isfile(style_path):
-            return
+            self.save_style()
+            if not isfile(style_path):
+                return
 
         try:
             proc_controller = ProcController()
@@ -354,7 +356,11 @@ class HekPool(tk.Tk):
     def load_style(self):
         try:
             with open(join(self.working_dir, STYLE_CFG_NAME), 'r') as f:
-                data = f.read().replace('\n\n', '\n').strip('\n').\
+                data = ''
+                for line in f:
+                    if not line.startswith('#'):
+                        data += line
+                data = data.replace('\n\n', '\n').strip('\n').\
                        replace('\n', ',\n').replace('{,', '{').\
                        replace('{', 'dict(').replace('}', ')')
                 new_style = eval("dict(%s)" % data)
@@ -373,7 +379,7 @@ class HekPool(tk.Tk):
                 colors = text_tags_colors[k]
                 new_colors = new_style[k]
 
-                for c in colors:
+                for c in set(tuple(colors) + tuple(new_colors)):
                     if c not in new_colors: continue
 
                     malformed |= not(isinstance(new_colors[c], str))
@@ -383,7 +389,7 @@ class HekPool(tk.Tk):
                                   set(new_color).issubset("0123456789abcdef"))
 
                     if not malformed:
-                        new_colors[c] = '#' + new_colors[c] 
+                        new_colors[c] = '#' + new_color
 
         if malformed:
             print("Could not load %s as it is malformed." % STYLE_CFG_NAME)
@@ -407,6 +413,12 @@ class HekPool(tk.Tk):
 
     def save_style(self):
         with open(join(self.working_dir, STYLE_CFG_NAME), 'w') as f:
+            f.write(
+                """
+# These sets of hex values determine the letter(fg) and background(bg) colors
+# for the specified type of text. For example, lines being processed use the
+# "processed" colors, while commented lines use the "commented" colors.
+""")
             for name in sorted(text_tags_colors):
                 f.write("\n%s = {\n" % name)
                 colors = text_tags_colors[name]

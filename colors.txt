@@ -1,4 +1,8 @@
 
+# These sets of hex values determine the letter(fg) and background(bg) colors
+# for the specified type of text. For example, lines being processed use the
+# "processed" colors, while commented lines use the "commented" colors.
+
 commented = {
     bg = "000000"
     fg = "dc0000"
