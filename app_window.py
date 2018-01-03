@@ -1,11 +1,14 @@
+import io
 import os
 import sys
 import threadsafe_tkinter as tk
+import tkinter.ttk as ttk
 
-from os.path import exists, isfile, dirname, join
+from os.path import basename, exists, isfile, dirname, join, relpath, splitext
 from time import time, sleep
 from threading import Thread
-from tkinter.filedialog import askopenfilenames
+from tkinter.filedialog import askopenfilenames, askopenfilename,\
+     asksaveasfilename, askdirectory
 from tkinter.font import Font
 from tkinter import messagebox
 from traceback import format_exc
@@ -19,8 +22,35 @@ from hek_pool.help_window import HekPoolHelpWindow
 from hek_pool.config_def import config_def, CFG_DIRS
 
 
+platform = sys.platform.lower()
+if "linux" in platform:
+    platform = "linux"
+
+
+if platform == "win32":
+    TEXT_EDITOR_NAME = "notepad"
+elif platform == "darwin":
+    # I don't actually think this will work since mac seems to require
+    # the "open" argument and the -a argument before the application name.
+    # leaving this here just in case it somehow works though.
+    TEXT_EDITOR_NAME = "TextEdit"
+elif platform == "linux":
+    TEXT_EDITOR_NAME = "nano"
+else:
+    # idfk
+    TEXT_EDITOR_NAME = "vim"
+
+
 curr_dir = dirname(__file__)
 default_config_path = curr_dir + '%shek_pool.cfg' % PATHDIV
+using_console = bool(sys.stdout)
+if using_console:
+    try:
+        using_console |= os.isatty(sys.stdout.fileno())
+    except io.UnsupportedOperation:
+        using_console = True
+    except Exception:
+        using_console = False
 
 
 class HekPool(tk.Tk):
@@ -29,6 +59,7 @@ class HekPool(tk.Tk):
     _execution_state = 0  # 0 == not executing,  1 == executing
     _stop_processing = False
     _execution_thread = None
+    _reset_style_on_click = False
 
     fixed_font = None
 
@@ -43,7 +74,6 @@ class HekPool(tk.Tk):
     command_lists_dir = join(curr_dir, "cmd_lists")
 
     tool_paths = ()
-    command_lists = ()
 
     curr_tool_index = -1
     curr_command_list_name = None
@@ -77,43 +107,68 @@ class HekPool(tk.Tk):
             if s in kwargs:
                 object.__setattr__(self, s, kwargs.pop(s))
 
+        self.app_name = str(kwargs.pop('app_name', self.app_name))
+        self.version  = str(kwargs.pop('version', self.version))
+
         tk.Tk.__init__(self, *args, **kwargs)
 
         # make the tkinter variables
         self.clear_log = tk.BooleanVar(self)
         self.open_log  = tk.BooleanVar(self, 1)
-        self.proc_limit = tk.IntVar(self, 1)
+        self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
-        self.command_lists = {}
 
         if type(self).fixed_font is None:
             type(self).fixed_font = Font(family="Terminal", size=10)
 
         self.title('%s v%s' % (self.app_name, self.version))
         self.minsize(width=400, height=300)
+        self.protocol("WM_DELETE_WINDOW", self.close)
+
+        self.bind('<Control-s>', lambda e=None: self.save_command_list())
+        self.bind('<Control-S>', lambda e=None: self.save_command_list_as())
+        self.bind('<Control-Alt-s>', lambda e=None: self.save_command_list_as())
+        self.bind('<Control-o>', lambda e=None: self.load_commands_list())
 
         # make the menubar
         self.main_menu = tk.Menu(self)
         self.file_menu = tk.Menu(self.main_menu, tearoff=0)
+        self.settings_menu = tk.Menu(self.main_menu, tearoff=0)
         self.tools_menu = tk.Menu(self.main_menu, tearoff=0,
                                   postcommand=self.generate_tools_menu)
         self.config(menu=self.main_menu)
         self.main_menu.add_cascade(label="File", menu=self.file_menu)
-        self.main_menu.add_command(label="Help", command=self.show_help)
+        self.main_menu.add_cascade(label="Settings", menu=self.settings_menu)
         self.main_menu.add_cascade(label="Select Tool", menu=self.tools_menu)
+        self.main_menu.add_command(label="Help", command=self.show_help)
 
-        self.file_menu.add_command(label="Add Tool filepath",
+        self.file_menu.add_command(label="Add Tool",
                                    command=self.tool_path_browse)
-        self.file_menu.add_command(label="Remove Tool filepath",
+        self.file_menu.add_command(label="Remove Tool",
                                    command=self.remove_tool_path)
         self.file_menu.add_separator()
-        self.file_menu.add_command(label="Edit style in notepad",
-                                   command=self.edit_style_in_notepad)
+        self.file_menu.add_command(label="Open...",
+                                   command=self.load_commands_list)
+        self.file_menu.add_command(label="Select command list folder",
+                                   command=self.set_command_list_folder)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Save",
+                                   command=self.save_command_list)
+        self.file_menu.add_command(label="Save As...",
+                                   command=self.save_command_list_as)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Edit style",
+                                   command=self.edit_style_in_text_editor)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.close)
 
+        self.settings_menu.add("checkbutton", variable=self.clear_log,
+                               label="Clear debug.txt's before processing")
+        self.settings_menu.add("checkbutton", variable=self.open_log,
+                               label="Open debug.txt's after processing")
 
+        ''' LOAD THE CONFIG '''
         if self.config_file is not None:
             pass
         elif isfile(self.config_path):
@@ -140,17 +195,10 @@ class HekPool(tk.Tk):
         except Exception:
             print(format_exc())
 
-        self.app_name = kwargs.pop('app_name', self.app_name)
-        self.app_name = str(kwargs.pop('version', self.app_name))
-
-        self.protocol("WM_DELETE_WINDOW", self.close)
-
-        # make the main controls area
-        self.controls_frame = tk.Frame(self)
-
         # make the command text area
-        self.commands_frame = tk.LabelFrame(
-            self, text="Enter directives and Tool commands to process (one per line)")
+        self.commands_frame = tk.LabelFrame(self, text=(
+            "Enter directives and Tool commands to process (one per line)\n"
+            '    Empty lines mean "Finish everything above before proceeding"'))
         self.commands_frame_inner = tk.Frame(self.commands_frame)
         self.commands_text = tk.Text(
             self.commands_frame_inner, font=self.fixed_font,
@@ -166,15 +214,17 @@ class HekPool(tk.Tk):
         bindtags = list(self.commands_text.bindtags())
         bindtags[0], bindtags[1] = bindtags[1], bindtags[0]
         self.commands_text.bindtags(bindtags)
+        self.commands_text.bind('<Control-o>',       self.ignore_keypress)
         self.commands_text.bind('<Any-KeyPress>',    self.event_in_text)
         self.commands_text.bind('<Button-1>',        self.event_in_text)
         self.commands_text.bind('<ButtonRelease-1>', self.event_in_text)
         self.commands_text.bind('<<Paste>>', self.reset_line_style)
         self.commands_text.bind('<Control-z>', self.reset_line_style)
         self.commands_text.bind('<Control-y>', self.reset_line_style)
+        self.commands_text.bind('<Button-3>', self.right_click_cmd_text)
 
         # make the start buttons
-        self.buttons_frame = tk.Frame(self)
+        self.buttons_frame = tk.Frame(self.commands_frame)
         self.process_button = tk.Button(
             self.buttons_frame, text="Process selected",
             command=self.execute_selected_commands)
@@ -184,26 +234,142 @@ class HekPool(tk.Tk):
         self.cancel_button = tk.Button(
             self.buttons_frame, text="Cancel",
             command=self.cancel_unprocessed)
+        self.proc_limit_frame = tk.LabelFrame(self.buttons_frame,
+                                              text="Max parallel processes")
+        self.proc_limit_spinbox = tk.Spinbox(
+            self.proc_limit_frame, values=tuple(range(1, 65)),
+            textvariable=self.proc_limit, state="readonly")
 
         # pack everything
-        for frame in (self.controls_frame, self.buttons_frame):
-            frame.pack(fill="both", padx=5, pady=5)
+        self.buttons_frame.pack(fill="both")
+        self.commands_frame.pack(fill="both", padx=5, pady=(0, 5), expand=1)
 
         self.vsb.pack(side="right",  fill='y')
-        self.hsb.pack(side="bottom", fill='x')
         self.commands_text.pack(side="right", fill="both", expand=True)
 
-        self.commands_frame.pack(side="bottom", fill="both",
-                                 padx=5, pady=5, expand=True)
-        self.commands_frame_inner.pack(fill="both", expand=True)
+        self.hsb.pack(side="bottom", fill='x')
+        self.commands_frame_inner.pack(side="bottom", fill="both", expand=True)
 
+        self.proc_limit_frame.pack(side="left", fill="x", padx=5, pady=(0, 9))
+        self.proc_limit_spinbox.pack(fill="x")
         for btn in (self.process_button, self.process_all_button,
                     self.cancel_button):
             btn.pack(side="left", fill="x", padx=5, pady=5, expand=True)
 
         self.apply_style()
         self.apply_config()
-        self.load_cmd_lists()
+        self.load_commands_list(LAST_CMD_LIST_NAME)
+
+    def right_click_cmd_text(self, e):
+        cmd_text = self.commands_text
+        index = cmd_text.index("@%d,%d" % (e.x, e.y))
+        posy, posx = (int(p) for p in index.split('.'))
+
+        raw_cmd_str = self.commands_text.get(
+            '%d.0' % posy, '%d.end' % posy).replace('\t', ' ')
+        if len(raw_cmd_str.strip(' ').strip('\t')) == 0:
+            # empty line. post the menu to select a command
+            self.post_templates_menu(e)
+            return
+
+        cmd_args, disabled = self.get_command(posy)
+
+        # selecting a command. find out what part of the command
+        i, cmd_infos, find_dir = 0, TOOL_COMMANDS, False
+        if cmd_args[0] == '#':
+            i, cmd_infos, find_dir = 1, DIRECTIVES, True
+
+        is_directive = find_dir
+
+        cmd_type, cmd_args = cmd_args[i], cmd_args[i + 1:]
+        cmd_info = cmd_infos.get(cmd_type)
+        if not cmd_info:
+            return
+
+        arg_index, i, in_str, param_str = -1, 0, False, ""
+        for c in raw_cmd_str:
+            if i > posx:
+                break
+            elif find_dir:
+                if c == '#' and find_dir == 1:
+                    find_dir = 2
+                elif c != ' ' and find_dir == 2:
+                    find_dir = False
+            elif c == ' ' and not in_str:
+                if param_str:
+                    arg_index += 1
+                param_str = ""
+            elif c == '"':
+                in_str = not in_str
+                param_str += c
+            else:
+                param_str += c
+            i += 1
+
+        if arg_index not in range(len(cmd_info)):
+            return
+
+        arg_info = cmd_info[arg_index]
+        cur_val  = cmd_args[arg_index]
+        new_val = None
+        name, typ, default = arg_info[:3]
+        options = () if len(arg_info) < 4 else arg_info[3]
+        if isinstance(typ, (tuple, list)):
+            typ, typ_info = typ[0], typ[1:]
+        else:
+            typ_info = ()
+
+        if typ in ("dir", "file", "file-no-ext"):
+            cwd = dirname(self.get_tool_path())
+            if not cwd:
+                cwd = self.working_dir
+
+            if len(arg_info) >= 4:
+                cwd = join(cwd, arg_info[4])
+
+            abs_path = join(cwd, cur_val)
+            if not exists(abs_path):
+                abs_path = cwd
+
+            if typ == "dir":
+                new_val = join(askdirectory(
+                    initialdir=cwd, parent=self,
+                    title="Select the %s for %s" % (name, cmd_type)), '')
+            elif typ in ("file", "file-no-ext"):
+                new_val = askopenfilename(
+                    initialdir=cwd, parent=self,
+                    filetypes=tuple(typ_info) + (("All", "*"), ),
+                    title="Select the %s for %s" % (name, cmd_type))
+                if typ == "file-no-ext":
+                    new_val = splitext(new_val)[0]
+
+                if new_val:
+                    new_val = relpath(new_val, cwd)
+
+            if new_val:
+                new_val = '"%s"' % new_val.replace('/', '\\')
+            else:
+                new_val = None
+
+        if new_val is not None:
+            cmd_args[arg_index] = new_val
+            cmd_args.insert(0, cmd_type)
+            if is_directive:
+                cmd_args.insert(0, "#")
+
+            new_arg_string = ''.join('%s ' % a for a in cmd_args)[:-1]
+            if disabled:
+                new_arg_string = ';' + new_arg_string
+
+            self.commands_text.delete('%d.0' % posy, '%d.end' % posy)
+            self.commands_text.insert('%d.0' % posy, new_arg_string)
+            self.set_line_style(posy, self.get_line_style(posy))
+
+    def post_templates_menu(self, e=None):
+        pass
+
+    def ignore_keypress(self, e=None):
+        self.commands_text.delete(tk.INSERT)
 
     def get_text_state(self):
         return self.commands_text.config()['state'][-1]
@@ -235,10 +401,10 @@ class HekPool(tk.Tk):
             #background=text_tags_colors['directive']['bg'],
             foreground=text_tags_colors['directive']['fg'])
 
-    def edit_style_in_notepad(self):
-        Thread(target=self._edit_style_in_notepad, daemon=True).start()
+    def edit_style_in_text_editor(self):
+        Thread(target=self._edit_style_in_text_editor, daemon=True).start()
 
-    def _edit_style_in_notepad(self):
+    def _edit_style_in_text_editor(self):
         style_path = join(self.working_dir, STYLE_CFG_NAME)
         if not isfile(style_path):
             self.save_style()
@@ -247,7 +413,7 @@ class HekPool(tk.Tk):
 
         try:
             proc_controller = ProcController()
-            self._start_process(None, "notepad.exe", (style_path, ),
+            self._start_process(None, TEXT_EDITOR_NAME, (style_path, ),
                                 proc_controller=proc_controller)
 
             while proc_controller.returncode is None:
@@ -257,9 +423,90 @@ class HekPool(tk.Tk):
         except Exception:
             print(format_exc())
 
-    def save_current_command_list(self, filename=None):
-        with open(join(self.command_lists_dir, filename), 'w') as f:
-            f.write(self.commands_text.get('1.0', tk.END))
+    def set_command_list_folder(self):
+        folder = askdirectory(
+            initialdir=self.command_lists_dir, parent=self,
+            title="Select the command lists directory")
+
+        if folder:
+            self.command_lists_dir = folder
+
+    def get_command_list_names(self):
+        if exists(join(self.command_lists_dir, '')):
+            return
+
+        list_names = []
+        for root, dirs, files in os.walk(self.command_lists_dir):
+            for filename in sorted(files):
+                list_names.append(relpath(join(root), self.command_lists_dir))
+
+        return list_names
+
+    def load_commands_list(self, list_name=None):
+        if self._execution_state:
+            return
+
+        if list_name is None:
+            filepath = askopenfilename(
+                initialdir=self.command_lists_dir, parent=self,
+                title="Select a command list to load",
+                filetypes=(("Text file", "*.txt"), ("All", "*")),)
+        else:
+            if not exists(join(self.command_lists_dir, '')):
+                return
+            filepath = join(self.command_lists_dir, "%s.txt" % list_name)
+
+        if not filepath:
+            return
+
+        with open(filepath, 'r') as f:
+            data = f.read()
+
+        cmd_list_name = splitext(basename(filepath))[0]
+        if cmd_list_name != LAST_CMD_LIST_NAME:
+            self.curr_command_list_name = cmd_list_name
+
+        self.commands_text.delete('1.0', tk.END)
+        self.commands_text.insert('1.0', data)
+        self.commands_text.edit_reset()
+        self.reset_line_style()
+
+    def save_command_list_as(self):
+        fp = asksaveasfilename(
+            initialdir=self.command_lists_dir, parent=self,
+            title="Save the command list to where",
+            filetypes=(("Text file", "*.txt"), ("All", "*")),)
+
+        if fp:
+            path, ext = splitext(sanitize_path(fp))
+            if not ext: ext = ".txt"
+            self.save_command_list(path + ext)
+
+    def save_command_list(self, filepath=None, directory=None, filename=None):
+        if filepath:
+            directory = dirname(filepath)
+        else:
+            if filename is None:
+                if self.curr_command_list_name is None:
+                    return self.save_command_list_as()
+
+                filename = self.curr_command_list_name
+            if directory is None:
+                directory = self.command_lists_dir
+
+            filepath = join(directory, filename + '.txt')
+
+        if directory and not exists(directory):
+            os.makedirs(directory)
+
+        with open(filepath, 'w') as f:
+            data = self.commands_text.get('1.0', tk.END)
+            if data[-1] in '\n\r':
+                # always seems to be an extra new line. remove that.
+                data = data[:-1]
+            f.write(data)
+
+        self.curr_command_list_name = splitext(basename(filepath))[0]
 
     def apply_config(self):
         if not self.config_file:
@@ -288,7 +535,7 @@ class HekPool(tk.Tk):
         self.curr_tool_index = header.last_tool_index - 1
         self.select_tool_path(self.curr_tool_index)
 
-        self.proc_limit.set(max(header.proc_limit, 1))
+        self.proc_limit.set(str(max(header.proc_limit, 1)))
         self.open_log.set(header.flags.open_log)
         self.clear_log.set(header.flags.clear_log)
 
@@ -314,8 +561,9 @@ class HekPool(tk.Tk):
         self.app_offset_x = self.winfo_x()
         self.app_offset_y = self.winfo_y()
 
+        header.parse(attr_index='date_modified')
         header.last_tool_index = max(self.curr_tool_index + 1, 0)
-        header.proc_limit = max(self.proc_limit.get(), 1)
+        header.proc_limit = max(int(self.proc_limit.get()), 1)
         header.flags.open_log = self.open_log.get()
         header.flags.clear_log = self.clear_log.get()
 
@@ -363,7 +611,7 @@ class HekPool(tk.Tk):
                 data = data.replace('\n\n', '\n').strip('\n').\
                        replace('\n', ',\n').replace('{,', '{').\
                        replace('{', 'dict(').replace('}', ')')
-                new_style = eval("dict(%s)" % data)
+                new_style = eval("dict(%s)" % data.lower())
             malformed = False
         except Exception:
             malformed = True
@@ -427,24 +675,6 @@ class HekPool(tk.Tk):
                             (color_name, colors[color_name][1:]))
                 f.write("    }\n")
 
-    def load_cmd_lists(self):
-        if (not exists(self.command_lists_dir) or
-                isfile(self.command_lists_dir)):
-            return
-
-        cmd_lists = self.command_lists
-        for root, dirs, files in os.walk(self.command_lists_dir):
-            for filename in files:
-                with open(join(root, filename), 'r') as f:
-                    data = f.read()
-
-                if filename == LAST_CMD_LIST_NAME:
-                    self.commands_text.delete('1.0', tk.END)
-                    self.commands_text.insert('1.0', data)
-                    self.reset_line_style()
-                else:
-                    cmd_lists[filename] = data
-
     def display_edit_widgets(self, line=None):
         # TODO
         pass
@@ -477,6 +707,8 @@ class HekPool(tk.Tk):
 
         if "proc_controller" not in kw:
             kw.update(proc_controller=ProcController())
+        if not using_console:
+            kw["stdout"] = kw["stderr"] = kw["stdin"] = None
 
         new_thread = Thread(
             target=proc_wrapper, daemon=True, kwargs=kw,
@@ -488,48 +720,56 @@ class HekPool(tk.Tk):
         new_thread.start()
 
     def reset_line_style(self, e=None):
+        for color_to_remove in text_tags_colors:
+            self.commands_text.tag_remove(color_to_remove, "1.0", tk.END)
+    
         for line in range(1, self.get_command_count()):
-            self.update_line_style("%d.0" % line)
+            style = self.get_line_style(line)
+            if style is None:
+                continue
+            self.commands_text.tag_add(style, '%d.0' % line, '%d.end' % line)
 
-    def update_line_style(self, index):
-        pos = index.split('.')
-        posy, posx = int(pos[0]), int(pos[1])
-        cmd_str = self.commands_text.get(
-            '%d.0' % posy, '%d.end' % posy).strip(" ")
+    def get_line_style(self, line):
+        cmd_str, disabled = self.get_command(line)
 
-        line_color = None
+        style = None
         if not cmd_str:
             pass
-        elif cmd_str[0] in COMMENT_START_STRS:
-            line_color = "commented"
+        elif disabled:
+            style = "commented"
         elif cmd_str[0] in DIRECTIVE_START_STRS:
-            line_color = "directive"
+            style = "directive"
 
-        self.set_line_style(posy, line_color)
+        return style
 
     def event_in_text(self, e):
+        if self._reset_style_on_click:
+            self._reset_style_on_click = False
+            self.reset_line_style()
+
         if self.get_text_state() != tk.NORMAL:
             return
 
-        index = self.commands_text.index(tk.INSERT)
-        self.update_line_style(index)
-        self.display_edit_widgets(int(index.split('.')[0]))
+        line = int(self.commands_text.index(tk.INSERT).split('.')[0])
+        self.set_line_style(line, self.get_line_style(line))
+        self.display_edit_widgets(line)
 
-    def set_line_style(self, line=None, color=None):
+    def set_line_style(self, line=None, style=None):
         if line is None:
             start, end = "1.0", tk.END
         else:
             start, end = "%d.0" % line, "%d.end" % line
 
-        for color_to_remove in text_tags_colors:
-            self.commands_text.tag_remove(color_to_remove, start, end)
+        for style_to_remove in text_tags_colors:
+            self.commands_text.tag_remove(style_to_remove, start, end)
 
-        if color:
-            self.commands_text.tag_add(color, start, end)
+        if style:
+            self.commands_text.tag_add(style, start, end)
 
     def get_command(self, line):
         cmd_str = self.commands_text.get(
-            '%d.0' % line, '%d.end' % line).strip("\n").strip(" ")
+            '%d.0' % line, '%d.end' % line).strip("\n").\
+            replace("\t", " ").strip(" ")
 
         disabled = False
         no_comment_cmd_str = cmd_str
@@ -537,7 +777,7 @@ class HekPool(tk.Tk):
             no_comment_cmd_str = no_comment_cmd_str.lstrip(c)
 
         disabled = len(no_comment_cmd_str) != len(cmd_str)
-        cmd_str = no_comment_cmd_str.strip(" ")
+        cmd_str = no_comment_cmd_str.replace("\t", " ").strip(" ")
         if not cmd_str:
             return "", True
 
@@ -545,11 +785,19 @@ class HekPool(tk.Tk):
             cmd_name, cmd_str = cmd_str.split(' ', 1)
         else:
             cmd_name, cmd_str = cmd_str, ""
+
+        if cmd_name.startswith('#'):
+            cmd_name = cmd_name.lstrip('#').strip(" ")
+            if cmd_name:
+                # directive type is not separated from # by spaces
+                cmd_str = "%s %s" % (cmd_name, cmd_str)
+            cmd_name = '#'
+
         cmd_args = [cmd_name]
 
         in_str, param_str = False, ""
         for c in cmd_str:
-            if c == " " and not in_str:
+            if c == ' ' and not in_str:
                 if param_str:
                     cmd_args.append(param_str)
                 param_str = ""
@@ -603,11 +851,6 @@ class HekPool(tk.Tk):
             return ""
         return self.tool_paths[self.curr_tool_index]
 
-    def get_tool_cwd(self):
-        if self.curr_tool_index not in range(len(self.tool_paths)):
-            return ""
-        return dirname(self.tool_paths[self.curr_tool_index])
-
     def _execute_commands(self, start=None, stop=None):
         tool_path = self.get_tool_path()
         if self._execution_state:
@@ -621,13 +864,14 @@ class HekPool(tk.Tk):
         log_paths, loc_vars = set(), dict()
         open_log, clear_log = self.open_log.get(), self.clear_log.get()
         try:
+            self.reset_line_style()
             self.commands_text.config(state=tk.DISABLED)
             time_start = time()
             if start is None: start = 1
             if stop is None:  stop  = self.get_command_count()
 
             tool_path = self.get_tool_path()
-            cwd = self.get_tool_cwd()
+            cwd = dirname(tool_path)
             processes, proc_limit = self.processes, self.proc_limit
 
             i, curr_max_proc_ct = start, 0
@@ -637,13 +881,19 @@ class HekPool(tk.Tk):
             while i <= stop and not self._stop_processing:
                 curr_proc_ct = len(processes)
 
+                # FIX THIS!
+                #     currently allowing breaking blank line protocol
+
+                print(len(completed), blank_ct, direc_ct, start, last_break)
                 if len(completed) + blank_ct + direc_ct + start <= last_break:
                     sleep(0.1)
                     continue
-                elif curr_proc_ct >= proc_limit.get():
+                elif curr_proc_ct >= int(proc_limit.get()):
                     # continually execute processes until the max quota is hit
                     sleep(0.1)
                     continue
+
+                loc_vars["cwd"] = cwd
 
                 exec_args, disabled = self.get_command(i)
                 if not exec_args:
@@ -660,17 +910,12 @@ class HekPool(tk.Tk):
                 elif not self.get_can_execute_command(exec_args):
                     curr_max_proc_ct = curr_proc_ct
                     continue
-                elif exec_args[0] and exec_args[0][0] in DIRECTIVE_START_STRS:
+                elif exec_args[0] in DIRECTIVE_START_STRS:
                     # directive to change some variable
                     direc_ct += 1
-                    j = 0
-                    if not exec_args[j].lstrip('#').strip(' ').lower():
-                        # directive type is separated from # by spaces
-                        j += 1
 
-                    typ  = None if len(exec_args) == j else exec_args[j]
-                    vals = () if len(exec_args) == j + 1 else exec_args[j + 1:]
-
+                    typ  = None if len(exec_args) == 1 else exec_args[1]
+                    vals = () if len(exec_args) == 2 else exec_args[2:]
                     if typ is None:
                         # malformed directive
                         i += 1
@@ -689,18 +934,23 @@ class HekPool(tk.Tk):
                         # if spaces are in the filepath, put them back in.
                         # also, strip parenthese since cmd doesn't know how.
                         cwd = ''.join("%s " % s for s in vals)[:-1].strip('"')
-                    elif typ in ('k'):
+                    elif typ == 'k':
                         # need to check if we are running with an interactive
                         # console, since if we are we CANNOT keep the process
                         # open since it will hose up the interpreter forever.
-                        if not(sys.stdout and os.isatty(sys.stdout.fileno())):
+                        if not using_console:
                             cmd_args_dict['k'] = True
-                    elif typ in ('c'):
+                    elif typ == 'c':
                         cmd_args_dict['k'] = False
                     elif typ == "set" and len(vals) >= 2:
                         loc_vars[vals[0]] = vals[1]
                     elif typ == "del" and vals:
                         loc_vars.pop(vals[0], None)
+                    elif typ == "run" and vals:
+                        exec_name = vals.pop(0).strip('"')
+                        self._start_process(
+                            i, join(cwd, exec_name), vals, cwd=cwd,
+                            completed=completed, processes=processes)
 
                     self.set_line_style(i, "processed")
                 else:
@@ -754,15 +1004,23 @@ class HekPool(tk.Tk):
               "Took %s seconds" % (time() - time_start))
         print('-'*79)
         print()
-        if open_log:
-            for log_path in log_paths:
-                if not isfile(log_path): continue
-                try: self._start_process(None, "notepad.exe", (log_path, ))
-                except Exception: pass
+        self._reset_style_on_click = True
         self.commands_text.config(state=tk.NORMAL)
-        self.reset_line_style()
+
+        if open_log:
+            Thread(target=self.open_logs, daemon=1, args=(log_paths, )).start()
 
         if error: raise error
+
+    def open_logs(self, log_paths):
+        while len(self.processes):
+            # wait until all processes finish
+            sleep(0.1)
+
+        for log_path in log_paths:
+            if not isfile(log_path): continue
+            try: self._start_process(None, TEXT_EDITOR_NAME, (log_path, ))
+            except Exception: pass
 
     def generate_tools_menu(self):
         self.tools_menu.delete(0, "end")
@@ -855,37 +1113,15 @@ class HekPool(tk.Tk):
     def insert_directive(self, dir_type):
         params = DIRECTIVES.get(dir_type, ())
         dir_type = "# %s" % dir_type
-        dir_str = ''.join(' %s' % param[1] for param in params)
+        dir_str = ''.join(' %s' % param[2] for param in params)
         index = self.commands_text.index(tk.INSERT).split('.')[0] + '.0'
         self.commands_text.insert(index, dir_type + dir_str + '\n')
 
     def insert_tool_cmd(self, cmd_type):
         params = TOOL_COMMANDS.get(cmd_type, ())
-        cmd_str = ''.join(' %s' % param[1] for param in params)
+        cmd_str = ''.join(' %s' % param[2] for param in params)
         index = self.commands_text.index(tk.INSERT).split('.')[0] + '.end'
         self.commands_text.insert(index, cmd_type + cmd_str + '\n')
-
-    def add_tool_cmd_list(self):
-        # ask to name the command
-        pass
-
-    def remove_tool_cmd_list(self):
-        # ask to remove the command
-        pass
-
-    def change_tool_cmd_list(self, cmd_name):
-        if self._execution_state or cmd_name not in self.command_lists:
-            return
-
-        curr_state = self.get_text_state()
-        if curr_state != tk.NORMAL:
-            self.commands_text.config(state=tk.NORMAL)
-
-        self.commands_text.insert("1.0", self.command_lists[cmd_name])
-        self.commands_text.edit_reset()
-
-        if curr_state != tk.NORMAL:
-            self.commands_text.config(state=curr_state)
 
     def show_help(self):
         if self.help_window is None:
@@ -907,7 +1143,7 @@ class HekPool(tk.Tk):
             return
 
         try:
-            self.save_current_command_list(LAST_CMD_LIST_NAME)
+            self.save_command_list(filename=LAST_CMD_LIST_NAME)
         except Exception:
             print(format_exc())
 

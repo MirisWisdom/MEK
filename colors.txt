@@ -4,7 +4,6 @@
 # "processed" colors, while commented lines use the "commented" colors.
 
 commented = {
-    bg = "000000"
     fg = "dc0000"
     }
 
@@ -15,7 +14,6 @@ default = {
     }
 
 directive = {
-    bg = "000000"
     fg = "dc8200"
     }
 

@@ -119,4 +119,7 @@ Optionally prints additional diagnostic information
 
 
 class HekPoolHelpWindow(tk.Toplevel):
-    pass
+
+    def __init__(self, *a, **kw):
+        tk.Toplevel.__init__(self, *a, **kw)
+        self.title("Whoops, nothing here yet!")
