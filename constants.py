@@ -1,6 +1,9 @@
 from supyr_struct.defs.frozen_dict import FrozenDict
 
+MAX_PROCESS_CT = 64
+
 STYLE_CFG_NAME = "colors.txt"
+TEMPLATES_CFG_NAME = "templates.txt"
 LAST_CMD_LIST_NAME = ".recent"
 
 BLACK_COLOR = '#%02x%02x%02x' % (0, 0, 0)  # black
@@ -69,7 +72,7 @@ The descriptions of these commands and directives are set up as:
     )
 '''
 
-TEMPLATE_MENU_LAYOUT = (
+TEMPLATE_MENU_LAYOUT = [
     ("All",
         "animations",
         "bitmap",
@@ -106,7 +109,7 @@ TEMPLATE_MENU_LAYOUT = (
         "physics",
         "sounds",
         ),
-    ("Scenario",
+    ("Map / Scenario",
         "build-cache-file",
         "build-cache-file-ex",
         "import-structure-lightmap-uvs",
@@ -137,11 +140,11 @@ TEMPLATE_MENU_LAYOUT = (
         "k",
         "c",
         "cwd",
+        "run",
         "set",
         "del",
-        "run"
         ),
-    )
+    ]
 
 SCNR_MACRO = (
     ("file-no-ext",
@@ -157,6 +160,7 @@ FLOAT_MACRO = ("float", "0.0")
 FILE_MACRO  = ("file",  '""')
 DIR_MACRO   = ("dir",   '""')
 STR_MACRO   = ("str",   '""')
+FILE_NO_EXT_MACRO  = ("file-no-ext",  '""')
 STR_NO_PAREN_MACRO = ("str-no-paren", 'XXXX')
 
 DATA_DIR_MACRO = DIR_MACRO + ( (), "data")
@@ -216,7 +220,7 @@ TOOL_COMMANDS = FrozenDict({
         ),
     "build-cpp-definition": (
         ("tag-group",         ) + STR_NO_PAREN_MACRO,
-        ("add-boost-asserts", ) + INT_MACRO,
+        ("add-boost-asserts", ) + BOOL_MACRO,
         ),
     "build-packed-file": (
         ("source-directory", ) + DATA_DIR_MACRO,
@@ -239,38 +243,16 @@ TOOL_COMMANDS = FrozenDict({
         ),
     "help": (
         ("os-tool-command", "str-no-paren", 'help', (
-            "animations",
-            "bitmap",
-            "bitmaps",
+            # these are the only ones the help command will work with
             "build-cache-file",
             "build-cache-file-ex",
-            "build-cache-file-new",
-            "build-cpp-definition",
-            "build-packed-file",
-            "collision-geometry",
-            "compile-scripts",
             "compile-shader-postprocess",
             "help",
-            "hud-messages",
-            "import-device-defaults",
             "import-structure-lightmap-uvs",
-            "lightmaps",
-            "merge-scenery",
-            "model",
-            "physics",
-            "process-sounds",
             "remove-os-tag-data",
             "runtime-cache-view",
-            "sounds",
             "sounds_by_type",
-            "strings",
-            "structure",
-            "structure-breakable-surfaces",
-            "structure-lens-flares",
             "tag-load-test",
-            "unicode-strings",
-            "windows-font",
-            "zoners_model_upgrade",
             )
          ),
         ),
@@ -299,10 +281,10 @@ TOOL_COMMANDS = FrozenDict({
             )
         ),
     "lightmaps": (
-        ("scenario", ) + SCNR_MACRO,
-        ("bsp-name", ) + STR_MACRO,
-        ("quality",  ) + FLOAT_MACRO,
-        ("stop-threshold", "float", "0.1"),
+        ("scenario",             ) + SCNR_MACRO,
+        ("bsp-name",             ) + STR_MACRO,
+        ("render-high-quality",  ) + BOOL_MACRO,
+        ("stop-threshold", "float", "0.1", (0.0000001, 1.0)),
         ),
     "merge-scenery": (
         ("source-scenario",      ) + SCNR_MACRO,
@@ -312,7 +294,7 @@ TOOL_COMMANDS = FrozenDict({
         ("source-directory", ) + DATA_DIR_MACRO,
         ),
     "physics": (
-        ("source-file", ) + DATA_DIR_MACRO,
+        ("source-directory", ) + DATA_DIR_MACRO,
         ),
     "process-sounds": (
         ("root-path", ) + DIR_MACRO,
@@ -335,8 +317,9 @@ TOOL_COMMANDS = FrozenDict({
         ("use-high-quality(ogg_only)", ) + BOOL_MACRO,
         ),
     "sounds_by_type": (
-        ("directory-name", ) + DATA_DIR_MACRO,
-        ("type",           ) + STR_MACRO,
+        ("directory-name",      ) + DATA_DIR_MACRO,
+        ("type",                ) + STR_MACRO,
+        ("round-to-64-samples", ) + BOOL_MACRO,
         ),
     "strings": (
         ("source-directory", ) + DATA_DIR_MACRO,
@@ -352,7 +335,7 @@ TOOL_COMMANDS = FrozenDict({
         ("bsp-name", ) + STR_MACRO,
         ),
     "tag-load-test": (
-        ("tag-name",                ) + FILE_MACRO,
+        ("tag-name",                ) + FILE_NO_EXT_MACRO,
         ("group",                   ) + STR_NO_PAREN_MACRO,
         ("prompt-to-continue",      ) + BOOL_MACRO,
         ("load-non-resolving-refs", ) + BOOL_MACRO,
