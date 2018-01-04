@@ -62,12 +62,12 @@ class HekPool(tk.Tk):
     _stop_processing = False
     _execution_thread = None
     _reset_style_on_click = False
-    _old_templates_cache = None
 
     fixed_font = None
 
     open_log = None
     clear_log = None
+    smart_assist_on_rclick = None
     proc_limit = None
 
     last_load_dir = curr_dir
@@ -112,6 +112,7 @@ class HekPool(tk.Tk):
         # make the tkinter variables
         self.clear_log = tk.BooleanVar(self)
         self.open_log  = tk.BooleanVar(self, 1)
+        self.smart_assist_on_rclick = tk.BooleanVar(self, 1)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
@@ -170,6 +171,9 @@ class HekPool(tk.Tk):
                                label="Clear debug.txt's before processing")
         self.settings_menu.add("checkbutton", variable=self.open_log,
                                label="Open debug.txt's after processing")
+        self.settings_menu.add("checkbutton",
+                               variable=self.smart_assist_on_rclick,
+                               label="Enable smart-assist when right-clicking")
 
         ''' LOAD THE CONFIG '''
         if self.config_file is not None:
@@ -282,7 +286,8 @@ class HekPool(tk.Tk):
 
         raw_cmd_str = self.commands_text.get(
             '%d.0' % posy, '%d.end' % posy).replace('\t', ' ')
-        if len(raw_cmd_str.strip(' ').strip('\t')) == 0:
+        if (not self.smart_assist_on_rclick.get() or self.check_can_copy() or
+                len(raw_cmd_str.strip(' ').strip('\t')) == 0):
             # empty line. post the menu to select a command
             self.post_templates_menu(e)
             return
@@ -304,6 +309,7 @@ class HekPool(tk.Tk):
         cmd_info  = cmd_infos.get(cmd_type)
         help_info = help_infos.get(cmd_type, ())
         if cmd_info is None:
+            self.post_templates_menu(e)
             return
 
         # locate which argument in the command string we are hovering over
@@ -327,12 +333,17 @@ class HekPool(tk.Tk):
                 param_str += c
             i += 1
 
-        if arg_index not in range(len(cmd_info)):
+        if arg_index == -1:
             # clicked the command name. show info about that command
-            if help_info and help_info[0]:
-                messagebox.showinfo(cmd_type, help_info[0],
+            if help_info:
+                message = help_info[0]
+                if not message:
+                    message = "Sorry, no help text for %s just yet!" % cmd_type
+                messagebox.showinfo(cmd_type, message,
                                     parent=self.commands_text)
-
+            return
+        elif arg_index not in range(len(cmd_info)):
+            self.post_templates_menu(e)
             return
 
         cwd = dirname(self.get_tool_path())
@@ -599,18 +610,20 @@ class HekPool(tk.Tk):
             new_templates = ()
 
         sanitized_new_templates = []
+        valid_items = set(tuple(SPECIAL_TEMPLATES_KWDS) +
+                          tuple(TOOL_COMMANDS) + tuple(DIRECTIVES))
         for item in new_templates:
             if isinstance(item, str):
-                if item in DIRECTIVES or item in TOOL_COMMANDS:
+                if item in valid_items:
                     sanitized_new_templates.append(item)
                 continue
 
             malformed |= not(hasattr(item, '__len__') and len(item))
             if malformed: break
 
-            casc_name, sanitized_items = item[0], []
+            casc_name, sanitized_items = str(item[0]).strip(' '), []
             for name in item[1:]:
-                if name in DIRECTIVES or name in TOOL_COMMANDS:
+                if name in valid_items:
                     sanitized_items.append(name)
 
             sanitized_new_templates.append([casc_name] + sanitized_items)
@@ -644,22 +657,37 @@ class HekPool(tk.Tk):
 """)
             for item in TEMPLATE_MENU_LAYOUT:
                 if isinstance(item, str):
-                    f.write('\n%s\n' % casc_name)
+                    f.write('\n%s\n' % item)
                     continue
 
                 casc_name, temp_names = item[0], item[1:]
-                f.write('\n(%s\n' % casc_name)
+                f.write('\n( %s\n' % casc_name)
                 for name in temp_names:
                     f.write('    %s\n' % name)
                 f.write("    )\n")
 
-            f.write("\n\n; All available Tool commands:\n;\n")
+            f.write("\n\n; All Tool commands:\n;\n")
             for cmd_name in sorted(TOOL_COMMANDS):
                 f.write(";     %s\n" % cmd_name)
 
-            f.write("\n\n; All available Pool directives:\n;\n")
+            f.write("\n\n; All Pool directives:\n;\n")
             for dir_name in sorted(DIRECTIVES):
                 f.write(";     %s\n" % dir_name)
+
+            f.write("\n\n; All special template keywords:\n;\n")
+            for name in sorted(SPECIAL_TEMPLATES_KWDS):
+                f.write(";     %s\n" % name)
+                f.write(";         %s\n" % SPECIAL_TEMPLATES_KWDS[name])
+
+    def do_clipboard_action(self, event_type):
+        if event_type == "Cut":
+            self.commands_text.event_generate("<<Cut>>")
+        elif event_type == "Copy":
+            if self.commands_text.tag_ranges(tk.SEL):
+                self.commands_text.event_generate("<<Copy>>")
+        elif event_type == "Paste":
+            self.commands_text.event_generate("<<Paste>>")
+            self.commands_text.see(tk.INSERT)
 
     def set_commands_list_folder(self):
         folder = askdirectory(
@@ -775,6 +803,7 @@ class HekPool(tk.Tk):
 
         self.proc_limit.set(str(max(header.proc_limit, 1)))
         self.open_log.set(header.flags.open_log)
+        self.smart_assist_on_rclick.set(header.flags.smart_assist_on_rclick)
         self.clear_log.set(header.flags.clear_log)
 
         self.geometry("%sx%s+%s+%s" %
@@ -803,6 +832,7 @@ class HekPool(tk.Tk):
         header.last_tool_index = max(self.curr_tool_index + 1, 0)
         header.proc_limit = max(int(self.proc_limit.get()), 1)
         header.flags.open_log = self.open_log.get()
+        header.flags.smart_assist_on_rclick = self.smart_assist_on_rclick.get()
         header.flags.clear_log = self.clear_log.get()
 
         for s in app_window.NAME_MAP.keys():
@@ -1391,18 +1421,25 @@ class HekPool(tk.Tk):
                 print(format_exc())
 
     def generate_templates_menu(self):
-        if self._old_templates_cache == TEMPLATE_MENU_LAYOUT:
-            return
-
         self.templates_menu.delete(0, "end")
-        self._old_templates_cache = list(TEMPLATE_MENU_LAYOUT)
 
         # generate the options for templates_menu
         for item in TEMPLATE_MENU_LAYOUT:
             if isinstance(item, str):
-                self.templates_menu.add_command(
-                    label=item, command=lambda n=item:
-                    self.insert_template(n))
+                if item == "<<divider>>":
+                    self.templates_menu.add_separator()
+                elif item in ("<<cut>>", "<<copy>>", "<<paste>>"):
+                    item = item.strip('<').strip('>').capitalize()
+                    state = self.check_can_paste if item == 'Paste' else\
+                            self.check_can_copy
+
+                    self.templates_menu.add_command(
+                        state=tk.NORMAL if state() else tk.DISABLED, label=item,
+                        command=lambda i=item: self.do_clipboard_action(i))
+                else:
+                    self.templates_menu.add_command(
+                        label=item, command=lambda n=item:
+                        self.insert_template(n))
                 continue
 
             casc_name, temp_names = item[0], item[1:]
@@ -1411,6 +1448,19 @@ class HekPool(tk.Tk):
             for name in temp_names:
                 new_menu.add_command(label=name, command=lambda n=name:
                                      self.insert_template(n))
+
+    def check_can_copy(self):
+        try:
+            return bool(self.commands_text.index(tk.SEL_FIRST))
+        except tk.TclError:
+            return False
+
+    def check_can_paste(self):
+        try:
+            return bool(self.commands_text.tk.call(
+                'tk::GetSelection', self.commands_text, 'CLIPBOARD'))
+        except tk.TclError:
+            return False
 
     def insert_tool_path(self, path, index=None):
         if index is None:

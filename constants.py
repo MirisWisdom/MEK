@@ -77,6 +77,10 @@ The descriptions of these commands and directives are set up as:
 '''
 
 TEMPLATE_MENU_LAYOUT = [
+    "<<cut>>",
+    "<<copy>>",
+    "<<paste>>",
+    "<<divider>>",
     ("Most Useful",
         "animations",
         "bitmap",
@@ -128,6 +132,7 @@ TEMPLATE_MENU_LAYOUT = [
         "tag-load-test",
         "windows-font",
         ),
+    "<<divider>>",
     ("All Pool Directives",
         "k",
         "c",
@@ -341,4 +346,11 @@ TOOL_COMMANDS = FrozenDict({
         ),
     "windows-font": (),
     "zoners_model_upgrade": (),
+    })
+
+SPECIAL_TEMPLATES_KWDS = FrozenDict({
+    "<<cut>>": "Cuts the selected text out and puts it in the paste clipboard.",
+    "<<copy>>": "Copies the selected text into the paste clipboard.",
+    "<<paste>>": "Pastes the text in the paste clipboard into the text.",
+    "<<divider>>": "Inserts a horizontal divider into the templates menu.",
     })
