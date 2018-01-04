@@ -16,6 +16,7 @@ from traceback import format_exc
 from supyr_struct.defs.constants import *
 from binilla.util import *
 from binilla.widgets import BinillaWidget
+from binilla.util import float_to_str
 
 from hek_pool.constants import *
 from hek_pool.help_text import generate_help, HELP_NAME,\
@@ -199,8 +200,7 @@ class HekPool(tk.Tk):
 
         # make the command text area
         self.commands_frame = tk.LabelFrame(self, text=(
-            "Enter directives and Tool commands to process (one per line)\n"
-            '   Empty lines mean "Finish everything above before proceeding"'))
+            "Enter directives and Tool commands to process (one per line)"))
         self.commands_frame_inner = tk.Frame(self.commands_frame)
         self.commands_text = tk.Text(
             self.commands_frame_inner, font=self.fixed_font,
@@ -419,6 +419,9 @@ class HekPool(tk.Tk):
                 if len(param_help) > 2:
                     message = param_help[2]
 
+            if not message:
+                message = "Sorry, no help text for <%s> just yet!" % name
+
             new_val = messagebox.askyesnocancel(name, message,
                                                 parent=self.commands_text)
             if new_val is not None:
@@ -430,8 +433,23 @@ class HekPool(tk.Tk):
                 if len(param_help) > 2:
                     message = param_help[2]
 
-            if message:
-                messagebox.showinfo(name, message, parent=self.commands_text)
+            if not message:
+                message = "Sorry, no help text for <%s> just yet!" % name
+
+            opts = ()
+            if typ in ("str", "str-no-quote", "float") and len(arg_info) >= 4:
+                opts = tuple(arg_info[3])
+
+            if opts:
+                message += '\n\nValid values for this argument are:\n'
+                if typ == "float":
+                    message += "    Numbers that are >= %s and <= %s" % (
+                        float_to_str(opts[0]), float_to_str(opts[1]))
+                else:
+                    for opt in opts:
+                        message += "    %s\n" % opt
+                
+            messagebox.showinfo(name, message, parent=self.commands_text)
 
         # Apply the new value
         if new_val is not None:
@@ -1076,8 +1094,91 @@ class HekPool(tk.Tk):
             stop_y += 1
         self.execute_commands(start_y, stop_y)
 
-    def get_can_execute_command(self, cmd_args):
-        # TODO
+    def get_can_execute_command(self, cmd_args, loc_vars):
+        cmd_type = cmd_args[0]
+        is_directive = False
+        if cmd_type in DIRECTIVE_START_STRS:
+            is_directive = True
+            cmd_type = None if len(cmd_args) == 1 else cmd_args[1]
+
+        cwd = join(loc_vars.get('cwd', '').lower(), '')
+
+        if len(cmd_args) - is_directive < 2:
+            # no arguments for the command, so nothing to compare
+            pass
+        elif cmd_type in (
+                "build-cache-file", "build-cache-file-ex", "lightmaps",
+                "build-cache-file-new", "import-structure-lightmap-uvs",
+                "structure", "structure-breakable-surfaces", "merge-scenery"):
+            # doing something involving scenarios and/or bsp's
+
+            scnr_path = join(cmd_args[1].lower(), '')
+            for proc_i, proc_info in tuple(self.processes.items()):
+                if not proc_info: continue
+                # make sure not trying to do any tag creation in the same
+                # folder at the same time we're trying to build a map in it
+                proc_args = proc_info['exec_args']
+                proc_type = proc_args[0]
+                if join(proc_info.get('cwd', '').lower(), '') != cwd:
+                    # not the same cwd. safe to run.
+                    pass
+                elif proc_type in (
+                        "import-structure-lightmap-uvs", "lightmaps",
+                        "structure", "structure-breakable-surfaces"):
+                    proc_scnr_path = '' if len(proc_args) == 1 else proc_args[1]
+
+                    if scnr_path == join(proc_scnr_path, ''):
+                        # edits the same scenario or bsp as the one
+                        # currently being processed. NOT safe to run!
+                        return False
+                elif proc_type == "merge-scenery":
+                    pass
+                elif proc_type not in (
+                        "build-cpp-definition", "build-packed-file", "help",
+                        "runtime-cache-view", "windows-font"):
+                    # a command that edits tags. NOT safe to run!
+                    return False
+        elif cmd_type in ("bitmap", "import-device-defaults"):
+            path_arg_i = 1
+            if cmd_type == "import-device-defaults":
+                path_arg_i = 2
+
+            if len(cmd_args) < path_arg_i + 1:
+                # not enough args to check
+                return True
+            
+            path_arg = join(cmd_args[path_arg_i].lower(), '')
+            for proc_i, proc_info in self.processes.items():
+                if not proc_info: continue
+                proc_args = proc_info['exec_args']
+                proc_type = proc_args[0]
+
+                if (join(proc_info.get('cwd', '').lower(), '') != cwd or
+                        proc_type != cmd_type or len(proc_args) <= path_arg_i):
+                    # not the same cwd, a different command, or not enough args.
+                    # safe to run(i think).
+                    pass
+                elif join(proc_args[path_arg_i].lower(), '') == path_arg:
+                    # same cwd, command type, and directory. NOT safe to run!
+                    return False
+        elif cmd_type in ("animations", "bitmaps", "compile-shader-postprocess",
+                          "hud-messages", "model", "physics", "sounds",
+                          "strings", "unicode-strings"):
+            dir_arg = join(cmd_args[1].lower(), '')
+            for proc_i, proc_info in self.processes.items():
+                if not proc_info: continue
+                proc_type, proc_args = proc_info['exec_args'][0],\
+                                           proc_info['exec_args'][1:]
+                if (join(proc_info.get('cwd', '').lower(), '') != cwd or
+                        proc_type != cmd_type or not proc_args):
+                    # not the same cwd, a different command, or no args.
+                    # safe to run(i think).
+                    pass
+                elif join(proc_args[0].lower(), '') == dir_arg:
+                    # same cwd, command type, and directory. NOT safe to run!
+                    return False
+
+
         return True
 
     def get_tool_path(self):
@@ -1128,7 +1229,6 @@ class HekPool(tk.Tk):
                 exec_args, disabled = self.get_command(i)
                 if not exec_args[0]:
                     # ignore empty lines
-                    wait_on_cmds = True
                     skip_ct += 1
                 elif disabled:
                     # ignore commented commands
@@ -1136,9 +1236,6 @@ class HekPool(tk.Tk):
                 elif curr_max_proc_ct and curr_proc_ct == curr_max_proc_ct:
                     # same number of processes as last checked. don't
                     # need to check self.get_can_execute_command again
-                    continue
-                elif not self.get_can_execute_command(exec_args):
-                    curr_max_proc_ct = curr_proc_ct
                     continue
                 elif exec_args[0] in DIRECTIVE_START_STRS:
                     # directive to change some variable
@@ -1196,12 +1293,12 @@ class HekPool(tk.Tk):
                             completed=completed, processes=processes)
                         self.set_line_style(i, "processing")
                         cmds_started += 1
+                    elif typ == 'w':
+                        wait_on_cmds = True
                     else:
                         self.set_line_style(i, "error")
                 else:
                     # this is a command we can actually execute!
-                    self.commands_text.see("%s.0" % i)
-                    curr_max_proc_ct = 0
 
                     log_path = join(cwd, 'debug.txt')
                     if log_path not in log_paths:
@@ -1222,11 +1319,18 @@ class HekPool(tk.Tk):
                             new_exec_args.append(a)
                         exec_args = [cmd_type] + new_exec_args
 
-                    print('\n\n"%s"' % tool_path,
-                          ''.join(" %s" % a for a in exec_args))
-
                     req_arg_ct = len(TOOL_COMMANDS.get(cmd_type, ()))
                     if len(exec_args) - 1 == req_arg_ct:
+                        if not self.get_can_execute_command(exec_args, loc_vars):
+                            # can't execute this command just yet.
+                            curr_max_proc_ct = curr_proc_ct
+                            continue
+
+                        print('\n\n"%s"' % tool_path,
+                              ''.join(" %s" % a for a in exec_args))
+                        self.commands_text.see("%s.0" % i)
+                        curr_max_proc_ct = 0
+
                         # start the command
                         cmd_args = (a for a in cmd_args_dict if cmd_args_dict[a])
                         self._start_process(

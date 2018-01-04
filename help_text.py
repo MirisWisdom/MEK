@@ -85,7 +85,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         "",
         ("path", 'dir',
          ""),
-        ("scenario-name", 'file-no-ext',
+        ("scenario-name", 'str',
          ""),
         ),
     "import-device-defaults": (
@@ -258,6 +258,10 @@ DIRECTIVES_HELP = {
         "    # run haloce.exe  -console  -devmode",
         ("exec-path", "file",
          "Name of the executable to run."),
+        ),
+    "w": (
+        "Tells Pool to wait until all currently running Tool instances\n"
+        "are closed before continuing executing commands and directives.",
         ),
     }
 
