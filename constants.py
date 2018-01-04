@@ -17,6 +17,10 @@ text_tags_colors = dict(
         fg = '#%02x%02x%02x' % (192, 192, 192),  # very light grey
         bg_highlight = '#%02x%02x%02x' % (100, 100, 100)  # light grey
         ),
+    error  = dict(
+        bg = '#%02x%02x%02x' % (220,   0,   0),  # red
+        fg = BLACK_COLOR,
+        ),
     processing = dict(
         bg = '#%02x%02x%02x' % (255, 180,   0),  # yellow
         fg = BLACK_COLOR
@@ -41,7 +45,7 @@ ARG_TYPES = set((
     "bool",
     "float",
     "str",
-    "str-no-paren",
+    "str-no-quote",
     "dir",
     "file",
     "file-no-ext",
@@ -73,33 +77,6 @@ The descriptions of these commands and directives are set up as:
 '''
 
 TEMPLATE_MENU_LAYOUT = [
-    ("All",
-        "animations",
-        "bitmap",
-        "bitmaps",
-        "build-cache-file",
-        "build-cache-file-ex",
-        "build-cpp-definition",
-        "collision-geometry",
-        "compile-shader-postprocess",
-        "hud-messages",
-        "import-device-defaults",
-        "import-structure-lightmap-uvs",
-        "lightmaps",
-        "merge-scenery",
-        "model",
-        "physics",
-        "remove-os-tag-data",
-        "runtime-cache-view",
-        "sounds",
-        "strings",
-        "structure",
-        "structure-breakable-surfaces",
-        "structure-lens-flares",
-        "tag-load-test",
-        "unicode-strings",
-        "windows-font",
-        ),
     ("Objects",
         "animations",
         "bitmap",
@@ -136,7 +113,34 @@ TEMPLATE_MENU_LAYOUT = [
         "tag-load-test",
         "windows-font",
         ),
-    ("Directives",
+    ("All Tool Commands",
+        "animations",
+        "bitmap",
+        "bitmaps",
+        "build-cache-file",
+        "build-cache-file-ex",
+        "build-cpp-definition",
+        "collision-geometry",
+        "compile-shader-postprocess",
+        "hud-messages",
+        "import-device-defaults",
+        "import-structure-lightmap-uvs",
+        "lightmaps",
+        "merge-scenery",
+        "model",
+        "physics",
+        "remove-os-tag-data",
+        "runtime-cache-view",
+        "sounds",
+        "strings",
+        "structure",
+        "structure-breakable-surfaces",
+        "structure-lens-flares",
+        "tag-load-test",
+        "unicode-strings",
+        "windows-font",
+        ),
+    ("All Pool Directives",
         "k",
         "c",
         "cwd",
@@ -161,7 +165,7 @@ FILE_MACRO  = ("file",  '""')
 DIR_MACRO   = ("dir",   '""')
 STR_MACRO   = ("str",   '""')
 FILE_NO_EXT_MACRO  = ("file-no-ext",  '""')
-STR_NO_PAREN_MACRO = ("str-no-paren", 'XXXX')
+STR_NO_PAREN_MACRO = ("str-no-quote", 'XXXX')
 
 DATA_DIR_MACRO = DIR_MACRO + ( (), "data")
 TAGS_DIR_MACRO = DIR_MACRO + ( (), "tags")
@@ -242,7 +246,7 @@ TOOL_COMMANDS = FrozenDict({
         ("shader-directory", ) + DATA_DIR_MACRO,
         ),
     "help": (
-        ("os-tool-command", "str-no-paren", 'help', (
+        ("os-tool-command", "str-no-quote", 'help', (
             # these are the only ones the help command will work with
             "build-cache-file",
             "build-cache-file-ex",
@@ -261,7 +265,7 @@ TOOL_COMMANDS = FrozenDict({
         ("scenario-name", ) + SCNR_MACRO,
         ),
     "import-device-defaults": (
-        ("type",  "str-no-paren",  'defaults', ("defaults", "profiles")),
+        ("type",  "str-no-quote",  'defaults', ("defaults", "profiles")),
         ("savegame-path", ) + FILE_MACRO,
         ),
     "import-structure-lightmap-uvs": (
@@ -299,7 +303,7 @@ TOOL_COMMANDS = FrozenDict({
     "process-sounds": (
         ("root-path", ) + DIR_MACRO,
         ("substring", ) + STR_MACRO,
-        ("effect", "str-no-paren", "gain+",
+        ("effect", "str-no-quote", "gain+",
              ("gain+", "gain-", "gain=",
               "maximum-distance", "minimum-distance"),
              ),
@@ -313,7 +317,7 @@ TOOL_COMMANDS = FrozenDict({
     "runtime-cache-view": (),
     "sounds": (
         ("directory-name",             ) + DATA_DIR_MACRO,
-        ("platform", "str-no-paren", 'xbox', ("ogg", "xbox", "wav")),
+        ("platform", "str-no-quote", 'xbox', ("ogg", "xbox", "wav")),
         ("use-high-quality(ogg_only)", ) + BOOL_MACRO,
         ),
     "sounds_by_type": (

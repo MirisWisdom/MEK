@@ -52,7 +52,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         ),
     "build-cpp-definition": (
         "",
-        ("tag-group", 'str-no-paren',
+        ("tag-group", 'str-no-quote',
          ""),
         ("add-boost-asserts", 'bool',
          ""),
@@ -90,7 +90,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         ),
     "import-device-defaults": (
         '', 
-        ("type", 'str-no-paren', ''),
+        ("type", 'str-no-quote', ''),
         ("savegame-path", 'file', ''),
         ),
     "import-structure-lightmap-uvs": (
@@ -136,7 +136,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         'unknown',
         ("root-path", 'dir', ''),
         ("substring", 'str', ''),
-        ("effect", 'str-no-paren', ''),
+        ("effect", 'str-no-quote', ''),
         ("value", 'float', ''),
         ),
     "remove-os-tag-data": (
@@ -231,7 +231,7 @@ DIRECTIVES_HELP = {
          "any number of separate tags directories and Halo CE installations."),
         ("directory", "dir",
          "The directory to set as the current working directory.\n"
-         "This is an absolute filepath."),
+         "This is an absolute path, meaning it is not relative to anything."),
         ),
     "set": (
         ("Adds a variable to a list that can be used for text replacements.\n"
@@ -241,19 +241,21 @@ DIRECTIVES_HELP = {
          '    structure   <dir>tutorial\n'
          '    lightmaps   <dir>tutorial  tutorial  1  0.000001\n'
          '    build-cache-file   <dir>tutorial'),
-        ("var-name", "str-no-paren", "Name of the variable."),
+        ("var-name", "str-no-quote", "Name of the variable."),
         ("var-value", "str",
          "The string to replace any occurances of <var-name> with."),
         ),
     "del": (
         ("Removes a variable from the list of replacements.\n"
          "See the 'set' directive."),
-        ("var-name", "str-no-paren", "Name of the variable to remove."),
+        ("var-name", "str-no-quote", "Name of the variable to remove."),
         ),
     "run": (
         "Runs the specified file located in the current working directoy.\n"
         "Any additional arguments after <exec-path> are passed along to the\n"
-        "executable when it is ran(i.e.  -console  -devmode)",
+        "executable when it is ran.\n\n"
+        "Example:\n"
+        "    # run haloce.exe  -console  -devmode",
         ("exec-path", "file",
          "Name of the executable to run."),
         ),
@@ -264,8 +266,37 @@ def generate_help(save_to_file=False):
     help_text = '''
 This is a small help-file to explain what each Tool command and
 Pool directive does, how to use it, and what its arguments are.
-
 To use a directive in, type a # before it(ex:  # cwd  or  #cwd).
+
+The argument types are as follows:
+
+    bool:   A true or false value. 0 for false, 1 for true.
+
+    float:  A number that can have a decimal(ex: 1.337).
+
+    int:    An integer number(cannot have a decimal point).
+
+    str:    A string of characters such as "letters". If the
+        string contains spaces, enclose the string in quotes.
+        (ex: "this is a string")
+
+    dir:    A path to a directory. Except for the cwd directive,
+        any command or directive asking for a directory will need
+        it to be relative to the current working directory(cwd).
+        Do NOT use / to separate folders. Tool doesnt recognize
+        this as a separator. Use \\ instead.
+
+    file:   A path to a file. Any command or directive asking for
+        a filepath will need it to be relative to the current
+        working directory(cwd). Do NOT use / to separate folders.
+        Tool doesnt recognize this as a separator. Use \\ instead.
+
+    str-no-quote: Same as str, except it cannot be enclosed
+        in quotes, and as a result cannot contain spaces.
+
+    file-no-ext:  Same as file, except you do not provide the
+        file extension. Tool will either know the extension
+        already or will be able to guess it.
 '''
     for info, typ in ((DIRECTIVES_HELP,   "DIRECTIVES"),
                       (TOOL_COMMAND_HELP, "TOOL COMMANDS")):
@@ -296,7 +327,6 @@ To use a directive in, type a # before it(ex:  # cwd  or  #cwd).
                     for line in arg_help.split('\n'):
                         help_text += (" "*8) + line + '\n'
                 help_text += '\n'
-
             help_text += '\n'
 
     if save_to_file:

@@ -1,28 +1,33 @@
 
-# These sets of hex values determine the letter(fg) and background(bg) colors
-# for the specified type of text. For example, lines being processed use the
-# "processed" colors, while commented lines use the "commented" colors.
+; These sets of hex values determine the letter(fg) and background(bg) colors
+; for the specified type of text. For example, lines being processed use the
+; "processed" colors, while commented lines use the "commented" colors.
 
-commented = {
+commented = (
     fg = "dc0000"
-    }
+    )
 
-default = {
+default = (
     bg = "000000"
     bg_highlight = "646464"
     fg = "c0c0c0"
-    }
+    )
 
-directive = {
+directive = (
     fg = "dc8200"
-    }
+    )
 
-processed = {
+error = (
+    bg = "dc0000"
+    fg = "000000"
+    )
+
+processed = (
     bg = "00c832"
     fg = "000000"
-    }
+    )
 
-processing = {
+processing = (
     bg = "ffb400"
     fg = "000000"
-    }
+    )

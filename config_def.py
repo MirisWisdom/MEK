@@ -5,7 +5,7 @@ from binilla.constants import *
 CFG_DIRS = (
     "working_dir",
     "last_load_dir",
-    "command_lists_dir",
+    "commands_lists_dir",
     )
 
 def get():
