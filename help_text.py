@@ -2,6 +2,12 @@ import os
 import traceback
 from supyr_struct.defs.frozen_dict import FrozenDict
 
+INTRODUCTION_TEXT = '''
+;Hello!
+
+;Click the "Cancel" button to exit this introduction.
+'''
+
 HELP_NAME = "help.txt"
 
 TOOL_COMMAND_HELP = FrozenDict({

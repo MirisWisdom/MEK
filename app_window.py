@@ -1,3 +1,4 @@
+import gc
 import io
 import os
 import sys
@@ -19,8 +20,8 @@ from binilla.widgets import BinillaWidget
 from binilla.util import float_to_str
 
 from hek_pool.constants import *
-from hek_pool.help_text import generate_help, HELP_NAME,\
-     TOOL_COMMAND_HELP, DIRECTIVES_HELP
+from hek_pool.help_text import INTRODUCTION_TEXT, HELP_NAME,\
+     TOOL_COMMAND_HELP, DIRECTIVES_HELP, generate_help
 from hek_pool.config_def import config_def, CFG_DIRS
 
 
@@ -62,6 +63,7 @@ class HekPool(tk.Tk):
     _stop_processing = False
     _execution_thread = None
     _reset_style_on_click = False
+    _intro_mode = False
 
     fixed_font = None
 
@@ -137,19 +139,20 @@ class HekPool(tk.Tk):
         self.settings_menu = tk.Menu(self.main_menu, tearoff=0)
         self.tools_menu = tk.Menu(self.main_menu, tearoff=0,
                                   postcommand=self.generate_tools_menu)
+        self.help_menu = tk.Menu(self.main_menu, tearoff=0)
         self.config(menu=self.main_menu)
         self.main_menu.add_cascade(label="File", menu=self.file_menu)
         self.main_menu.add_cascade(label="Settings", menu=self.settings_menu)
         self.main_menu.add_cascade(label="Templates", menu=self.templates_menu)
         self.main_menu.add_cascade(label="Select Tool", menu=self.tools_menu)
-        self.main_menu.add_command(label="Help",
+        self.main_menu.add_cascade(label="Help", menu=self.help_menu)
+        self.help_menu.add_command(label="Commands and Directives",
                                    command=self.show_help_in_text_editor)
+        self.help_menu.add_command(label="Introduction",
+                                   command=self.start_introdution)
 
-        self.file_menu.add_command(label="Add Tool",
-                                   command=self.tool_path_browse)
-        self.file_menu.add_command(label="Remove Tool",
-                                   command=self.remove_tool_path)
-        self.file_menu.add_separator()
+
+
         self.file_menu.add_command(label="Open...",
                                    command=self.load_commands_list)
         self.file_menu.add_command(label="Select command list folder",
@@ -160,9 +163,14 @@ class HekPool(tk.Tk):
         self.file_menu.add_command(label="Save As...",
                                    command=self.save_commands_list_as)
         self.file_menu.add_separator()
+        self.file_menu.add_command(label="Add Tool",
+                                   command=self.tool_path_browse)
+        self.file_menu.add_command(label="Remove Tool",
+                                   command=self.remove_tool_path)
+        self.file_menu.add_separator()
         self.file_menu.add_command(label="Edit colors",
                                    command=self.edit_style_in_text_editor)
-        self.file_menu.add_command(label="Edit templates",
+        self.file_menu.add_command(label="Edit right-click menu",
                                    command=self.edit_templates_in_text_editor)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.close)
@@ -265,12 +273,26 @@ class HekPool(tk.Tk):
         self.apply_style()
         self.apply_config()
         self.load_templates()
-        self.load_commands_list(LAST_CMD_LIST_NAME)
+
+        if isfile(join(self.commands_lists_dir, LAST_CMD_LIST_NAME + '.txt')):
+            self.load_commands_list(LAST_CMD_LIST_NAME)
+        else:
+            self.start_introduction()
 
         try:
             generate_help(True)
         except Exception:
             print(traceback.format_exc())
+
+    def start_introdution(self):
+        if self._execution_state:
+            return
+
+        self._intro_mode = True
+        self.commands_text.config(state=tk.NORMAL)
+        self.commands_text.delete('1.0', tk.END)
+        self.commands_text.insert('1.0', INTRODUCTION_TEXT)
+        self.reset_line_style()
 
     def right_click_cmd_text(self, e):
         try:
@@ -333,7 +355,7 @@ class HekPool(tk.Tk):
                 param_str += c
             i += 1
 
-        if arg_index == -1:
+        if arg_index == -1 or self._execution_state:
             # clicked the command name. show info about that command
             if help_info:
                 message = help_info[0]
@@ -404,6 +426,8 @@ class HekPool(tk.Tk):
             if not exists(start_dir):
                 start_dir = cwd
 
+            start_dir = start_dir.replace('/', '\\')
+
             if typ == "dir":
                 new_val = join(askdirectory(
                     initialdir=start_dir, parent=self.commands_text,
@@ -416,11 +440,8 @@ class HekPool(tk.Tk):
                 if typ == "file-no-ext":
                     new_val = splitext(new_val)[0]
 
-                if new_val:
-                    new_val = relpath(new_val, cwd)
-
             if new_val:
-                new_val = '"%s"' % new_val.replace('/', '\\')
+                new_val = '"%s"' % relpath(new_val.replace('/', '\\'), start_dir)
             else:
                 new_val = None
         elif typ == 'bool':
@@ -643,9 +664,11 @@ class HekPool(tk.Tk):
 ; directly in the menu, or inside a cascade in the menu.
 ;
 ; Look at the bottom of this file for a list of all available Tool
-; commands and Pool directives. You must type them in EXACTLY how
-; they appear(they are case sensitive). If you dont see the command
-; show up in the menu when you right-click, it was misspelled.
+; commands, Pool directives, and special keywords. You must type them
+; in EXACTLY how they appear(they are case sensitive). If the command
+; doesn't appear in the menu when you right-click, it was misspelled.
+;
+; The cut, copy, and paste keywords cannot be used inside a cascade.
 ;
 ; If the templates fail to load at all, make sure:
 ;    * You don't have any missing starting or ending parenthese
@@ -680,14 +703,43 @@ class HekPool(tk.Tk):
                 f.write(";         %s\n" % SPECIAL_TEMPLATES_KWDS[name])
 
     def do_clipboard_action(self, event_type):
+        cmd_text = self.commands_text
         if event_type == "Cut":
-            self.commands_text.event_generate("<<Cut>>")
+            cmd_text.event_generate("<<Cut>>")
         elif event_type == "Copy":
-            if self.commands_text.tag_ranges(tk.SEL):
-                self.commands_text.event_generate("<<Copy>>")
+            if cmd_text.tag_ranges(tk.SEL):
+                cmd_text.event_generate("<<Copy>>")
         elif event_type == "Paste":
-            self.commands_text.event_generate("<<Paste>>")
-            self.commands_text.see(tk.INSERT)
+            if self._execution_state:
+                return
+
+            # if the insertion cursor is not inside the selection range,
+            # then we can deselect it since we aren't pasting into it.
+            insy, insx = cmd_text.index(tk.INSERT).split('.')
+            insy, insx = int(insy), int(insx)
+            sel_range = cmd_text.tag_ranges(tk.SEL)
+            if sel_range:
+                starty, startx = cmd_text.index(sel_range[0]).split('.')
+                stopy,  stopx  = cmd_text.index(sel_range[1]).split('.')
+                starty, startx = int(insy),  int(insx)
+                stopy,  stopx  = int(stopy), int(stopx)
+                if starty > stopy:
+                    starty, stopy = stopy, starty
+                    startx, stopx = stopx, startx
+                elif startx > stopx:
+                    startx, stopx = stopx, startx
+
+                if (insy in range(starty, stopy + 1) and
+                    insx in range(startx, stopx + 1)):
+                    # pasting into selection. keep the selection so
+                    # the contents of the selection are overwritten
+                    pass
+                else:
+                    # not pasting into selection. remove selection
+                    cmd_text.tag_remove(tk.SEL, "1.0", tk.END)
+
+            cmd_text.event_generate("<<Paste>>")
+            cmd_text.see(tk.INSERT)
 
     def set_commands_list_folder(self):
         folder = askdirectory(
@@ -722,11 +774,14 @@ class HekPool(tk.Tk):
                 return
             filepath = join(self.commands_lists_dir, "%s.txt" % list_name)
 
-        if not filepath:
+        if not isfile(filepath):
             return
 
         with open(filepath, 'r') as f:
             data = f.read()
+
+        if self._intro_mode:
+            self.cancel_unprocessed()
 
         cmd_list_name = splitext(basename(filepath))[0]
         if cmd_list_name != LAST_CMD_LIST_NAME:
@@ -1099,6 +1154,9 @@ class HekPool(tk.Tk):
 
     def cancel_unprocessed(self):
         self._stop_processing = True
+        if self._intro_mode:
+            self._intro_mode = False
+            self.commands_text.delete('1.0', tk.END)
 
     def execute_commands(self, start=None, stop=None):
         if not self._execution_thread:
@@ -1224,6 +1282,7 @@ class HekPool(tk.Tk):
             print("No Tool selected to process commands")
             return
         self._execution_state = True
+        self._stop_processing = False
 
         error = None
         log_paths, loc_vars = set(), dict()
@@ -1317,11 +1376,15 @@ class HekPool(tk.Tk):
                         else:
                             self.set_line_style(i, "error")
                     elif typ == "run":
-                        exec_name = vals.pop(0).strip('"')
-                        self._start_process(
-                            i, join(cwd, exec_name), vals, cwd=cwd,
-                            completed=completed, processes=processes)
-                        self.set_line_style(i, "processing")
+                        if self._intro_mode:
+                            completed[i] = dict()
+                            self.set_line_style(i, "processed")
+                        else:
+                            self.set_line_style(i, "processing")
+                            self._start_process(
+                                i, join(cwd, vals.pop(0).strip('"')), vals,
+                                cwd=cwd, completed=completed,
+                                processes=processes)
                         cmds_started += 1
                     elif typ == 'w':
                         wait_on_cmds = True
@@ -1349,7 +1412,10 @@ class HekPool(tk.Tk):
                             new_exec_args.append(a)
                         exec_args = [cmd_type] + new_exec_args
 
-                    req_arg_ct = len(TOOL_COMMANDS.get(cmd_type, ()))
+                    req_arg_ct = -1
+                    if cmd_type in TOOL_COMMANDS:
+                        req_arg_ct = len(TOOL_COMMANDS[cmd_type])
+
                     if len(exec_args) - 1 == req_arg_ct:
                         if not self.get_can_execute_command(exec_args, loc_vars):
                             # can't execute this command just yet.
@@ -1363,12 +1429,17 @@ class HekPool(tk.Tk):
 
                         # start the command
                         cmd_args = (a for a in cmd_args_dict if cmd_args_dict[a])
-                        self._start_process(
-                            i, tool_path, exec_args, cmd_args, cwd=cwd,
-                            completed=completed, processes=processes)
+                        if self._intro_mode:
+                            completed[i] = {}
+                            self.set_line_style(i, "processed")
+                        else:
+                            self._start_process(
+                                i, tool_path, exec_args, cmd_args, cwd=cwd,
+                                completed=completed, processes=processes)
 
-                        # set the command's text to the 'processing' color
-                        self.set_line_style(i, "processing")
+                            # set the command's text to the 'processing' color
+                            self.set_line_style(i, "processing")
+
                         cmds_started += 1
                     else:
                         self.set_line_style(i, "error")
@@ -1421,6 +1492,8 @@ class HekPool(tk.Tk):
                 print(format_exc())
 
     def generate_templates_menu(self):
+        # THIS CAUSES A MEMORY LEAK!
+        # NEED TO PROPERLY DELETE ALL THE ITEMS
         self.templates_menu.delete(0, "end")
 
         # generate the options for templates_menu
@@ -1448,6 +1521,8 @@ class HekPool(tk.Tk):
             for name in temp_names:
                 new_menu.add_command(label=name, command=lambda n=name:
                                      self.insert_template(n))
+
+        gc.collect()
 
     def check_can_copy(self):
         try:
@@ -1512,19 +1587,19 @@ class HekPool(tk.Tk):
             return
 
         self.curr_tool_index = max(index, 0)
-        tag_path = self.tool_paths[index]
+        tool_path = self.tool_paths[index]
         if self.config_file:
             try:
                 self.config_file.last_tool_path = self.curr_tool_index + 1
             except Exception:
                 pass
 
-        path_parts = tag_path.replace('/', '\\').split('\\')
+        path_parts = tool_path.replace('/', '\\').split('\\')
         if len(path_parts) > 2:
             trimmed_path = "[  %s\\...\\%s\\%s  ]" % (
                 path_parts[0], path_parts[-2], path_parts[-1])
         else:
-            trimmed_path = tag_path
+            trimmed_path = tool_path
 
         self.main_menu.entryconfig(4, label=trimmed_path)
 
@@ -1562,7 +1637,9 @@ class HekPool(tk.Tk):
             return
 
         try:
-            self.save_commands_list(filename=LAST_CMD_LIST_NAME)
+            if not self._intro_mode and (self.commands_text.get('1.0', tk.END).\
+                                         replace('\n', '').replace(' ', '')):
+                self.save_commands_list(filename=LAST_CMD_LIST_NAME)
         except Exception:
             print(format_exc())
 
