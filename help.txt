@@ -1,0 +1,478 @@
+
+This is a small help-file to explain what each Tool command and
+Pool directive does, how to use it, and what its arguments are.
+To use a directive in, type a # before it(ex:  # cwd  or  #cwd).
+
+The argument types are as follows:
+
+    bool:   A true or false value. 0 for false, 1 for true.
+
+    float:  A number that can have a decimal(ex: 1.337).
+
+    int:    An integer number(cannot have a decimal point).
+
+    str:    A string of characters such as "letters". If the
+        string contains spaces, enclose the string in quotes.
+        (ex: "this is a string")
+
+    dir:    A path to a directory. Except for the cwd directive,
+        any command or directive asking for a directory will need
+        it to be relative to the current working directory(cwd).
+        Do NOT use / to separate folders. Tool doesnt recognize
+        this as a separator. Use \ instead.
+
+    file:   A path to a file. Any command or directive asking for
+        a filepath will need it to be relative to the current
+        working directory(cwd). Do NOT use / to separate folders.
+        Tool doesnt recognize this as a separator. Use \ instead.
+
+    str-no-quote: Same as str, except it cannot be enclosed
+        in quotes, and as a result cannot contain spaces.
+
+    file-no-ext:  Same as file, except you do not provide the
+        file extension. Tool will either know the extension
+        already or will be able to guess it.
+
+
+#  DIRECTIVES
+#############
+
+  c
+    Tells Pool to close Tool instances as soon as they finish processing.
+
+    #  ARGUMENTS
+    ############
+    None
+
+
+  cwd
+    Changes the current working directory, allowing Tool to operate on
+    folders it isn't inside. This allows you to use one copy of tool for
+    any number of separate tags directories and Halo CE installations.
+
+    #  ARGUMENTS
+    ############
+    <directory>  (dir)
+        The directory to set as the current working directory.
+        This is an absolute path, meaning it is not relative to anything.
+
+
+  del
+    Removes a variable from the list of replacements.
+    See the 'set' directive.
+
+    #  ARGUMENTS
+    ############
+    <var-name>  (str-no-quote)
+        Name of the variable to remove.
+
+
+  k
+    Tells Pool to keep Tool instances open, even after they finish processing.
+
+    #  ARGUMENTS
+    ############
+    None
+
+
+  run
+    Runs the specified file located in the current working directoy.
+    Any additional arguments after <exec-path> are passed along to the
+    executable when it is ran.
+    
+    Example:
+        # run haloce.exe  -console  -devmode
+
+    #  ARGUMENTS
+    ############
+    <exec-path>  (file)
+        Name of the executable to run.
+
+
+  set
+    Adds a variable to a list that can be used for text replacements.
+    To use the variable, you must put arrow braces around it.
+    
+    Example:
+        # set   dir   "levels\test\tutorial"
+    
+        structure   <dir>\tutorial
+        lightmaps   <dir>\tutorial  tutorial  1  0.000001
+        build-cache-file   <dir>\tutorial
+
+    #  ARGUMENTS
+    ############
+    <var-name>  (str-no-quote)
+        Name of the variable.
+
+    <var-value>  (str)
+        The string to replace any occurances of <var-name> with.
+
+
+  w
+    Tells Pool to wait until all currently running Tool instances
+    are closed before continuing executing commands and directives.
+
+    #  ARGUMENTS
+    ############
+    None
+
+
+
+
+#  TOOL COMMANDS
+################
+
+  animations
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  bitmap
+    
+
+    #  ARGUMENTS
+    ############
+    <source-file>  (file-no-ext)
+
+
+  bitmaps
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  build-cache-file
+    Builds a cache file with no Open Sauce enhancements whatsoever.
+
+    #  ARGUMENTS
+    ############
+    <scenario-name>  (file-no-ext)
+        Name of the .scenario to build the mapfile from.
+
+
+  build-cache-file-ex
+    Builds a cache file with extra Open Sauce arguments.
+
+    #  ARGUMENTS
+    ############
+    <mod-name>  (str)
+        The name of the mod this scenario belongs to.
+        This will also be used when naming the new data-files.
+
+    <create-anew>  (bool)
+        Should new data-files be created before building the map?
+
+    <store-resources>  (bool)
+        Store the scenarios bitmaps/sounds/locale data in the data-files?
+
+    <use-memory-upgrades>  (bool)
+        Does the scenario require Open Sauces memory upgrades to run?
+
+    <scenario-name>  (file-no-ext)
+        Name of the .scenario to build the mapfile from.
+
+
+  build-cache-file-new
+    Builds a cache file with extra Open Sauce arguments.
+
+    #  ARGUMENTS
+    ############
+    <create-anew>  (bool)
+        Should new data-files be created before building the map?
+
+    <store-resources>  (bool)
+        Store the scenarios bitmaps/sounds/locale data in the data-files?
+
+    <use-memory-upgrades>  (bool)
+        Does the scenario require Open Sauces memory upgrades to run?
+
+    <scenario-name>  (file-no-ext)
+        Name of the .scenario to build the mapfile from.
+
+
+  build-cpp-definition
+    
+
+    #  ARGUMENTS
+    ############
+    <tag-group>  (str-no-quote)
+
+    <add-boost-asserts>  (bool)
+
+
+  build-packed-file
+    unknown
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+    <output-directory>  (dir)
+
+    <file-definition-xml>  (file-no-ext)
+
+
+  collision-geometry
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  compile-scripts
+    
+
+    #  ARGUMENTS
+    ############
+    <scenario-name>  (file-no-ext)
+
+
+  compile-shader-postprocess
+    Creates shader_postprocess_generic tags from HLSL .fx shaders in the data directory.
+
+    #  ARGUMENTS
+    ############
+    <shader-directory>  (dir)
+        Directory that contains the shaders to compile
+
+
+  help
+    Displays help messages for some of the Open Sauce commands.
+
+    #  ARGUMENTS
+    ############
+    None
+
+
+  hud-messages
+    
+
+    #  ARGUMENTS
+    ############
+    <path>  (dir)
+
+    <scenario-name>  (str)
+
+
+  import-device-defaults
+    
+
+    #  ARGUMENTS
+    ############
+    <type>  (str-no-quote)
+
+    <savegame-path>  (file)
+
+
+  import-structure-lightmap-uvs
+    Replaces the lightmap UVs of a bsp with custom ones loaded from an obj file.
+    The obj file must have lightmaps grouped by object and have the group index
+    appending the group name (lightmap_0). Best way to ensure this is to export
+    a fresh lightmaps obj using Aether, import it into your modelling program,
+    and then ONLY edit the UVs to ensure the model matches the bsp.
+
+    #  ARGUMENTS
+    ############
+    <structure-bsp>  (file-no-ext)
+        Location of the target bsp, relative to the tags directory.
+
+    <obj-file>  (file-no-ext)
+        Location of the source obj, relative to the data directory.
+
+
+  lightmaps
+    
+
+    #  ARGUMENTS
+    ############
+    <scenario>  (file-no-ext)
+
+    <bsp-name>  (str)
+
+    <render-high-quality>  (bool)
+
+    <stop-threshold>  (float)
+
+
+  merge-scenery
+    
+
+    #  ARGUMENTS
+    ############
+    <source-scenario>  (file-no-ext)
+
+    <destination-scenario>  (file-no-ext)
+
+
+  model
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  physics
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  process-sounds
+    unknown
+
+    #  ARGUMENTS
+    ############
+    <root-path>  (dir)
+
+    <substring>  (str)
+
+    <effect>  (str-no-quote)
+
+    <value>  (float)
+
+
+  remove-os-tag-data
+    Removes OS tag data that would prevent loading in the stock tools.
+    Back up your tags before hand to be safe.
+
+    #  ARGUMENTS
+    ############
+    <tag-name>  (file-no-ext)
+        Name of the tag to clean.
+
+    <tag-type>  (str)
+        Type of the tag (the tags file extension).
+
+    <recursive>  (bool)
+        Whether to also process all tags referred to by the given tag.
+
+
+  runtime-cache-view
+    Allows you to view the contents of the tag cache in an executing
+    instance of Halo CE. See the tools own help for more details.
+
+    #  ARGUMENTS
+    ############
+    None
+
+
+  sounds
+    
+
+    #  ARGUMENTS
+    ############
+    <directory-name>  (dir)
+
+    <platform>  (str)
+
+    <use-high-quality(ogg_only)>  (bool)
+
+
+  sounds_by_type
+    unknown
+
+    #  ARGUMENTS
+    ############
+    <directory-name>  (dir)
+
+    <type>  (str)
+
+    <round-to-64-samples>  (bool)
+
+
+  strings
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  structure
+    
+
+    #  ARGUMENTS
+    ############
+    <scenario-directory>  (dir)
+
+    <bsp-name>  (str)
+
+
+  structure-breakable-surfaces
+    
+
+    #  ARGUMENTS
+    ############
+    <structure-name>  (str)
+
+
+  structure-lens-flares
+    
+
+    #  ARGUMENTS
+    ############
+    <bsp-name>  (str)
+
+
+  tag-load-test
+    Validates that a tag and ALL of its children can be loaded without error.
+    Optionally prints additional diagnostic information.
+
+    #  ARGUMENTS
+    ############
+    <tag-name>  (file-no-ext)
+        Root tag's path.
+
+    <group>  (str)
+        Root tag's group name.
+
+    <prompt-to-continue>  (bool)
+        Prompt to continue for each child tag.
+
+    <prompt-to-fix-unresolved>  (bool)
+        NOT YET IMPLEMENTED.
+
+    <load-non-resolving-refs>  (bool)
+        Load all tag_references, even if they're non-resolving.
+
+    <print-size>  (bool)
+        Print the total size of the tag hierarchy as well as the tag_group memory.
+
+    <verbose>  (bool)
+        Outputs progress/extra information as it processes the tags.
+
+
+  unicode-strings
+    
+
+    #  ARGUMENTS
+    ############
+    <source-directory>  (dir)
+
+
+  windows-font
+    
+
+    #  ARGUMENTS
+    ############
+    None
+
+
+  zoners_model_upgrade
+    unknown
+
+    #  ARGUMENTS
+    ############
+    None
+
+
