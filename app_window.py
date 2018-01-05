@@ -88,8 +88,8 @@ class HekPool(tk.Tk):
     curr_commands_list_name = None
     
     '''Window location and size'''
-    app_width = 400
-    app_height = 300
+    app_width = 630
+    app_height = 330
     app_offset_x = 0
     app_offset_y = 0
 
@@ -130,7 +130,9 @@ class HekPool(tk.Tk):
             type(self).fixed_font = Font(family="Terminal", size=10)
 
         self.title('%s v%s' % (self.app_name, self.version))
-        self.minsize(width=400, height=300)
+        self.minsize(width=450, height=150)
+        self.geometry("%sx%s" % (630, 330))
+        self.update()
         self.protocol("WM_DELETE_WINDOW", self.close)
 
         self.bind('<Control-o>', lambda e=None: self.load_commands_list())
@@ -156,7 +158,7 @@ class HekPool(tk.Tk):
         self.help_menu.add_command(label="Commands and Directives",
                                    command=self.show_help_in_text_editor)
         self.help_menu.add_command(label="Introduction",
-                                   command=self.start_introdution)
+                                   command=self.start_introduction)
 
 
 
@@ -295,7 +297,17 @@ class HekPool(tk.Tk):
         except Exception:
             print(traceback.format_exc())
 
-    def start_introdution(self):
+        if using_console:
+            messagebox.showerror(
+                "Currently using python with a console!",
+                "It is recommended to run Pool without a python console open if "
+                "possible. The console will prevent tool windows from appearing "
+                "as a separate window, preventing the use of the #k directive. "
+                "This will also redirect all tool output to the console, which "
+                "is very hard to read with 3+ tool commands going all at once.",
+                parent=self.commands_text)
+
+    def start_introduction(self):
         if self._execution_state or self._intro_mode:
             return
 
@@ -974,7 +986,11 @@ class HekPool(tk.Tk):
 
     def load_style(self):
         try:
-            with open(join(self.working_dir, STYLE_CFG_NAME), 'r') as f:
+            style_path = join(self.working_dir, STYLE_CFG_NAME)
+            if not isfile(style_path):
+                return
+
+            with open(style_path, 'r') as f:
                 data = ''
                 for line in f:
                     line = line.replace('\t', ' ').replace('\r', '\n').\
@@ -1510,7 +1526,8 @@ class HekPool(tk.Tk):
                                     pass
                             self._start_process(
                                 i, tool_path, exec_args, cmd_args, cwd=cwd,
-                                completed=completed, processes=processes)
+                                completed=completed, processes=processes,
+                                shell=using_console)
 
                             # set the command's text to the 'processing' color
                             self.set_line_style(i, "processing")
