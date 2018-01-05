@@ -33,6 +33,7 @@ setup(
         ],
     package_data={
         '': ['*.txt', '*.md', '*.rst', '*.pyw'],
+        'cmd_lists': ['*.txt'],
         },
     platforms=["POSIX", "Windows"],
     #keywords="",

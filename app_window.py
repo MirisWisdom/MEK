@@ -1,3 +1,4 @@
+import ctypes
 import gc
 import io
 import os
@@ -30,8 +31,10 @@ if "linux" in platform:
     platform = "linux"
 
 
+SetFileAttributesW = None
 if platform == "win32":
     TEXT_EDITOR_NAME = "notepad"
+    SetFileAttributesW = ctypes.windll.kernel32.SetFileAttributesW
 elif platform == "darwin":
     # I don't actually think this will work since mac seems to require
     # the "open" argument and the -a argument before the application name.
@@ -62,14 +65,17 @@ class HekPool(tk.Tk):
     _execution_state = 0  # 0 == not executing,  1 == executing
     _stop_processing = False
     _execution_thread = None
+    _template_opt_cache = None
     _reset_style_on_click = False
     _intro_mode = False
+    _pre_intro_text = ""
 
     fixed_font = None
 
     open_log = None
     clear_log = None
     smart_assist_on_rclick = None
+    supress_tool_beta_errors = None
     proc_limit = None
 
     last_load_dir = curr_dir
@@ -115,6 +121,7 @@ class HekPool(tk.Tk):
         self.clear_log = tk.BooleanVar(self)
         self.open_log  = tk.BooleanVar(self, 1)
         self.smart_assist_on_rclick = tk.BooleanVar(self, 1)
+        self.supress_tool_beta_errors = tk.BooleanVar(self, 1)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
@@ -182,6 +189,9 @@ class HekPool(tk.Tk):
         self.settings_menu.add("checkbutton",
                                variable=self.smart_assist_on_rclick,
                                label="Enable smart-assist when right-clicking")
+        self.settings_menu.add("checkbutton",
+                               variable=self.supress_tool_beta_errors,
+                               label="Fix toolbeta.map error")
 
         ''' LOAD THE CONFIG '''
         if self.config_file is not None:
@@ -236,18 +246,19 @@ class HekPool(tk.Tk):
         self.commands_text.bind('<Control-z>', self.reset_line_style)
         self.commands_text.bind('<Control-y>', self.reset_line_style)
         self.commands_text.bind('<Button-3>', self.right_click_cmd_text)
+        self.commands_text.tag_config("all")
 
         # make the start buttons
         self.buttons_frame = tk.Frame(self.commands_frame)
         self.process_button = tk.Button(
             self.buttons_frame, text="Process selected",
-            command=self.execute_selected_commands)
+            command=self.execute_selected_pressed)
         self.process_all_button = tk.Button(
             self.buttons_frame, text="Process all",
-            command=self.execute_commands)
+            command=self.execute_pressed)
         self.cancel_button = tk.Button(
             self.buttons_frame, text="Cancel",
-            command=self.cancel_unprocessed)
+            command=self.cancel_pressed)
         self.proc_limit_frame = tk.LabelFrame(self.buttons_frame,
                                               text="Max parallel processes")
         self.proc_limit_spinbox = tk.Spinbox(
@@ -285,10 +296,12 @@ class HekPool(tk.Tk):
             print(traceback.format_exc())
 
     def start_introdution(self):
-        if self._execution_state:
+        if self._execution_state or self._intro_mode:
             return
 
         self._intro_mode = True
+        self.title('%s v%s [INTRODUCTION MODE]' % (self.app_name, self.version))
+        self._pre_intro_text = self.commands_text.get('1.0', tk.END)
         self.commands_text.config(state=tk.NORMAL)
         self.commands_text.delete('1.0', tk.END)
         self.commands_text.insert('1.0', INTRODUCTION_TEXT)
@@ -360,7 +373,23 @@ class HekPool(tk.Tk):
             if help_info:
                 message = help_info[0]
                 if not message:
-                    message = "Sorry, no help text for %s just yet!" % cmd_type
+                    message = (
+                        "Sorry, no help text for the %s command just yet!" %
+                        cmd_type)
+
+                if len(help_info) == 1:
+                    message += "\n\nThis command accepts no arguments."
+                else:
+                    message += "\n\nArguments:"
+
+                    for arg_help in help_info[1:]:
+                        if len(arg_help[1]) >= 8:
+                            message += "\n    (%s)\t<%s>" % (arg_help[1],
+                                                             arg_help[0])
+                        else:
+                            message += "\n    (%s)\t\t<%s>" % (arg_help[1],
+                                                               arg_help[0])
+                    
                 messagebox.showinfo(cmd_type, message,
                                     parent=self.commands_text)
             return
@@ -513,11 +542,7 @@ class HekPool(tk.Tk):
         return int(self.commands_text.index(tk.END).split('.')[0])
 
     def apply_style(self):
-        color = text_tags_colors['default']
-        self.commands_text.tag_config("all")
-        self.commands_text.config(fg=color['fg'], bg=color['bg'],
-                                  insertbackground=color['fg'],
-                                  selectbackground=color['bg_highlight'])
+        def_color = text_tags_colors['default']
 
         for style_name, style_vals in text_tags_colors.items():
             if style_name == "default":
@@ -528,6 +553,20 @@ class HekPool(tk.Tk):
             if 'fg' in style_vals:
                 kw['foreground'] = style_vals['fg']
             self.commands_text.tag_config(style_name, **kw)
+
+        kw = dict()
+        if 'bg' in def_color:
+            kw['bg'] = def_color['bg']
+        if 'fg' in def_color:
+            kw['fg'] = kw['insertbackground'] = def_color['fg']
+        if 'insert_bg' in def_color:
+            kw['insertbackground'] = def_color['insert_bg']
+        if 'bg_highlight' in def_color:
+            kw['selectbackground'] = def_color['bg_highlight']
+        if 'fg_highlight' in def_color:
+            kw['selectforeground'] = def_color['fg_highlight']
+
+        self.commands_text.config(**kw)
 
     def show_help_in_text_editor(self):
         Thread(target=self._show_help_in_text_editor, daemon=True).start()
@@ -665,7 +704,7 @@ class HekPool(tk.Tk):
 ;
 ; Look at the bottom of this file for a list of all available Tool
 ; commands, Pool directives, and special keywords. You must type them
-; in EXACTLY how they appear(they are case sensitive). If the command
+; in EXACTLY as they appear(they are case sensitive). If the command
 ; doesn't appear in the menu when you right-click, it was misspelled.
 ;
 ; The cut, copy, and paste keywords cannot be used inside a cascade.
@@ -744,7 +783,7 @@ class HekPool(tk.Tk):
     def set_commands_list_folder(self):
         folder = askdirectory(
             initialdir=self.commands_lists_dir, parent=self,
-            title="Select the command lists directory")
+            title="Select the folder to save command lists")
 
         if folder:
             self.commands_lists_dir = folder
@@ -781,7 +820,7 @@ class HekPool(tk.Tk):
             data = f.read()
 
         if self._intro_mode:
-            self.cancel_unprocessed()
+            self.cancel_pressed()
 
         cmd_list_name = splitext(basename(filepath))[0]
         if cmd_list_name != LAST_CMD_LIST_NAME:
@@ -827,6 +866,13 @@ class HekPool(tk.Tk):
                 data = data[:-1]
             f.write(data)
 
+        if filename == LAST_CMD_LIST_NAME:
+            try:
+                # make it hidden
+                SetFileAttributesW(filepath, 2)
+            except Exception:
+                pass
+
         self.curr_commands_list_name = splitext(basename(filepath))[0]
 
     def apply_config(self):
@@ -859,6 +905,7 @@ class HekPool(tk.Tk):
         self.proc_limit.set(str(max(header.proc_limit, 1)))
         self.open_log.set(header.flags.open_log)
         self.smart_assist_on_rclick.set(header.flags.smart_assist_on_rclick)
+        self.supress_tool_beta_errors.set(header.flags.supress_tool_beta_errors)
         self.clear_log.set(header.flags.clear_log)
 
         self.geometry("%sx%s+%s+%s" %
@@ -888,6 +935,7 @@ class HekPool(tk.Tk):
         header.proc_limit = max(int(self.proc_limit.get()), 1)
         header.flags.open_log = self.open_log.get()
         header.flags.smart_assist_on_rclick = self.smart_assist_on_rclick.get()
+        header.flags.supress_tool_beta_errors = self.supress_tool_beta_errors.get()
         header.flags.clear_log = self.clear_log.get()
 
         for s in app_window.NAME_MAP.keys():
@@ -1031,13 +1079,17 @@ class HekPool(tk.Tk):
             if line is None:
                 return
 
-            completed[line] = processes.pop(line, None)
+            completed[line] = kw = processes.pop(line, {})
             if not app or processes is not app.processes:
                 return
 
             # set the command's text to the 'processed' or 'error' status
             if app._execution_state or app._reset_style_on_click:
-                if proc_c and proc_c.returncode:
+                if ("k" not in kw.get('cmd_args', ()) and
+                        proc_c and proc_c.returncode):
+                    # we HAVE to close windows manually with "k" as an
+                    # argument, so they will always return an error code.
+                    # in this case we ignore any error code they return.
                     self.set_line_style(line, "error")
                 else:
                     app.set_line_style(line, "processed")
@@ -1152,13 +1204,16 @@ class HekPool(tk.Tk):
         disabled |= not cmd_args
         return cmd_args, disabled
 
-    def cancel_unprocessed(self):
+    def cancel_pressed(self):
         self._stop_processing = True
         if self._intro_mode:
             self._intro_mode = False
+            self.title('%s v%s' % (self.app_name, self.version))
             self.commands_text.delete('1.0', tk.END)
+            self.commands_text.insert('1.0', self._pre_intro_text)
+            self.reset_line_style()
 
-    def execute_commands(self, start=None, stop=None):
+    def execute_pressed(self, start=None, stop=None):
         if not self._execution_thread:
             pass
         elif self._execution_thread.is_alive():
@@ -1167,7 +1222,7 @@ class HekPool(tk.Tk):
                                         kwargs=dict(start=start, stop=stop))
         self._execution_thread.start()
 
-    def execute_selected_commands(self):
+    def execute_selected_pressed(self):
         try:
             start = tuple(self.commands_text.index(tk.SEL_FIRST).split('.'))
             stop  = tuple(self.commands_text.index(tk.SEL_LAST).split('.'))
@@ -1180,7 +1235,7 @@ class HekPool(tk.Tk):
             start_y += 1
         if stop_x and self.commands_text.get("%s.%s" % stop) in ('\n', '\r'):
             stop_y += 1
-        self.execute_commands(start_y, stop_y)
+        self.execute_pressed(start_y, stop_y)
 
     def get_can_execute_command(self, cmd_args, loc_vars):
         cmd_type = cmd_args[0]
@@ -1213,6 +1268,12 @@ class HekPool(tk.Tk):
                 elif proc_type in (
                         "import-structure-lightmap-uvs", "lightmaps",
                         "structure", "structure-breakable-surfaces"):
+                    if proc_type == "structure" and cmd_type == "structure":
+                        # since tool creates specifically named temp files
+                        # for compiling bsps, I don't believe you can compile
+                        # multiple bsps in the same working directory at once.
+                        return False
+
                     proc_scnr_path = '' if len(proc_args) == 1 else proc_args[1]
 
                     if scnr_path == join(proc_scnr_path, ''):
@@ -1279,7 +1340,11 @@ class HekPool(tk.Tk):
         if self._execution_state:
             return
         elif not tool_path:
-            print("No Tool selected to process commands")
+            messagebox.showerror(
+                "No Tool.exe!",
+                "No tool.exe is selected to process commands.\n"
+                'Go to "File->Add Tool" and select the copy of\n'
+                "tool.exe you wish to use.")
             return
         self._execution_state = True
         self._stop_processing = False
@@ -1376,7 +1441,7 @@ class HekPool(tk.Tk):
                         else:
                             self.set_line_style(i, "error")
                     elif typ == "run":
-                        if self._intro_mode:
+                        if self._intro_mode or self._stop_processing:
                             completed[i] = dict()
                             self.set_line_style(i, "processed")
                         else:
@@ -1395,7 +1460,7 @@ class HekPool(tk.Tk):
 
                     log_path = join(cwd, 'debug.txt')
                     if log_path not in log_paths:
-                        if clear_log:
+                        if clear_log and not self._intro_mode:
                             try:
                                 with open(log_path, "w") as f:
                                     f.truncate()
@@ -1428,11 +1493,21 @@ class HekPool(tk.Tk):
                         curr_max_proc_ct = 0
 
                         # start the command
-                        cmd_args = (a for a in cmd_args_dict if cmd_args_dict[a])
-                        if self._intro_mode:
+                        cmd_args = tuple(a for a in cmd_args_dict if cmd_args_dict[a])
+                        if self._intro_mode or self._stop_processing:
                             completed[i] = {}
                             self.set_line_style(i, "processed")
                         else:
+                            if self.supress_tool_beta_errors.get():
+                                toolbeta_path = join(cwd, "toolbeta.map")
+                                try:
+                                    if not isfile(toolbeta_path):
+                                        with open(toolbeta_path, 'w') as f:
+                                            f.write("I shouldn't have had to do this...")
+                                        if SetFileAttributesW:
+                                            SetFileAttributesW(toolbeta_path, 2)
+                                except Exception:
+                                    pass
                             self._start_process(
                                 i, tool_path, exec_args, cmd_args, cwd=cwd,
                                 completed=completed, processes=processes)
@@ -1492,9 +1567,21 @@ class HekPool(tk.Tk):
                 print(format_exc())
 
     def generate_templates_menu(self):
-        # THIS CAUSES A MEMORY LEAK!
-        # NEED TO PROPERLY DELETE ALL THE ITEMS
+        if self._template_opt_cache == TEMPLATE_MENU_LAYOUT:
+            for i in range(len(TEMPLATE_MENU_LAYOUT)):
+                item, state = TEMPLATE_MENU_LAYOUT[i], tk.DISABLED
+                if item not in ("<<cut>>", "<<copy>>", "<<paste>>"):
+                    continue
+                elif ((item == "<<paste>>" and self.check_can_paste()) or
+                      (item != "<<paste>>" and self.check_can_copy())):
+                    state = tk.NORMAL
+
+                self.templates_menu.entryconfigure(i, state=state)
+
+            return
+            
         self.templates_menu.delete(0, "end")
+        self._template_opt_cache = list(TEMPLATE_MENU_LAYOUT)
 
         # generate the options for templates_menu
         for item in TEMPLATE_MENU_LAYOUT:
@@ -1519,6 +1606,9 @@ class HekPool(tk.Tk):
             new_menu = tk.Menu(self.templates_menu, tearoff=0)
             self.templates_menu.add_cascade(label=casc_name, menu=new_menu)
             for name in temp_names:
+                if name == "<<divider>>":
+                    new_menu.add_separator()
+                    continue
                 new_menu.add_command(label=name, command=lambda n=name:
                                      self.insert_template(n))
 
