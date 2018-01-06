@@ -124,7 +124,22 @@ The argument types are as follows:
 ################
 
   animations
+    Compiles a folder of jma/jmm/jmo/jmr/jmt/jmw/jmz animations in the data folder into a model_animations tag. The directory you specify must contain these files in a folder named "animations". Do NOT type the "animations" part of the path; it is implied.
     
+    Each jm* type compiles to a different type of animation. dx/dy/dz means the animation will permanently move the object in the world on that/those axis, while dyaw means it will permanently rotate the object. These are typically used for movement and turning.
+    
+    base (overlays be be played on it)
+           jmm:    none
+           jmw:    none (completely world relative)
+           jma:    dx/dy
+           jmt:    dx/dy/dyaw
+           jmz:    dx/dy/dz/dyaw
+    
+    overlay (played on the current base {aiming, tire suspension, etc})
+           jmo:    none
+    
+    replacement (replaces anything being played {grenade throw, etc})
+           jmr:    dx/dy
 
     #  ARGUMENTS
     ############
@@ -132,7 +147,7 @@ The argument types are as follows:
 
 
   bitmap
-    
+    Compiles the .tif image specified into a bitmap tag. Name the file with a .tif extension, not .tiff(tool only looks for .tif files). Once the bitmap is compiled, you may edit it in Guerilla or Mozzarilla to change how tool processes and compiles it. When you are done, run this command again to process it with those setting applied.
 
     #  ARGUMENTS
     ############
@@ -140,7 +155,7 @@ The argument types are as follows:
 
 
   bitmaps
-    
+    Compiles a folder of .tif images in the data folder into bitmap tags. Name them with a .tif extension, not .tiff(tool only looks for .tif files). Once the tags are compiled, you may edit them in Guerilla or Mozzarilla to change how tool processes and compiles them. When you are done, run this command again to process them with those setting applied.
 
     #  ARGUMENTS
     ############
@@ -197,8 +212,6 @@ The argument types are as follows:
 
 
   build-cpp-definition
-    
-
     #  ARGUMENTS
     ############
     <tag-group>  (str-no-quote)
@@ -207,8 +220,6 @@ The argument types are as follows:
 
 
   build-packed-file
-    unknown
-
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
@@ -219,16 +230,12 @@ The argument types are as follows:
 
 
   collision-geometry
-    
-
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
 
 
   compile-scripts
-    
-
     #  ARGUMENTS
     ############
     <scenario-name>  (file-no-ext)
@@ -252,8 +259,6 @@ The argument types are as follows:
 
 
   hud-messages
-    
-
     #  ARGUMENTS
     ############
     <path>  (dir)
@@ -262,8 +267,6 @@ The argument types are as follows:
 
 
   import-device-defaults
-    
-
     #  ARGUMENTS
     ############
     <type>  (str-no-quote)
@@ -288,8 +291,6 @@ The argument types are as follows:
 
 
   lightmaps
-    
-
     #  ARGUMENTS
     ############
     <scenario>  (file-no-ext)
@@ -302,8 +303,6 @@ The argument types are as follows:
 
 
   merge-scenery
-    
-
     #  ARGUMENTS
     ############
     <source-scenario>  (file-no-ext)
@@ -312,24 +311,18 @@ The argument types are as follows:
 
 
   model
-    
-
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
 
 
   physics
-    
-
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
 
 
   process-sounds
-    unknown
-
     #  ARGUMENTS
     ############
     <root-path>  (dir)
@@ -367,8 +360,6 @@ The argument types are as follows:
 
 
   sounds
-    
-
     #  ARGUMENTS
     ############
     <directory-name>  (dir)
@@ -379,8 +370,6 @@ The argument types are as follows:
 
 
   sounds_by_type
-    unknown
-
     #  ARGUMENTS
     ############
     <directory-name>  (dir)
@@ -391,16 +380,12 @@ The argument types are as follows:
 
 
   strings
-    
-
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
 
 
   structure
-    
-
     #  ARGUMENTS
     ############
     <scenario-directory>  (dir)
@@ -409,19 +394,15 @@ The argument types are as follows:
 
 
   structure-breakable-surfaces
-    
-
     #  ARGUMENTS
     ############
-    <structure-name>  (str)
+    <structure-name>  (file-no-ext)
 
 
   structure-lens-flares
-    
-
     #  ARGUMENTS
     ############
-    <bsp-name>  (str)
+    <bsp-name>  (file-no-ext)
 
 
   tag-load-test
@@ -453,24 +434,18 @@ The argument types are as follows:
 
 
   unicode-strings
-    
-
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
 
 
   windows-font
-    
-
     #  ARGUMENTS
     ############
     None
 
 
   zoners_model_upgrade
-    unknown
-
     #  ARGUMENTS
     ############
     None

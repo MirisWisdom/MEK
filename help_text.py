@@ -2,7 +2,7 @@ import os
 import traceback
 from supyr_struct.defs.frozen_dict import FrozenDict
 
-INTRODUCTION_TEXT = ''';                            HELLO!
+README_TEXT = ''';                            HELLO!
 ; Don't worry if you had something typed in here before. Once you click
 ; the Cancel button to exit this introduction it will be pasted back in.
 ; Any tool commands ran while in this "introduction" mode wont actually
@@ -21,14 +21,21 @@ INTRODUCTION_TEXT = ''';                            HELLO!
 
 
 ;                       GETTING STARTED
-; To use Pool in the most simple way possible, go to "File->Add Tool"
-; and select the tool.exe you want to use. Then just type commands into
-; this text box like you would normally when running tool in cmd.exe.
-; A couple examples(useful ones) can be viewed by going to "File->Open"
+; To use Pool at all, you first need to select the tool.exe to use.
+; Pool will try to detect your copies of tool when it loads if none
+; have been added. To add one, go to "File->Add Tool" and browse to
+; the tool.exe you want to use. To switch tools, click the menu to
+; the left of "Help". It will show you all tools it knows about.
+
+; Now you're all set, and you can just type commands into this text
+; box like you would normally when running tool in the command line.
+; A couple useful examples can be viewed by going to "File->Open"
 ; and opening one of the text files in the command lists folder.
 
 
 ;                       HOW TO USE POOL
+; Just enter commands like you would for running Tool in command line.
+; Once you've typed them in, hit "Process all" or "Process selected".
 ; Lines starting with a ; or a / are considered disabled(they are
 ; basically comments), and are ignored when processing. Lines that
 ; begin with a # are considered directives and do special things.
@@ -75,25 +82,54 @@ INTRODUCTION_TEXT = ''';                            HELLO!
 ; fun to add another tool(lul) to the MEK that sort-of replaces one
 ; of Bungie's original hek programs. I'm not insane enough to write
 ; an actual REPLACEMENT for tool.exe, so this is good enough for me.
-
-
-;            WHY DID YOU NAME IT POOL?  IS THIS A JOKE??'''
+'''
 
 HELP_NAME = "help.txt"
 
 TOOL_COMMAND_HELP = FrozenDict({
     "animations": (
-        "",
+        "Compiles a folder of jma/jmm/jmo/jmr/jmt/jmw/jmz animations in "
+        "the data folder into a model_animations tag. The directory you "
+        'specify must contain these files in a folder named "animations". '
+        'Do NOT type the "animations" part of the path; it is implied.\n'
+        "\n"
+        "Each jm* type compiles to a different type of animation. dx/dy/dz "
+        "means the animation will permanently move the object in the world "
+        "on that/those axis, while dyaw means it will permanently rotate "
+        "the object. These are typically used for movement and turning.\n"
+        "\n"
+        "base (overlays be be played on it)\n"
+        "       jmm:    none\n"
+        "       jmw:    none (completely world relative)\n"
+        "       jma:    dx/dy\n"
+        "       jmt:    dx/dy/dyaw\n"
+        "       jmz:    dx/dy/dz/dyaw\n"
+        "\n"
+        "overlay (played on the current base {aiming, tire suspension, etc})\n"
+        "       jmo:    none\n"
+        "\n"
+        "replacement (replaces anything being played {grenade throw, etc})\n"
+        "       jmr:    dx/dy",
         ("source-directory", 'dir',
          ""),
         ),
     "bitmap": (
-        "",
+        "Compiles the .tif image specified into a bitmap tag. Name the "
+        "file with a .tif extension, not .tiff(tool only looks for .tif "
+        "files). Once the bitmap is compiled, you may edit it in Guerilla "
+        "or Mozzarilla to change how tool processes and compiles it. "
+        "When you are done, run this command again to process it with "
+        "those setting applied.",
         ("source-file", 'file-no-ext',
          ""),
         ),
     "bitmaps": (
-        "",
+        "Compiles a folder of .tif images in the data folder into bitmap "
+        "tags. Name them with a .tif extension, not .tiff(tool only looks "
+        "for .tif files). Once the tags are compiled, you may edit them in "
+        "Guerilla or Mozzarilla to change how tool processes and compiles "
+        "them. When you are done, run this command again to process them "
+        "with those setting applied.",
         ("source-directory", 'dir',
          ""),
         ),
@@ -135,7 +171,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          ""),
         ),
     "build-packed-file": (
-        'unknown',
+        '',
         ("source-directory", 'dir', ''),
         ("output-directory", 'dir', ''),
         ("file-definition-xml", 'file-no-ext', ''),
@@ -210,7 +246,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          ""),
         ),
     "process-sounds": (
-        'unknown',
+        '',
         ("root-path", 'dir', ''),
         ("substring", 'str', ''),
         ("effect", 'str-no-quote', ''),
@@ -238,7 +274,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          ""),
         ),
     "sounds_by_type": (
-        'unknown',
+        '',
         ("directory-name", 'dir', ''),
         ("type", 'str', ''),
         ("round-to-64-samples", 'bool', ''),
@@ -257,12 +293,12 @@ TOOL_COMMAND_HELP = FrozenDict({
         ),
     "structure-breakable-surfaces": (
         "",
-        ("structure-name", 'str',
+        ("structure-name", 'file-no-ext',
          ""),
         ),
     "structure-lens-flares": (
         "",
-        ("bsp-name", 'str',
+        ("bsp-name", 'file-no-ext',
          ""),
         ),
     "tag-load-test": (
@@ -290,7 +326,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         "",
         ),
     "zoners_model_upgrade": (
-        'unknown',
+        '',
         ),
     })
 
@@ -391,10 +427,11 @@ The argument types are as follows:
             cmd_help, params_help = info[cmd_name][0], info[cmd_name][1:]
 
             indent = " "*4
-            for line in cmd_help.split('\n'):
-                help_text += indent + line + '\n'
+            if cmd_help:
+                for line in cmd_help.split('\n'):
+                    help_text += indent + line + '\n'
+                help_text += '\n'
 
-            help_text += '\n'
             help_text += "%s#  ARGUMENTS\n" % indent
             help_text += "%s############\n" % indent
             if not params_help:

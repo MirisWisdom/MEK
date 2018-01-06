@@ -21,7 +21,7 @@ from binilla.widgets import BinillaWidget
 from binilla.util import float_to_str
 
 from hek_pool.constants import *
-from hek_pool.help_text import INTRODUCTION_TEXT, HELP_NAME,\
+from hek_pool.help_text import README_TEXT, HELP_NAME,\
      TOOL_COMMAND_HELP, DIRECTIVES_HELP, generate_help
 from hek_pool.config_def import config_def, CFG_DIRS
 
@@ -59,6 +59,37 @@ if using_console:
         using_console = False
 
 
+program_files_dir = ':\\Program Files'
+for char in 'CDEFGHIJKLMNOPQRSTUVWXYZ':
+    if exists(char + program_files_dir + ' (x86)'):
+        program_files_dir += ' (x86)'
+        break
+    elif exists(char + program_files_dir):
+        break
+
+program_files_dir = char + program_files_dir
+halo_dir = join(program_files_dir, 'Microsoft Games\\Halo Custom Edition')
+
+
+def null_physics_jms_model_data(cwd, cmd_args):
+    return
+    # literally just insert two lines with a zero on each directly
+    # after the regions are defined. This will be enough to fix the
+    # physics jms model so it doesn't screw up collision compilation
+    if not hasattr(cmd_args, '__len__') or len(cmd_args) < 2:
+        return
+    cmd_type, obje_dir = cmd_args[0], cmd_args[1]
+    phys_filepath = join(cwd, "data", obje_dir, 'physics', 'physics.jms')
+    if not isfile(phys_filepath):
+        return
+
+    try:
+        with open(phys_filepath, 'r+') as f:
+            pass
+    except Exception:
+        pass
+
+
 class HekPool(tk.Tk):
     processes = ()
 
@@ -67,8 +98,8 @@ class HekPool(tk.Tk):
     _execution_thread = None
     _template_opt_cache = None
     _reset_style_on_click = False
-    _intro_mode = False
-    _pre_intro_text = ""
+    _readme_mode = False
+    _pre_readme_text = ""
 
     fixed_font = None
 
@@ -76,9 +107,10 @@ class HekPool(tk.Tk):
     clear_log = None
     smart_assist_on_rclick = None
     supress_tool_beta_errors = None
+    null_physics_model_data = None
     proc_limit = None
 
-    last_load_dir = curr_dir
+    last_load_dir = halo_dir
     working_dir = curr_dir
     commands_lists_dir = join(curr_dir, "cmd_lists")
 
@@ -86,7 +118,7 @@ class HekPool(tk.Tk):
 
     curr_tool_index = -1
     curr_commands_list_name = None
-    
+
     '''Window location and size'''
     app_width = 630
     app_height = 330
@@ -102,7 +134,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '0.9.0'
+    version = '0.9.2'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -122,9 +154,11 @@ class HekPool(tk.Tk):
         self.open_log  = tk.BooleanVar(self, 1)
         self.smart_assist_on_rclick = tk.BooleanVar(self, 1)
         self.supress_tool_beta_errors = tk.BooleanVar(self, 1)
+        self.null_physics_model_data = tk.BooleanVar(self, 1)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
+        self.tool_paths = []
 
         if type(self).fixed_font is None:
             type(self).fixed_font = Font(family="Terminal", size=10)
@@ -155,11 +189,6 @@ class HekPool(tk.Tk):
         self.main_menu.add_cascade(label="Templates", menu=self.templates_menu)
         self.main_menu.add_cascade(label="Select Tool", menu=self.tools_menu)
         self.main_menu.add_cascade(label="Help", menu=self.help_menu)
-        self.help_menu.add_command(label="Commands and Directives",
-                                   command=self.show_help_in_text_editor)
-        self.help_menu.add_command(label="Introduction",
-                                   command=self.start_introduction)
-
 
 
         self.file_menu.add_command(label="Open...",
@@ -184,6 +213,7 @@ class HekPool(tk.Tk):
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.close)
 
+
         self.settings_menu.add("checkbutton", variable=self.clear_log,
                                label="Clear debug.txt's before processing")
         self.settings_menu.add("checkbutton", variable=self.open_log,
@@ -194,6 +224,15 @@ class HekPool(tk.Tk):
         self.settings_menu.add("checkbutton",
                                variable=self.supress_tool_beta_errors,
                                label="Fix toolbeta.map error")
+        #self.settings_menu.add("checkbutton",
+        #                       variable=self.null_physics_model_data,
+        #                       label='Fix physics.jms breaking "collision-geometry" command')
+
+
+        self.help_menu.add_command(label="Readme",
+                                   command=self.start_readme)
+        self.help_menu.add_command(label="Commands and Directives",
+                                   command=self.show_help_in_text_editor)
 
         ''' LOAD THE CONFIG '''
         if self.config_file is not None:
@@ -209,6 +248,14 @@ class HekPool(tk.Tk):
             # make a config file
             self.make_config()
 
+        if not self.tool_paths:
+            if isfile(join(halo_dir, "tool.exe")):
+                self.add_tool_path(join(halo_dir, "tool.exe"))
+            if isfile(join(halo_dir, "os_tool.exe")):
+                self.add_tool_path(join(halo_dir, "os_tool.exe"))
+            if self.tool_paths:
+                self.config_file.data.header.last_tool_index = len(self.tool_paths)
+
         if not exists(self.working_dir):
             try:
                 dirs = self.config_file.data.directory_paths
@@ -216,7 +263,7 @@ class HekPool(tk.Tk):
                                         self.working_dir = curr_dir
             except Exception:
                 print(format_exc())
-            
+
         try:
             self.load_style()
         except Exception:
@@ -290,7 +337,7 @@ class HekPool(tk.Tk):
         if isfile(join(self.commands_lists_dir, LAST_CMD_LIST_NAME + '.txt')):
             self.load_commands_list(LAST_CMD_LIST_NAME)
         else:
-            self.start_introduction()
+            self.start_readme()
 
         try:
             generate_help(True)
@@ -307,16 +354,16 @@ class HekPool(tk.Tk):
                 "is very hard to read with 3+ tool commands going all at once.",
                 parent=self.commands_text)
 
-    def start_introduction(self):
-        if self._execution_state or self._intro_mode:
+    def start_readme(self):
+        if self._execution_state or self._readme_mode:
             return
 
-        self._intro_mode = True
-        self.title('%s v%s [INTRODUCTION MODE]' % (self.app_name, self.version))
-        self._pre_intro_text = self.commands_text.get('1.0', tk.END)
+        self._readme_mode = True
+        self.title('%s v%s [README MODE]' % (self.app_name, self.version))
+        self._pre_readme_text = self.commands_text.get('1.0', tk.END)
         self.commands_text.config(state=tk.NORMAL)
         self.commands_text.delete('1.0', tk.END)
-        self.commands_text.insert('1.0', INTRODUCTION_TEXT)
+        self.commands_text.insert('1.0', README_TEXT)
         self.reset_line_style()
 
     def right_click_cmd_text(self, e):
@@ -401,7 +448,7 @@ class HekPool(tk.Tk):
                         else:
                             message += "\n    (%s)\t\t<%s>" % (arg_help[1],
                                                                arg_help[0])
-                    
+
                 messagebox.showinfo(cmd_type, message,
                                     parent=self.commands_text)
             return
@@ -521,7 +568,7 @@ class HekPool(tk.Tk):
                 else:
                     for opt in opts:
                         message += "    %s\n" % opt
-                
+
             messagebox.showinfo(name, message, parent=self.commands_text)
 
         # Apply the new value
@@ -831,7 +878,7 @@ class HekPool(tk.Tk):
         with open(filepath, 'r') as f:
             data = f.read()
 
-        if self._intro_mode:
+        if self._readme_mode:
             self.cancel_pressed()
 
         cmd_list_name = splitext(basename(filepath))[0]
@@ -871,7 +918,11 @@ class HekPool(tk.Tk):
         if directory and not exists(directory):
             os.makedirs(directory)
 
-        with open(filepath, 'w') as f:
+        # use r+ mode rather than w if the file exists since it might be hidden.
+        # apparently on windows the w mode will fail to open hidden files.
+        mode = 'r+' if isfile(filepath) else 'w'
+        with open(filepath, mode) as f:
+            f.truncate(0)
             data = self.commands_text.get('1.0', tk.END)
             if data[-1] in '\n\r':
                 # always seems to be an extra new line. remove that.
@@ -918,6 +969,7 @@ class HekPool(tk.Tk):
         self.open_log.set(header.flags.open_log)
         self.smart_assist_on_rclick.set(header.flags.smart_assist_on_rclick)
         self.supress_tool_beta_errors.set(header.flags.supress_tool_beta_errors)
+        self.null_physics_model_data.set(header.flags.null_physics_model_data)
         self.clear_log.set(header.flags.clear_log)
 
         self.geometry("%sx%s+%s+%s" %
@@ -948,6 +1000,7 @@ class HekPool(tk.Tk):
         header.flags.open_log = self.open_log.get()
         header.flags.smart_assist_on_rclick = self.smart_assist_on_rclick.get()
         header.flags.supress_tool_beta_errors = self.supress_tool_beta_errors.get()
+        header.flags.null_physics_model_data = self.null_physics_model_data.get()
         header.flags.clear_log = self.clear_log.get()
 
         for s in app_window.NAME_MAP.keys():
@@ -1125,14 +1178,21 @@ class HekPool(tk.Tk):
         new_thread.start()
 
     def reset_line_style(self, e=None):
-        for color_to_remove in text_tags_colors:
-            self.commands_text.tag_remove(color_to_remove, "1.0", tk.END)
-    
+        styles = {}
         for line in range(1, self.get_command_count()):
             style = self.get_line_style(line)
             if style is None:
                 continue
-            self.commands_text.tag_add(style, '%d.0' % line, '%d.end' % line)
+            styles[style] = styles.get(style, [])
+            styles[style].append(line)
+
+        for color_to_remove in text_tags_colors:
+            self.commands_text.tag_remove(color_to_remove, "1.0", tk.END)
+
+        for style, lines in styles.items():
+            for line in lines:
+                self.commands_text.tag_add(
+                    style, '%d.0' % line, '%d.end' % line)
 
     def get_line_style(self, line):
         cmd_str, disabled = self.get_command(line)
@@ -1222,12 +1282,29 @@ class HekPool(tk.Tk):
 
     def cancel_pressed(self):
         self._stop_processing = True
-        if self._intro_mode:
-            self._intro_mode = False
+        if self._readme_mode:
+            self._readme_mode = False
             self.title('%s v%s' % (self.app_name, self.version))
             self.commands_text.delete('1.0', tk.END)
-            self.commands_text.insert('1.0', self._pre_intro_text)
+            self.commands_text.insert('1.0', self._pre_readme_text)
             self.reset_line_style()
+
+    def execute_selected_pressed(self):
+        try:
+            start = tuple(self.commands_text.index(tk.SEL_FIRST).split('.'))
+            stop  = tuple(self.commands_text.index(tk.SEL_LAST).split('.'))
+
+            start_y, start_x = int(start[0]), int(start[1])
+            stop_y,  stop_x  = int(stop[0]),  int(stop[1])
+            if start_x and self.commands_text.get("%s.%s" % start) in ('\n', '\r'):
+                start_y += 1
+            if stop_x and self.commands_text.get("%s.%s" % stop) in ('\n', '\r'):
+                stop_y += 1
+        except tk.TclError:
+            start_y = stop_y = int(
+                self.commands_text.index(tk.INSERT).split('.')[0])
+
+        self.execute_pressed(start_y, stop_y)
 
     def execute_pressed(self, start=None, stop=None):
         if not self._execution_thread:
@@ -1238,71 +1315,91 @@ class HekPool(tk.Tk):
                                         kwargs=dict(start=start, stop=stop))
         self._execution_thread.start()
 
-    def execute_selected_pressed(self):
-        try:
-            start = tuple(self.commands_text.index(tk.SEL_FIRST).split('.'))
-            stop  = tuple(self.commands_text.index(tk.SEL_LAST).split('.'))
-        except tk.TclError:
-            return
-
-        start_y, start_x = int(start[0]), int(start[1])
-        stop_y,  stop_x  = int(stop[0]),  int(stop[1])
-        if start_x and self.commands_text.get("%s.%s" % start) in ('\n', '\r'):
-            start_y += 1
-        if stop_x and self.commands_text.get("%s.%s" % stop) in ('\n', '\r'):
-            stop_y += 1
-        self.execute_pressed(start_y, stop_y)
-
     def get_can_execute_command(self, cmd_args, loc_vars):
-        cmd_type = cmd_args[0]
-        is_directive = False
-        if cmd_type in DIRECTIVE_START_STRS:
-            is_directive = True
-            cmd_type = None if len(cmd_args) == 1 else cmd_args[1]
+        cmd_type = '' if not cmd_args else cmd_args[0]
+        if not cmd_type or cmd_type in DIRECTIVE_START_STRS:
+            return True
 
         cwd = join(loc_vars.get('cwd', '').lower(), '')
 
-        if len(cmd_args) - is_directive < 2:
+        if len(cmd_args) < 2:
             # no arguments for the command, so nothing to compare
             pass
         elif cmd_type in (
                 "build-cache-file", "build-cache-file-ex", "lightmaps",
                 "build-cache-file-new", "import-structure-lightmap-uvs",
-                "structure", "structure-breakable-surfaces", "merge-scenery"):
+                "structure", "structure-breakable-surfaces", "merge-scenery",
+                "structure-lens-flares"):
             # doing something involving scenarios and/or bsp's
 
-            scnr_path = join(cmd_args[1].lower(), '')
+            bsp_path = ''
+            scnr_paths = set()
+            if cmd_type in (
+                    "import-structure-lightmap-uvs",
+                    "structure-breakable-surfaces", "structure-lens-flares"):
+                bsp_path = cmd_args[1].lower()
+            elif cmd_type == 'structure':
+                bsp_path = join(cmd_args[1].lower(), '' if
+                                len(cmd_args) < 3 else cmd_args[2].lower())
+            else:
+                scnr_path = cmd_args[1].lower()
+                scnr_paths.add(scnr_path)
+                if cmd_type == 'lightmaps' and len(cmd_args) > 2:
+                    bsp_path = join(dirname(scnr_path),
+                                    cmd_args[2].lower())
+                elif cmd_type == "merge-scenery":
+                    scnr_paths.add(cmd_args[2].lower())
+
             for proc_i, proc_info in tuple(self.processes.items()):
                 if not proc_info: continue
                 # make sure not trying to do any tag creation in the same
                 # folder at the same time we're trying to build a map in it
                 proc_args = proc_info['exec_args']
                 proc_type = proc_args[0]
+                proc_bsp_path = ''
+                proc_scnr_paths = set()
                 if join(proc_info.get('cwd', '').lower(), '') != cwd:
                     # not the same cwd. safe to run.
-                    pass
-                elif proc_type in (
-                        "import-structure-lightmap-uvs", "lightmaps",
-                        "structure", "structure-breakable-surfaces"):
-                    if proc_type == "structure" and cmd_type == "structure":
-                        # since tool creates specifically named temp files
-                        # for compiling bsps, I don't believe you can compile
-                        # multiple bsps in the same working directory at once.
-                        return False
-
-                    proc_scnr_path = '' if len(proc_args) == 1 else proc_args[1]
-
-                    if scnr_path == join(proc_scnr_path, ''):
-                        # edits the same scenario or bsp as the one
-                        # currently being processed. NOT safe to run!
-                        return False
-                elif proc_type == "merge-scenery":
-                    pass
+                    continue
+                elif ('build-cache-file' in proc_type and
+                      'build-cache-file' in cmd_type):
+                    # cant build two maps at the same time
+                    return False
+                elif proc_type == "structure" and cmd_type == "structure":
+                    # since tool creates specifically named temp files
+                    # for compiling bsps, I don't believe you can compile
+                    # multiple bsps in the same working directory at once.
+                    return False
+                elif proc_type in ("import-structure-lightmap-uvs",
+                                   "structure-breakable-surfaces",
+                                   "structure-lens-flares"):
+                    proc_bsp_path = '' if len(proc_args) == 1 else\
+                                    proc_args[1].lower()
+                elif proc_type == "lightmaps" and len(proc_args) > 2:
+                    proc_scnr_path = proc_args[1].lower()
+                    proc_scnr_paths.add(proc_scnr_path)
+                    proc_bsp_path = join(dirname(proc_scnr_path),
+                                         proc_args[2].lower())
+                elif proc_type == "structure" and len(proc_args) > 2:
+                    proc_bsp_path = join(proc_args[1].lower(),
+                                         proc_args[2].lower())
+                elif proc_type == "merge-scenery" and len(proc_args) > 2:
+                    proc_scnr_paths.add(proc_args[1].lower())
+                    proc_scnr_paths.add(proc_args[2].lower())
                 elif proc_type not in (
                         "build-cpp-definition", "build-packed-file", "help",
                         "runtime-cache-view", "windows-font"):
-                    # a command that edits tags. NOT safe to run!
+                    # a command that edits tags or wasnt properly formed.
+                    # NOT safe to run!
                     return False
+
+                if '' in scnr_paths: scnr_paths.remove('')
+                if '' in proc_scnr_paths: proc_scnr_paths.remove('')
+
+                if not(scnr_paths.isdisjoint(proc_scnr_paths) and
+                       (not bsp_path or bsp_path != proc_bsp_path)):
+                    return False
+
         elif cmd_type in ("bitmap", "import-device-defaults"):
             path_arg_i = 1
             if cmd_type == "import-device-defaults":
@@ -1311,14 +1408,16 @@ class HekPool(tk.Tk):
             if len(cmd_args) < path_arg_i + 1:
                 # not enough args to check
                 return True
-            
+
             path_arg = join(cmd_args[path_arg_i].lower(), '')
             for proc_i, proc_info in self.processes.items():
                 if not proc_info: continue
                 proc_args = proc_info['exec_args']
                 proc_type = proc_args[0]
 
-                if (join(proc_info.get('cwd', '').lower(), '') != cwd or
+                if "build-cache-file" in proc_type:
+                    return False
+                elif (join(proc_info.get('cwd', '').lower(), '') != cwd or
                         proc_type != cmd_type or len(proc_args) <= path_arg_i):
                     # not the same cwd, a different command, or not enough args.
                     # safe to run(i think).
@@ -1333,8 +1432,10 @@ class HekPool(tk.Tk):
             for proc_i, proc_info in self.processes.items():
                 if not proc_info: continue
                 proc_type, proc_args = proc_info['exec_args'][0],\
-                                           proc_info['exec_args'][1:]
-                if (join(proc_info.get('cwd', '').lower(), '') != cwd or
+                                       proc_info['exec_args'][1:]
+                if "build-cache-file" in proc_type:
+                    return False
+                elif (join(proc_info.get('cwd', '').lower(), '') != cwd or
                         proc_type != cmd_type or not proc_args):
                     # not the same cwd, a different command, or no args.
                     # safe to run(i think).
@@ -1362,14 +1463,15 @@ class HekPool(tk.Tk):
                 'Go to "File->Add Tool" and select the copy of\n'
                 "tool.exe you wish to use.")
             return
-        self._execution_state = True
-        self._stop_processing = False
 
         error = None
         log_paths, loc_vars = set(), dict()
         open_log, clear_log = self.open_log.get(), self.clear_log.get()
         try:
             self.reset_line_style()
+
+            self._execution_state = True
+            self._stop_processing = False
             self.commands_text.config(state=tk.DISABLED)
             time_start = time()
             if start is None: start = 1
@@ -1457,7 +1559,7 @@ class HekPool(tk.Tk):
                         else:
                             self.set_line_style(i, "error")
                     elif typ == "run":
-                        if self._intro_mode or self._stop_processing:
+                        if self._readme_mode or self._stop_processing:
                             completed[i] = dict()
                             self.set_line_style(i, "processed")
                         else:
@@ -1476,7 +1578,7 @@ class HekPool(tk.Tk):
 
                     log_path = join(cwd, 'debug.txt')
                     if log_path not in log_paths:
-                        if clear_log and not self._intro_mode:
+                        if clear_log and not self._readme_mode:
                             try:
                                 with open(log_path, "w") as f:
                                     f.truncate()
@@ -1510,7 +1612,7 @@ class HekPool(tk.Tk):
 
                         # start the command
                         cmd_args = tuple(a for a in cmd_args_dict if cmd_args_dict[a])
-                        if self._intro_mode or self._stop_processing:
+                        if self._readme_mode or self._stop_processing:
                             completed[i] = {}
                             self.set_line_style(i, "processed")
                         else:
@@ -1524,10 +1626,15 @@ class HekPool(tk.Tk):
                                             SetFileAttributesW(toolbeta_path, 2)
                                 except Exception:
                                     pass
-                            self._start_process(
-                                i, tool_path, exec_args, cmd_args, cwd=cwd,
-                                completed=completed, processes=processes,
-                                shell=using_console)
+
+                            if (self.null_physics_model_data.get() and
+                                    cmd_type in ("collision-geometry", "physics")):
+                                null_physics_jms_model_data(cwd, exec_args)
+
+                            self._start_process(i, tool_path,
+                                                exec_args, cmd_args, cwd=cwd,
+                                                completed=completed,
+                                                processes=processes)
 
                             # set the command's text to the 'processing' color
                             self.set_line_style(i, "processing")
@@ -1596,7 +1703,7 @@ class HekPool(tk.Tk):
                 self.templates_menu.entryconfigure(i, state=state)
 
             return
-            
+
         self.templates_menu.delete(0, "end")
         self._template_opt_cache = list(TEMPLATE_MENU_LAYOUT)
 
@@ -1644,14 +1751,14 @@ class HekPool(tk.Tk):
         except tk.TclError:
             return False
 
-    def insert_tool_path(self, path, index=None):
-        if index is None:
-            index = len(self.tool_paths)
+    def add_tool_path(self, path):
+        self.insert_tool_path(path, len(self.tool_paths))
 
+    def insert_tool_path(self, path, index):
         self.tool_paths.insert(index, path)
         if self.config_file:
             try:
-                paths = self.config_file.tool_paths
+                paths = self.config_file.data.tool_paths
                 paths.insert(index)
                 paths[index].path = path
             except Exception:
@@ -1697,13 +1804,13 @@ class HekPool(tk.Tk):
         tool_path = self.tool_paths[index]
         if self.config_file:
             try:
-                self.config_file.last_tool_path = self.curr_tool_index + 1
+                self.config_file.data.header.last_tool_index = self.curr_tool_index + 1
             except Exception:
                 pass
 
         path_parts = tool_path.replace('/', '\\').split('\\')
         if len(path_parts) > 2:
-            trimmed_path = "[  %s\\...\\%s\\%s  ]" % (
+            trimmed_path = "[  %s\\(...)\\%s\\%s  ]" % (
                 path_parts[0], path_parts[-2], path_parts[-1])
         else:
             trimmed_path = tool_path
@@ -1717,7 +1824,7 @@ class HekPool(tk.Tk):
                 filetypes=(("Tool", "*.exe"), ("All", "*")),):
             fp = sanitize_path(fp)
             self.last_load_dir = dirname(fp)
-            self.insert_tool_path(fp)
+            self.add_tool_path(fp)
 
     def insert_template(self, temp_type):
         if temp_type in TOOL_COMMANDS:
@@ -1744,7 +1851,7 @@ class HekPool(tk.Tk):
             return
 
         try:
-            if not self._intro_mode and (self.commands_text.get('1.0', tk.END).\
+            if not self._readme_mode and (self.commands_text.get('1.0', tk.END).\
                                          replace('\n', '').replace(' ', '')):
                 self.save_commands_list(filename=LAST_CMD_LIST_NAME)
         except Exception:

@@ -8,8 +8,8 @@ except ImportError:
 curr_dir = dirname(__file__)
 
 #               YYYY.MM.DD
-release_date = "2018.01.04"
-version = (0, 9, 0)  # DONT FORGET TO UPDATE THE VERSION IN app_window.py
+release_date = "2018.01.06"
+version = (0, 9, 2)  # DONT FORGET TO UPDATE THE VERSION IN app_window.py
 
 try:
     try:
@@ -33,7 +33,7 @@ setup(
         ],
     package_data={
         '': ['*.txt', '*.md', '*.rst', '*.pyw'],
-        'cmd_lists': ['*.txt'],
+        'hek_pool': ['cmd_lists/*.txt'],
         },
     platforms=["POSIX", "Windows"],
     #keywords="",

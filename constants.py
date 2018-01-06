@@ -328,10 +328,10 @@ TOOL_COMMANDS = FrozenDict({
         ("bsp-name",           ) + STR_MACRO,
         ),
     "structure-breakable-surfaces": (
-        ("structure-name", ) + STR_MACRO,
+        ("structure-name", ) + FILE_NO_EXT_MACRO,
         ),
     "structure-lens-flares": (
-        ("bsp-name", ) + STR_MACRO,
+        ("bsp-name", ) + FILE_NO_EXT_MACRO,
         ),
     "tag-load-test": (
         ("tag-name",                ) + FILE_NO_EXT_MACRO,
