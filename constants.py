@@ -2,6 +2,7 @@ from supyr_struct.defs.frozen_dict import FrozenDict
 
 MAX_PROCESS_CT = 64
 
+OGG_DLL_ZIP_NAME = "ogg_v1.1.2_dll_fix.zip"
 STYLE_CFG_NAME = "colors.txt"
 TEMPLATES_CFG_NAME = "templates.txt"
 LAST_CMD_LIST_NAME = ".recent"

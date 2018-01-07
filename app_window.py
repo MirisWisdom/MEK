@@ -5,6 +5,7 @@ import os
 import sys
 import threadsafe_tkinter as tk
 import tkinter.ttk as ttk
+import zipfile
 
 from os.path import basename, exists, isfile, dirname, join, relpath, splitext
 from time import time, sleep
@@ -71,13 +72,40 @@ program_files_dir = char + program_files_dir
 halo_dir = join(program_files_dir, 'Microsoft Games\\Halo Custom Edition')
 
 
+def fix_ogg_encoder_dlls(cwd):
+    # replace the bad and broken ogg dll's with working ones
+    dll_zip_path = join(curr_dir, OGG_DLL_ZIP_NAME)
+    if not isfile(dll_zip_path):
+        return
+
+    try:
+        with zipfile.ZipFile(dll_zip_path) as dll_zip:
+            for name in ("ogg", "vorbis", "vorbisenc", "vorbisfile"):
+                name += '.dll'
+                fp = join(cwd, name).replace('/', '\\')
+                try:
+                    if isfile(fp) and (dll_zip.getinfo(name).file_size ==
+                                       os.stat(fp).st_size):
+                        continue
+
+                    if isfile(fp):
+                        try:
+                            os.rename(fp, fp + ".ORIG")
+                        except Exception:
+                            pass
+                except Exception:
+                    continue
+
+                with dll_zip.open(name) as zf, open(fp, "wb+") as f:
+                    f.write(zf.read())
+    except Exception:
+        print(format_exc())
+
+
 def null_physics_jms_model_data(cwd, cmd_args):
-    return
-    # literally just insert two lines with a zero on each directly
-    # after the regions are defined. This will be enough to fix the
-    # physics jms model so it doesn't screw up collision compilation
     if not hasattr(cmd_args, '__len__') or len(cmd_args) < 2:
         return
+
     cmd_type, obje_dir = cmd_args[0], cmd_args[1]
     phys_filepath = join(cwd, "data", obje_dir, 'physics', 'physics.jms')
     if not isfile(phys_filepath):
@@ -85,9 +113,44 @@ def null_physics_jms_model_data(cwd, cmd_args):
 
     try:
         with open(phys_filepath, 'r+') as f:
-            pass
+            old_data = f.read().replace('\t', '\n').replace('\r', '')
+            new_data = old_data.replace('\n\n', '\n')
+            while len(old_data) != len(new_data):
+                old_data = new_data
+                new_data = old_data.replace('\n\n', '\n')
+            old_jms_data = new_data.lstrip('\n')
+
+        new_jms_data = ''
+        vals_per_block, vals_to_read, next_arr = 2, 2, 'nodes'
+        for line in old_jms_data.split('\n'):
+            new_jms_data += line + '\n'
+            if vals_to_read is None:
+                # get the number of values to read
+                vals_to_read = int(line) * vals_per_block
+                continue
+                
+            vals_to_read -= 1
+            if not vals_to_read:
+                vals_to_read = None
+                if next_arr == 'nodes':
+                    vals_per_block, next_arr = 10, 'materials'
+                elif next_arr == 'materials':
+                    vals_per_block, next_arr = 2,  'markers'
+                elif next_arr == 'markers':
+                    vals_per_block, next_arr = 11, 'regions'
+                elif next_arr == 'regions':
+                    vals_per_block, next_arr = 1,  'vertices'
+                elif next_arr == 'vertices':
+                    # insert two zeros to null the vert and tri counts
+                    new_jms_data += '0\n0\n'
+                    break
+
+        with open(phys_filepath, 'r+') as f:
+            f.truncate(0)
+            f.write(new_jms_data)
+
     except Exception:
-        pass
+        print(format_exc())
 
 
 class HekPool(tk.Tk):
@@ -108,6 +171,7 @@ class HekPool(tk.Tk):
     smart_assist_on_rclick = None
     supress_tool_beta_errors = None
     null_physics_model_data = None
+    install_ogg_dlls = None
     proc_limit = None
 
     last_load_dir = halo_dir
@@ -134,7 +198,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '0.9.2'
+    version = '0.9.4'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -155,6 +219,7 @@ class HekPool(tk.Tk):
         self.smart_assist_on_rclick = tk.BooleanVar(self, 1)
         self.supress_tool_beta_errors = tk.BooleanVar(self, 1)
         self.null_physics_model_data = tk.BooleanVar(self, 1)
+        self.install_ogg_dlls = tk.BooleanVar(self, 1)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
@@ -221,12 +286,16 @@ class HekPool(tk.Tk):
         self.settings_menu.add("checkbutton",
                                variable=self.smart_assist_on_rclick,
                                label="Enable smart-assist when right-clicking")
+        self.settings_menu.add_separator()
         self.settings_menu.add("checkbutton",
                                variable=self.supress_tool_beta_errors,
                                label="Fix toolbeta.map error")
-        #self.settings_menu.add("checkbutton",
-        #                       variable=self.null_physics_model_data,
-        #                       label='Fix physics.jms breaking "collision-geometry" command')
+        self.settings_menu.add("checkbutton",
+                               variable=self.null_physics_model_data,
+                               label='Fix physics.jms breaking "collision-geometry" command')
+        self.settings_menu.add("checkbutton",
+                               variable=self.install_ogg_dlls,
+                               label="Install fixed ogg encoder dlls(backs up current ones)")
 
 
         self.help_menu.add_command(label="Readme",
@@ -970,6 +1039,7 @@ class HekPool(tk.Tk):
         self.smart_assist_on_rclick.set(header.flags.smart_assist_on_rclick)
         self.supress_tool_beta_errors.set(header.flags.supress_tool_beta_errors)
         self.null_physics_model_data.set(header.flags.null_physics_model_data)
+        self.install_ogg_dlls.set(header.flags.install_ogg_dlls)
         self.clear_log.set(header.flags.clear_log)
 
         self.geometry("%sx%s+%s+%s" %
@@ -1001,6 +1071,7 @@ class HekPool(tk.Tk):
         header.flags.smart_assist_on_rclick = self.smart_assist_on_rclick.get()
         header.flags.supress_tool_beta_errors = self.supress_tool_beta_errors.get()
         header.flags.null_physics_model_data = self.null_physics_model_data.get()
+        header.flags.install_ogg_dlls = self.install_ogg_dlls.get()
         header.flags.clear_log = self.clear_log.get()
 
         for s in app_window.NAME_MAP.keys():
@@ -1426,8 +1497,8 @@ class HekPool(tk.Tk):
                     # same cwd, command type, and directory. NOT safe to run!
                     return False
         elif cmd_type in ("animations", "bitmaps", "compile-shader-postprocess",
-                          "hud-messages", "model", "physics", "sounds",
-                          "strings", "unicode-strings"):
+                          "hud-messages", "model", "collision-geometry",
+                          "physics", "sounds", "strings", "unicode-strings"):
             dir_arg = join(cmd_args[1].lower(), '')
             for proc_i, proc_info in self.processes.items():
                 if not proc_info: continue
@@ -1436,11 +1507,20 @@ class HekPool(tk.Tk):
                 if "build-cache-file" in proc_type:
                     return False
                 elif (join(proc_info.get('cwd', '').lower(), '') != cwd or
-                        proc_type != cmd_type or not proc_args):
-                    # not the same cwd, a different command, or no args.
-                    # safe to run(i think).
+                        not proc_args):
+                    # not the same cwd, or no args. safe to run.
                     pass
-                elif join(proc_args[0].lower(), '') == dir_arg:
+                elif join(proc_args[0].lower(), '') != dir_arg:
+                    # different target directory. safe to run
+                    pass
+                elif (proc_type in ("collision-geometry", "physics") and
+                      cmd_type  in ("collision-geometry", "physics")):
+                    # a different command. safe to run(i think)
+                    return False
+                elif proc_type != cmd_type:
+                    # a different command. safe to run(i think)
+                    pass
+                else:
                     # same cwd, command type, and directory. NOT safe to run!
                     return False
 
@@ -1478,8 +1558,11 @@ class HekPool(tk.Tk):
             if stop is None:  stop  = self.get_command_count()
 
             tool_path = self.get_tool_path()
-            loc_vars["cwd"] = dirname(tool_path)
+            loc_vars["cwd"] = dirname(tool_path).replace('/', '\\')
             processes, proc_limit = self.processes, self.proc_limit
+
+            if self.install_ogg_dlls.get():
+                fix_ogg_encoder_dlls(loc_vars["cwd"])
 
             i, curr_max_proc_ct = start, 0
             wait_on_cmds, cmds_started, skip_ct, direc_ct = False, 0, 0, 0
@@ -1537,7 +1620,8 @@ class HekPool(tk.Tk):
                             # if spaces are in the filepath, put them back in.
                             # also, strip parenthese since cmd doesn't know how.
                             loc_vars["cwd"] = (
-                                ''.join("%s " % s for s in vals)[:-1].strip('"'))
+                                ''.join("%s " % s for s in vals)[:-1].\
+                                strip('"').replace('/', '\\'))
                         else:
                             self.set_line_style(i, "error")
                     elif typ == 'k':
@@ -1611,7 +1695,8 @@ class HekPool(tk.Tk):
                         curr_max_proc_ct = 0
 
                         # start the command
-                        cmd_args = tuple(a for a in cmd_args_dict if cmd_args_dict[a])
+                        cmd_args  = tuple(a for a in cmd_args_dict if cmd_args_dict[a])
+                        exec_args = tuple(a.replace('/', '\\') for a in exec_args)
                         if self._readme_mode or self._stop_processing:
                             completed[i] = {}
                             self.set_line_style(i, "processed")

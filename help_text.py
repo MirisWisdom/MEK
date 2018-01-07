@@ -99,19 +99,19 @@ TOOL_COMMAND_HELP = FrozenDict({
         "the object. These are typically used for movement and turning.\n"
         "\n"
         "base (overlays be be played on it)\n"
-        "       jmm:    none\n"
-        "       jmw:    none (completely world relative)\n"
-        "       jma:    dx/dy\n"
-        "       jmt:    dx/dy/dyaw\n"
-        "       jmz:    dx/dy/dz/dyaw\n"
+        "       jmm:\tnone\n"
+        "       jmw:\tnone (completely world relative)\n"
+        "       jma:\tdx/dy\n"
+        "       jmt:\tdx/dy/dyaw\n"
+        "       jmz:\tdx/dy/dz/dyaw\n"
         "\n"
         "overlay (played on the current base {aiming, tire suspension, etc})\n"
-        "       jmo:    none\n"
+        "       jmo:\tnone\n"
         "\n"
         "replacement (replaces anything being played {grenade throw, etc})\n"
-        "       jmr:    dx/dy",
+        "       jmr:\tdx/dy",
         ("source-directory", 'dir',
-         ""),
+         'The directory containing the "animations" folder to be compiled.'),
         ),
     "bitmap": (
         "Compiles the .tif image specified into a bitmap tag. Name the "
@@ -121,7 +121,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         "When you are done, run this command again to process it with "
         "those setting applied.",
         ("source-file", 'file-no-ext',
-         ""),
+         "The filepath of the bitmap to be compiled."),
         ),
     "bitmaps": (
         "Compiles a folder of .tif images in the data folder into bitmap "
@@ -131,7 +131,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         "them. When you are done, run this command again to process them "
         "with those setting applied.",
         ("source-directory", 'dir',
-         ""),
+         'The directory containing the bitmaps to be compiled.'),
         ),
     "build-cache-file": (
         'Builds a cache file with no Open Sauce enhancements whatsoever.',
@@ -164,25 +164,44 @@ TOOL_COMMAND_HELP = FrozenDict({
          'Name of the .scenario to build the mapfile from.'),
         ),
     "build-cpp-definition": (
-        "",
+        "Builds a C++ definition for the tag-group specified and writes it to "
+        "the current working directory(typically the folder tool.exe is in). ",
         ("tag-group", 'str-no-quote',
-         ""),
+         "The four character code designated for this tag type. For example, "
+         "'bitm' is for bitmap, 'matg' is globals, and 'snd!' is sound."),
         ("add-boost-asserts", 'bool',
-         ""),
+         "Whether or not to add assertions to the C++ definition to help "
+         "make sure the structures are the correct size if you modify them."),
         ),
     "build-packed-file": (
-        '',
+        "Something to do with compiling open-sauce shaders. Not useful to map makers.",
         ("source-directory", 'dir', ''),
         ("output-directory", 'dir', ''),
         ("file-definition-xml", 'file-no-ext', ''),
         ),
     "collision-geometry": (
-        "",
+        "Compiles a directory of .jms models in the data folder into a "
+        "model_collision_geometry tag. The directory you specify must contain "
+        'these files in a folder named "physics". Do NOT type the "physics" '
+        "part of the path; it is implied.\n"
+        "\n"
+        'Each jms file in the "physics" folder must be named after the '
+        "permutation that jms file contains. Here are most of the special "
+        "permutation names as well as when they are used:\n"
+        "       __base\t\t(the default model)\n"
+        "       ~blur\t\t(vehicle tires are spinning fast)\n"
+        "       ~primary-blur\t(weapon primary trigger is firing fast)\n"
+        "       ~secondary-blur\t(weapon secondary trigger is firing fast)\n"
+        "       ~damaged\t(health of a region hit zero and died)\n"
+        "\n"
+        'If there is a "physics.jms" file in the "physics" folder, make sure '
+        "it either has no vertices and triangles, or you have Pool's "
+        '"Fix physics.jms" setting checked. Otherwise the command might fail.',
         ("source-directory", 'dir',
-         ""),
+         'The directory containing the "physics" folder to be compiled.'),
         ),
     "compile-scripts": (
-        "",
+        "NOT YET IMPLEMENTED",
         ("scenario-name", 'file-no-ext',
          ""),
         ),
@@ -202,7 +221,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          ""),
         ),
     "import-device-defaults": (
-        '', 
+        "Unknown", 
         ("type", 'str-no-quote', ''),
         ("savegame-path", 'file', ''),
         ),
@@ -218,35 +237,67 @@ TOOL_COMMAND_HELP = FrozenDict({
          'Location of the source obj, relative to the data directory.'),
         ),
     "lightmaps": (
-        "",
+        "Runs radiosity on the specified bsp to calculate static lighting. "
+        "This process can typically take a long time at highest quality, so "
+        "only run it when you have time to spare.\n"
+        "\n"
+        "Quick and dirty lightmaps can be calculated to allow you to quickly "
+        "test changes to the level geometry. Use this command if you dont "
+        "know what good testing values for your bsp are:\n"
+        "       lightmaps   <scenario>  <bsp-name>  0  0.1\n"
+        "\n"
+        "Best quality lightmaps would use these settings:\n"
+        "       lightmaps   <scenario>  <bsp-name>  1  0.0000001",
         ("scenario", 'file-no-ext',
-         ""),
+         "Filepath to the scenario that uses the bsp you want to light."),
         ("bsp-name", 'str',
-         ""),
+         "The name of the bsp to run radiosity on. This is the name of the "
+         "structure_scenario_bsp tag you are running this on."),
         ("render-high-quality", 'bool',
-         ""),
+         "Use highest quality radiosity settings?"),
         ("stop-threshold", 'float',
-         ""),
+         "The percentage of light remaining to stop calculating at. Light is "
+         "cast in multiple passes from each surface, getting progressively "
+         "finer with each pass. Each pass also reduces the total amount of "
+         "light to be cast from each surface. When the amount of light "
+         "remaining hits this value, radiosity will stop."),
         ),
     "merge-scenery": (
-        "",
+        "Merges scenery instances from the source-scenario into the "
+        "destination-scenario.",
         ("source-scenario", 'file-no-ext',
-         ""),
+         "The filepath of the scenario to copy the scenery from."),
         ("destination-scenario", 'file-no-ext',
-         ""),
+         "The filepath of the scenario to paste the scenery into."),
         ),
     "model": (
-        "",
+        "Compiles a directory of .jms models in the data folder into a "
+        "gbxmodel tag. The directory you specify must contain these "
+        'files in a folder named "models". Do NOT type the "models" '
+        "part of the path; it is implied.\n"
+        "\n"
+        'Each jms file in the "models" folder must be named after the '
+        "permutation that jms file contains. Here are most of the "
+        "special permutation names as well as when they are used:\n"
+        "       __base\t\t(the default model)\n"
+        "       ~blur\t\t(vehicle tires are spinning fast)\n"
+        "       ~primary-blur\t(weapon primary trigger is firing fast)\n"
+        "       ~secondary-blur\t(weapon secondary trigger is firing fast)\n"
+        "       ~damaged\t(health of a region hit zero and died)",
         ("source-directory", 'dir',
-         ""),
+         'The directory containing the "models" folder to be compiled.'),
         ),
     "physics": (
-        "",
+        'Compiles a "physics.jms" model in the data folder into a physics tag. '
+        'The directory you specify must contain a folder named "physics" with '
+        '"physics.jms" INSIDE that "physics" folder. Do NOT type the '
+        '"physics\\physics" part of the path; it is implied.',
         ("source-directory", 'dir',
-         ""),
+         'The directory containing the "physics" folder to be compiled. '
+         'The "physics" folder must contain the physics.jms file to be compiled.'),
         ),
     "process-sounds": (
-        '',
+        "Unknown",
         ("root-path", 'dir', ''),
         ("substring", 'str', ''),
         ("effect", 'str-no-quote', ''),
@@ -265,16 +316,35 @@ TOOL_COMMAND_HELP = FrozenDict({
         'instance of Halo CE. See the tools own help for more details.',
         ),
     "sounds": (
-        "",
+        "Compiles a directory of folders of .wav files in the data folder "
+        "into sound tags. Each folder in the directory specified will be "
+        "compiled into a sound tag. Any sub-folders within these are treated "
+        "as pitch ranges. Any .wav files inside these pitch range folders are "
+        "permutations within that pitch range. If you do not need to use "
+        "pitch ranges, just put each .wav permutation file directly "
+        "inside each sounds folder.\n\n"
+        "For example, to compile the tag:\n"
+        "       vehicles\\sophia\\sounds\\cannon_fire.sound\n\n"
+        "you would create this audio perumtation:\n"
+        "       vehicles\\sophia\\sounds\\cannon_fire\\default.wav\n\n"
+        "and then run the command:\n"
+        "       sounds  vehicles\\sophia\\sounds  ogg  1\n"
+        "\n"
+        "NOTE: All .wav data files MUST be saved with 16bit signed, little "
+        "endian, PCM encoding. This is the only format that tool can read.",
         ("directory-name", 'dir',
-         ""),
+         'The directory containing the sounds to be compiled.'),
         ("platform", 'str',
-         ""),
+         "The format to compile the sounds to. The xbox and wav formats are "
+         "basically the same, and are the only ones that will work on an Xbox. "
+         "Ogg can only be used PC, and has higher quality than the others. "
+         "If you have a choice, choose xbox for short quick sounds, and ogg "
+         "for music or dialog.\n"),
         ("use-high-quality(ogg_only)", 'bool',
-         ""),
+         "Prioritize audio quality over filesize?"),
         ),
     "sounds_by_type": (
-        '',
+        "Unknown",
         ("directory-name", 'dir', ''),
         ("type", 'str', ''),
         ("round-to-64-samples", 'bool', ''),
@@ -292,12 +362,12 @@ TOOL_COMMAND_HELP = FrozenDict({
          ""),
         ),
     "structure-breakable-surfaces": (
-        "",
+        "Unknown",
         ("structure-name", 'file-no-ext',
          ""),
         ),
     "structure-lens-flares": (
-        "",
+        "Unknown",
         ("bsp-name", 'file-no-ext',
          ""),
         ),
@@ -323,10 +393,11 @@ TOOL_COMMAND_HELP = FrozenDict({
          ""),
         ),
     "windows-font": (
-        "",
+        "Shows a prompt which allows you to select an installed windows "
+        "font you wish to compile into a font tag.",
         ),
     "zoners_model_upgrade": (
-        '',
+        "Unknown",
         ),
     })
 

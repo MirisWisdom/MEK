@@ -129,21 +129,22 @@ The argument types are as follows:
     Each jm* type compiles to a different type of animation. dx/dy/dz means the animation will permanently move the object in the world on that/those axis, while dyaw means it will permanently rotate the object. These are typically used for movement and turning.
     
     base (overlays be be played on it)
-           jmm:    none
-           jmw:    none (completely world relative)
-           jma:    dx/dy
-           jmt:    dx/dy/dyaw
-           jmz:    dx/dy/dz/dyaw
+           jmm:	none
+           jmw:	none (completely world relative)
+           jma:	dx/dy
+           jmt:	dx/dy/dyaw
+           jmz:	dx/dy/dz/dyaw
     
     overlay (played on the current base {aiming, tire suspension, etc})
-           jmo:    none
+           jmo:	none
     
     replacement (replaces anything being played {grenade throw, etc})
-           jmr:    dx/dy
+           jmr:	dx/dy
 
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The directory containing the "animations" folder to be compiled.
 
 
   bitmap
@@ -152,6 +153,7 @@ The argument types are as follows:
     #  ARGUMENTS
     ############
     <source-file>  (file-no-ext)
+        The filepath of the bitmap to be compiled.
 
 
   bitmaps
@@ -160,6 +162,7 @@ The argument types are as follows:
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The directory containing the bitmaps to be compiled.
 
 
   build-cache-file
@@ -212,14 +215,20 @@ The argument types are as follows:
 
 
   build-cpp-definition
+    Builds a C++ definition for the tag-group specified and writes it to the current working directory(typically the folder tool.exe is in). 
+
     #  ARGUMENTS
     ############
     <tag-group>  (str-no-quote)
+        The four character code designated for this tag type. For example, 'bitm' is for bitmap, 'matg' is globals, and 'snd!' is sound.
 
     <add-boost-asserts>  (bool)
+        Whether or not to add assertions to the C++ definition to help make sure the structures are the correct size if you modify them.
 
 
   build-packed-file
+    Something to do with compiling open-sauce shaders. Not useful to map makers.
+
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
@@ -230,12 +239,26 @@ The argument types are as follows:
 
 
   collision-geometry
+    Compiles a directory of .jms models in the data folder into a model_collision_geometry tag. The directory you specify must contain these files in a folder named "physics". Do NOT type the "physics" part of the path; it is implied.
+    
+    Each jms file in the "physics" folder must be named after the permutation that jms file contains. Here are most of the special permutation names as well as when they are used:
+           __base		(the default model)
+           ~blur		(vehicle tires are spinning fast)
+           ~primary-blur	(weapon primary trigger is firing fast)
+           ~secondary-blur	(weapon secondary trigger is firing fast)
+           ~damaged	(health of a region hit zero and died)
+    
+    If there is a "physics.jms" file in the "physics" folder, make sure it either has no vertices and triangles, or you have Pool's "Fix physics.jms" setting checked. Otherwise the command might fail.
+
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The directory containing the "physics" folder to be compiled.
 
 
   compile-scripts
+    NOT YET IMPLEMENTED
+
     #  ARGUMENTS
     ############
     <scenario-name>  (file-no-ext)
@@ -267,6 +290,8 @@ The argument types are as follows:
 
 
   import-device-defaults
+    Unknown
+
     #  ARGUMENTS
     ############
     <type>  (str-no-quote)
@@ -291,38 +316,69 @@ The argument types are as follows:
 
 
   lightmaps
+    Runs radiosity on the specified bsp to calculate static lighting. This process can typically take a long time at highest quality, so only run it when you have time to spare.
+    
+    Quick and dirty lightmaps can be calculated to allow you to quickly test changes to the level geometry. Use this command if you dont know what good testing values for your bsp are:
+           lightmaps   <scenario>  <bsp-name>  0  0.1
+    
+    Best quality lightmaps would use these settings:
+           lightmaps   <scenario>  <bsp-name>  1  0.0000001
+
     #  ARGUMENTS
     ############
     <scenario>  (file-no-ext)
+        Filepath to the scenario that uses the bsp you want to light.
 
     <bsp-name>  (str)
+        The name of the bsp to run radiosity on. This is the name of the structure_scenario_bsp tag you are running this on.
 
     <render-high-quality>  (bool)
+        Use highest quality radiosity settings?
 
     <stop-threshold>  (float)
+        The percentage of light remaining to stop calculating at. Light is cast in multiple passes from each surface, getting progressively finer with each pass. Each pass also reduces the total amount of light to be cast from each surface. When the amount of light remaining hits this value, radiosity will stop.
 
 
   merge-scenery
+    Merges scenery instances from the source-scenario into the destination-scenario.
+
     #  ARGUMENTS
     ############
     <source-scenario>  (file-no-ext)
+        The filepath of the scenario to copy the scenery from.
 
     <destination-scenario>  (file-no-ext)
+        The filepath of the scenario to paste the scenery into.
 
 
   model
+    Compiles a directory of .jms models in the data folder into a gbxmodel tag. The directory you specify must contain these files in a folder named "models". Do NOT type the "models" part of the path; it is implied.
+    
+    Each jms file in the "models" folder must be named after the permutation that jms file contains. Here are most of the special permutation names as well as when they are used:
+           __base		(the default model)
+           ~blur		(vehicle tires are spinning fast)
+           ~primary-blur	(weapon primary trigger is firing fast)
+           ~secondary-blur	(weapon secondary trigger is firing fast)
+           ~damaged	(health of a region hit zero and died)
+
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The directory containing the "models" folder to be compiled.
 
 
   physics
+    Compiles a "physics.jms" model in the data folder into a physics tag. The directory you specify must contain a folder named "physics" with "physics.jms" INSIDE that "physics" folder. Do NOT type the "physics\physics" part of the path; it is implied.
+
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The directory containing the "physics" folder to be compiled. The "physics" folder must contain the physics.jms file to be compiled.
 
 
   process-sounds
+    Unknown
+
     #  ARGUMENTS
     ############
     <root-path>  (dir)
@@ -360,16 +416,35 @@ The argument types are as follows:
 
 
   sounds
+    Compiles a directory of folders of .wav files in the data folder into sound tags. Each folder in the directory specified will be compiled into a sound tag. Any sub-folders within these are treated as pitch ranges. Any .wav files inside these pitch range folders are permutations within that pitch range. If you do not need to use pitch ranges, just put each .wav permutation file directly inside each sounds folder.
+    
+    For example, to compile the tag:
+           vehicles\sophia\sounds\cannon_fire.sound
+    
+    you would create this audio perumtation:
+           vehicles\sophia\sounds\cannon_fire\default.wav
+    
+    and then run the command:
+           sounds  vehicles\sophia\sounds  ogg  1
+    
+    NOTE: All .wav data files MUST be saved with 16bit signed, little endian, PCM encoding. This is the only format that tool can read.
+
     #  ARGUMENTS
     ############
     <directory-name>  (dir)
+        The directory containing the sounds to be compiled.
 
     <platform>  (str)
+        The format to compile the sounds to. The xbox and wav formats are basically the same, and are the only ones that will work on an Xbox. Ogg can only be used PC, and has higher quality than the others. If you have a choice, choose xbox for short quick sounds, and ogg for music or dialog.
+        
 
     <use-high-quality(ogg_only)>  (bool)
+        Prioritize audio quality over filesize?
 
 
   sounds_by_type
+    Unknown
+
     #  ARGUMENTS
     ############
     <directory-name>  (dir)
@@ -394,12 +469,16 @@ The argument types are as follows:
 
 
   structure-breakable-surfaces
+    Unknown
+
     #  ARGUMENTS
     ############
     <structure-name>  (file-no-ext)
 
 
   structure-lens-flares
+    Unknown
+
     #  ARGUMENTS
     ############
     <bsp-name>  (file-no-ext)
@@ -440,12 +519,16 @@ The argument types are as follows:
 
 
   windows-font
+    Shows a prompt which allows you to select an installed windows font you wish to compile into a font tag.
+
     #  ARGUMENTS
     ############
     None
 
 
   zoners_model_upgrade
+    Unknown
+
     #  ARGUMENTS
     ############
     None
