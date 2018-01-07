@@ -33,7 +33,7 @@ setup(
         ],
     package_data={
         '': ['*.txt', '*.md', '*.rst', '*.pyw'],
-        'hek_pool': ['cmd_lists/*.txt'],
+        'hek_pool': ['cmd_lists/*.txt', 'ogg_v1.1.2_dll_fix.zip'],
         },
     platforms=["POSIX", "Windows"],
     #keywords="",
