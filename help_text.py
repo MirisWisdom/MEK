@@ -135,13 +135,13 @@ TOOL_COMMAND_HELP = FrozenDict({
         ),
     "build-cache-file": (
         'Builds a cache file with no Open Sauce enhancements whatsoever.',
-        ("scenario-name", 'file-no-ext',
+        ("scenario-path", 'file-no-ext',
          'Name of the .scenario to build the mapfile from.'),
         ),
     "build-cache-file-ex": (
         'Builds a cache file with extra Open Sauce arguments.',
         ("mod-name", 'str',
-         'The name of the mod this scenario belongs to.\n'
+         'The name of the mod this scenario belongs to. '
          'This will also be used when naming the new data-files.'),
         ("create-anew", 'bool',
          'Should new data-files be created before building the map?'),
@@ -149,7 +149,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          'Store the scenarios bitmaps/sounds/locale data in the data-files?'),
         ("use-memory-upgrades", 'bool',
          'Does the scenario require Open Sauces memory upgrades to run?'),
-        ("scenario-name", 'file-no-ext',
+        ("scenario-path", 'file-no-ext',
          'Name of the .scenario to build the mapfile from.'),
         ),
     "build-cache-file-new": (
@@ -160,7 +160,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          'Store the scenarios bitmaps/sounds/locale data in the data-files?'),
         ("use-memory-upgrades", 'bool',
          'Does the scenario require Open Sauces memory upgrades to run?'),
-        ("scenario-name", 'file-no-ext',
+        ("scenario-path", 'file-no-ext',
          'Name of the .scenario to build the mapfile from.'),
         ),
     "build-cpp-definition": (
@@ -185,9 +185,9 @@ TOOL_COMMAND_HELP = FrozenDict({
         'these files in a folder named "physics". Do NOT type the "physics" '
         "part of the path; it is implied.\n"
         "\n"
-        'Each jms file in the "physics" folder must be named after the '
-        "permutation that jms file contains. Here are most of the special "
-        "permutation names as well as when they are used:\n"
+        'The name of each jms file in the "physics" folder must be the '
+        "permutation name that jms file contains. Here are most of the "
+        "special permutation names as well as when they are used:\n"
         "       __base\t\t(the default model)\n"
         "       ~blur\t\t(vehicle tires are spinning fast)\n"
         "       ~primary-blur\t(weapon primary trigger is firing fast)\n"
@@ -196,13 +196,13 @@ TOOL_COMMAND_HELP = FrozenDict({
         "\n"
         'If there is a "physics.jms" file in the "physics" folder, make sure '
         "it either has no vertices and triangles, or you have Pool's "
-        '"Fix physics.jms" setting checked. Otherwise the command might fail.',
+        '"Fix physics.jms" setting checked. The command might fail otherwise.',
         ("source-directory", 'dir',
          'The directory containing the "physics" folder to be compiled.'),
         ),
     "compile-scripts": (
         "NOT YET IMPLEMENTED",
-        ("scenario-name", 'file-no-ext',
+        ("scenario-path", 'file-no-ext',
          ""),
         ),
     "compile-shader-postprocess": (
@@ -214,26 +214,51 @@ TOOL_COMMAND_HELP = FrozenDict({
         'Displays help messages for some of the Open Sauce commands.',
         ),
     "hud-messages": (
-        "",
-        ("path", 'dir',
-         ""),
+        'Compiles a "hud messages.hmt" file in the specified folder into a '
+        "hud_message_text tag. The .hmt file must be saved in Unicode 16Bit "
+        "encoding(not ANSI/ASCI/UTF8). Each line in the .hmt file must have "
+        'the format "X=Y" where X is the message name, and Y is the message.\n'
+        "\n"
+        "The message name must be 31 characters or less. The entire message "
+        'must be on the same line as the "X=" part. If you need to put a line '
+        "break in the message, type |n instead. You can also specify a "
+        "button/weapon icon to appear in part of the message using special "
+        "characters. Here is a list of the icon names:\n"
+        "       %a-button, %b-button, %x-button, %y-button\n"
+        "       %black-button, %white-button, %left-trigger, %right-trigger\n"
+        "       %dpad-up, %dpad-down, %dpad-left, %dpad-right\n"
+        "       %start-button, %back-button, %integrated-light, %jump\n"
+        "       %left-thumb, %right-thumb, %left-stick, %right-stick\n"
+        "       %action, %throw-grenade, %primary-trigger\n"
+        "       %use-equipment, %rotate-weapons, %rotate-grenades\n"
+        "       %zoom, %crouch, %accept, %back, %move, %look\n"
+        "       %custom-1, %custom-2, %custom-3, %custom-4\n"
+        "       %custom-5, %custom-6, %custom-7, %custom-8\n\n"
+        "Example:\n"
+        "       pickup=Press %action to swap|n%custom-1|nfor|n%custom-2",
+        ("hmt-path", 'dir',
+         'The directory containing the "hud messages.hmt" file.'),
         ("scenario-name", 'str',
-         ""),
+         "After the hud_messages_text tag is compiled, this is the name of "
+         "the scenario to put a reference to it in. This scenario must be in "
+         "the same folder as where the hud_message_text tag will compile to."),
         ),
     "import-device-defaults": (
-        "Unknown", 
+        "My guess is that this creates a device_defaults tag from your own "
+        "savegame preferences. I doubt this has realistically ever been "
+        "useful to anyone other than Gearbox Software and Bungie.", 
         ("type", 'str-no-quote', ''),
         ("savegame-path", 'file', ''),
         ),
     "import-structure-lightmap-uvs": (
-        'Replaces the lightmap UVs of a bsp with custom ones loaded from an obj file.\n'
-        'The obj file must have lightmaps grouped by object and have the group index\n'
-        'appending the group name (lightmap_0). Best way to ensure this is to export\n'
-        'a fresh lightmaps obj using Aether, import it into your modelling program,\n'
+        'Replaces the lightmap UVs of a bsp with custom ones loaded from an obj file. '
+        'The obj file must have lightmaps grouped by object and have the group index '
+        'appending the group name (lightmap_0). Best way to ensure this is to export '
+        'a fresh lightmaps obj using Aether, import it into your modelling program, '
         'and then ONLY edit the UVs to ensure the model matches the bsp.',
-        ("structure-bsp", 'file-no-ext',
+        ("structure-bsp-path", 'file-no-ext',
          'Location of the target bsp, relative to the tags directory.'),
-        ("obj-file", 'file-no-ext',
+        ("obj-file-path", 'file-no-ext',
          'Location of the source obj, relative to the data directory.'),
         ),
     "lightmaps": (
@@ -248,7 +273,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         "\n"
         "Best quality lightmaps would use these settings:\n"
         "       lightmaps   <scenario>  <bsp-name>  1  0.0000001",
-        ("scenario", 'file-no-ext',
+        ("scenario-path", 'file-no-ext',
          "Filepath to the scenario that uses the bsp you want to light."),
         ("bsp-name", 'str',
          "The name of the bsp to run radiosity on. This is the name of the "
@@ -276,8 +301,8 @@ TOOL_COMMAND_HELP = FrozenDict({
         'files in a folder named "models". Do NOT type the "models" '
         "part of the path; it is implied.\n"
         "\n"
-        'Each jms file in the "models" folder must be named after the '
-        "permutation that jms file contains. Here are most of the "
+        'The name of each jms file in the "models" folder must be the '
+        "permutation name that jms file contains. Here are most of the "
         "special permutation names as well as when they are used:\n"
         "       __base\t\t(the default model)\n"
         "       ~blur\t\t(vehicle tires are spinning fast)\n"
@@ -304,15 +329,15 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("value", 'float', ''),
         ),
     "remove-os-tag-data": (
-        'Removes OS tag data that would prevent loading in the stock tools.\n'
+        'Removes OS tag data that would prevent loading in the stock tools. '
         'Back up your tags before hand to be safe.',
-        ("tag-name", 'file-no-ext', 'Name of the tag to clean.'),
+        ("tag-path", 'file-no-ext', 'Filepath to the tag to clean.'),
         ("tag-type", 'str', 'Type of the tag (the tags file extension).'),
         ("recursive", 'bool',
          'Whether to also process all tags referred to by the given tag.'),
         ),
     "runtime-cache-view": (
-        'Allows you to view the contents of the tag cache in an executing\n'
+        'Allows you to view the contents of the tag cache in an executing '
         'instance of Halo CE. See the tools own help for more details.',
         ),
     "sounds": (
@@ -339,7 +364,7 @@ TOOL_COMMAND_HELP = FrozenDict({
          "basically the same, and are the only ones that will work on an Xbox. "
          "Ogg can only be used PC, and has higher quality than the others. "
          "If you have a choice, choose xbox for short quick sounds, and ogg "
-         "for music or dialog.\n"),
+         "for music or dialog."),
         ("use-high-quality(ogg_only)", 'bool',
          "Prioritize audio quality over filesize?"),
         ),
@@ -350,29 +375,65 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("round-to-64-samples", 'bool', ''),
         ),
     "strings": (
-        "",
+        "Compiles a folder .txt files into string_list tags. Each .txt file "
+        "must be saved in ANSI or ASCII encoding.\n"
+        "\n"
+        "NOTE: After each separate string in the text file you must put "
+        "###END-STRING### on the next line. This is how it should look:\n\n"
+        "       Here is my first string\n"
+        "       ###END-STRING###\n"
+        "       Here is my second string\n"
+        "       ###END-STRING###\n"
+        "       Here is my last string\n"
+        "       ###END-STRING###",
         ("source-directory", 'dir',
-         ""),
+         "The folder containing the .txt files to turn into string_list tags."),
         ),
     "structure": (
-        "",
+        "Compiles a .jms model in the data folder into a scenario_structure"
+        "_bsp (sbsp) tag. The directory you specify must contain this .jms "
+        'file in a folder named "models". Do NOT type the "models" part of '
+        "the path; it is implied.\n"
+        "\n"
+        'The name of the jms file in the "models" folder is the name the bsp '
+        "it compiles to will be given. This is typically the same name as "
+        "the scenario, but large levels may utilize multiple bsps.\n"
+        "\n"
+        "If a scenario tag doesn't already exist in the folder this sbsp tag "
+        "will be compiled into, one referencing the new bsp will be created.",
         ("scenario-directory", 'dir',
-         ""),
+         'The directory containing the "models" folder that contains the '
+         ".jms file you are compiling."),
         ("bsp-name", 'str',
-         ""),
+         "The name of the .jms file to compile, as well as the name "
+         "to give the scenario_structure_bsp tag you are compiling."),
         ),
     "structure-breakable-surfaces": (
-        "Unknown",
-        ("structure-name", 'file-no-ext',
-         ""),
+        "Creates breakable surfaces structures in the specified structure_"
+        "scenario_bsp (sbsp) tag. Each surface has a flag to specify if it "
+        "is breakable. When the sbsp tag is compiled from a .jms file, the "
+        "shaders determine whether to set these flags for each surface. "
+        "This command will generate breakable-surface structures for each "
+        "surface flagged as breakable. Surfaces will not actually break if "
+        "these structures are not generated after compiling the sbsp tag.",
+        ("structure-path", 'file-no-ext',
+         "The scenario-structure-bsp tag to generate breakable surfaces for."),
         ),
     "structure-lens-flares": (
-        "Unknown",
-        ("bsp-name", 'file-no-ext',
-         ""),
+        "Calculates and inserts lens flare markers and dependencies into the "
+        "specified scenario_structure_bsp (sbsp) tag. The lens_flares as well "
+        "as how far apart to place them are pulled from the sbsp's shaders.\n"
+        "The only shaders tags that can reference lens_flare tags are these:\n"
+        "       shader_environment\n"
+        "       shader_transparent_generic\n"
+        "       shader_transparent_chicago\n"
+        "       shader_transparent_chicago_extended",
+        ("bsp-path", 'file-no-ext',
+         "The scenario-structure-bsp tag to calculate lens flares markers "
+         "and dependencies for."),
         ),
     "tag-load-test": (
-        'Validates that a tag and ALL of its children can be loaded without error.\n'
+        'Validates that a tag and ALL of its children can be loaded without error. '
         'Optionally prints additional diagnostic information.',
         ("tag-name", 'file-no-ext', "Root tag's path."),
         ("group", 'str', "Root tag's group name."),
@@ -388,12 +449,24 @@ TOOL_COMMAND_HELP = FrozenDict({
          'Outputs progress/extra information as it processes the tags.'),
         ),
     "unicode-strings": (
-        "",
+        "Compiles a folder .txt files into unicode_string_list tags. Each "
+        ".txt file must be saved in Unicode 16Bit encoding. Big/little endian "
+        "byteorder does not matter, just do not save as ANSI, ASCII, or UTF8, "
+        "only UTF16.\n"
+        "\n"
+        "NOTE: After each separate string in the text file you must put "
+        "###END-STRING### on the next line. This is how it should look:\n\n"
+        "       Here is my first string\n"
+        "       ###END-STRING###\n"
+        "       Here is my second string\n"
+        "       ###END-STRING###\n"
+        "       Here is my last string\n"
+        "       ###END-STRING###",
         ("source-directory", 'dir',
-         ""),
+         "The folder containing the .txt files to turn into unicode_string_list tags."),
         ),
     "windows-font": (
-        "Shows a prompt which allows you to select an installed windows "
+        "Displays a prompt which allows you to select an installed Windows "
         "font you wish to compile into a font tag.",
         ),
     "zoners_model_upgrade": (
@@ -410,41 +483,43 @@ DIRECTIVES_HELP = {
         "Tells Pool to close Tool instances as soon as they finish processing.",
         ),
     "cwd": (
-        ("Changes the current working directory, allowing Tool to operate on\n"
-         "folders it isn't inside. This allows you to use one copy of tool for\n"
-         "any number of separate tags directories and Halo CE installations."),
+        "Changes the current working directory, allowing Tool to operate on "
+        "folders it isn't inside. This allows you to use one copy of tool for "
+        "any number of separate tags directories and Halo CE installations.",
         ("directory", "dir",
          "The directory to set as the current working directory.\n"
          "This is an absolute path, meaning it is not relative to anything."),
         ),
     "set": (
-        ("Adds a variable to a list that can be used for text replacements.\n"
-         "To use the variable, you must put arrow braces around it.\n\n"
-         "Example:\n"
-         '    # set   dir   "levels\\test\\tutorial"\n\n'
-         '    structure   <dir>\\tutorial\n'
-         '    lightmaps   <dir>\\tutorial  tutorial  1  0.000001\n'
-         '    build-cache-file   <dir>\\tutorial'),
+        "Adds a variable to a list that can be used for text replacements. "
+        "To use the variable, you must put arrow braces around it.\n"
+        "\n"
+        "Example:\n"
+        '    # set\t\tdir   "levels\\test\\tutorial"\n'
+        '    structure\t<dir>\\tutorial\n'
+        '    lightmaps\t<dir>\\tutorial  tutorial  1  0.000001\n'
+        '    build-cache-file\t<dir>\\tutorial',
         ("var-name", "str-no-quote", "Name of the variable."),
         ("var-value", "str",
          "The string to replace any occurances of <var-name> with."),
         ),
     "del": (
-        ("Removes a variable from the list of replacements.\n"
-         "See the 'set' directive."),
+        "Removes a variable from the list of replacements. "
+        "See the 'set' directive for more information on variables.",
         ("var-name", "str-no-quote", "Name of the variable to remove."),
         ),
     "run": (
-        "Runs the specified file located in the current working directoy.\n"
-        "Any additional arguments after <exec-path> are passed along to the\n"
-        "executable when it is ran.\n\n"
+        "Runs the specified file located in the current working directoy. "
+        "Any additional arguments after <exec-path> are passed along to the "
+        "executable when it is ran.\n"
+        "\n"
         "Example:\n"
         "    # run haloce.exe  -console  -devmode",
         ("exec-path", "file",
          "Name of the executable to run."),
         ),
     "w": (
-        "Tells Pool to wait until all currently running Tool instances\n"
+        "Tells Pool to wait until all currently running Tool instances "
         "are closed before continuing executing commands and directives.",
         ),
     }

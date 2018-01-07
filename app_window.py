@@ -162,6 +162,7 @@ class HekPool(tk.Tk):
     _template_opt_cache = None
     _reset_style_on_click = False
     _readme_mode = False
+    _unsaved_edits = False
     _pre_readme_text = ""
 
     fixed_font = None
@@ -198,7 +199,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '0.9.4'
+    version = '1.0.0'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -256,6 +257,8 @@ class HekPool(tk.Tk):
         self.main_menu.add_cascade(label="Help", menu=self.help_menu)
 
 
+        self.file_menu.add_command(label="New",
+                                   command=self.new_commands_list)
         self.file_menu.add_command(label="Open...",
                                    command=self.load_commands_list)
         self.file_menu.add_command(label="Select command list folder",
@@ -653,6 +656,7 @@ class HekPool(tk.Tk):
             if disabled:
                 new_arg_string = ';' + new_arg_string
 
+            self._unsaved_edits = True
             self.commands_text.delete('%d.0' % posy, '%d.end' % posy)
             self.commands_text.insert('%d.0' % posy, new_arg_string)
             self.set_line_style(posy, self.get_line_style(posy))
@@ -873,6 +877,7 @@ class HekPool(tk.Tk):
         cmd_text = self.commands_text
         if event_type == "Cut":
             cmd_text.event_generate("<<Cut>>")
+            self._unsaved_edits = True
         elif event_type == "Copy":
             if cmd_text.tag_ranges(tk.SEL):
                 cmd_text.event_generate("<<Copy>>")
@@ -905,6 +910,7 @@ class HekPool(tk.Tk):
                     # not pasting into selection. remove selection
                     cmd_text.tag_remove(tk.SEL, "1.0", tk.END)
 
+            self._unsaved_edits = True
             cmd_text.event_generate("<<Paste>>")
             cmd_text.see(tk.INSERT)
 
@@ -926,6 +932,25 @@ class HekPool(tk.Tk):
                 list_names.append(relpath(join(root), self.commands_lists_dir))
 
         return list_names
+
+    def new_commands_list(self):
+        if self._execution_state:
+            return
+        elif self._unsaved_edits:
+            ans = messagebox.askyesnocancel(
+                "Unsaved edits!",
+                "The current command list has been edited since it was last "
+                "saved. Do you wish to save it before starting a new one?",
+                icon='warning', parent=self)
+            if ans is None:
+                return
+            elif ans:
+                self.save_commands_list()
+
+        self.commands_text.delete('1.0', tk.END)
+        self.commands_text.edit_reset()
+        self._unsaved_edits = False
+        self.curr_commands_list_name = None
 
     def load_commands_list(self, list_name=None):
         if self._execution_state:
@@ -958,6 +983,7 @@ class HekPool(tk.Tk):
         self.commands_text.insert('1.0', data)
         self.commands_text.edit_reset()
         self.reset_line_style()
+        self._unsaved_edits = False
 
     def save_commands_list_as(self):
         fp = asksaveasfilename(
@@ -998,6 +1024,7 @@ class HekPool(tk.Tk):
                 data = data[:-1]
             f.write(data)
 
+        self._unsaved_edits = False
         if filename == LAST_CMD_LIST_NAME:
             try:
                 # make it hidden
@@ -1196,10 +1223,6 @@ class HekPool(tk.Tk):
     def save_config(self):
         self.config_file.serialize(temp=0, backup=0, calc_pointers=0)
 
-    def display_edit_widgets(self, line=None):
-        # TODO
-        pass
-
     def _start_process(self, cmd_line, exec_path,
                        exec_args=(), cmd_args=(), **kw):
         if cmd_line is None:
@@ -1265,6 +1288,19 @@ class HekPool(tk.Tk):
                 self.commands_text.tag_add(
                     style, '%d.0' % line, '%d.end' % line)
 
+    def event_in_text(self, e):
+        if self._reset_style_on_click:
+            self._reset_style_on_click = False
+            self.reset_line_style()
+
+        if self.get_text_state() != tk.NORMAL:
+            return
+
+        if e.char != '??':
+            self._unsaved_edits = True
+        line = int(self.commands_text.index(tk.INSERT).split('.')[0])
+        self.set_line_style(line, self.get_line_style(line))
+
     def get_line_style(self, line):
         cmd_str, disabled = self.get_command(line)
 
@@ -1277,18 +1313,6 @@ class HekPool(tk.Tk):
             style = "directive"
 
         return style
-
-    def event_in_text(self, e):
-        if self._reset_style_on_click:
-            self._reset_style_on_click = False
-            self.reset_line_style()
-
-        if self.get_text_state() != tk.NORMAL:
-            return
-
-        line = int(self.commands_text.index(tk.INSERT).split('.')[0])
-        self.set_line_style(line, self.get_line_style(line))
-        self.display_edit_widgets(line)
 
     def set_line_style(self, line=None, style=None):
         if line is None:
@@ -1358,6 +1382,7 @@ class HekPool(tk.Tk):
             self.title('%s v%s' % (self.app_name, self.version))
             self.commands_text.delete('1.0', tk.END)
             self.commands_text.insert('1.0', self._pre_readme_text)
+            self._pre_readme_text = ""
             self.reset_line_style()
 
     def execute_selected_pressed(self):
@@ -1924,6 +1949,7 @@ class HekPool(tk.Tk):
         posy = int(self.commands_text.index(tk.INSERT).split('.')[0])
         self.commands_text.insert('%d.0' % posy, temp_type + dir_str + '\n')
         self.set_line_style(posy, self.get_line_style(posy))
+        self._unsaved_edits = True
 
     def close(self):
         if not self._execution_state:
@@ -1936,8 +1962,13 @@ class HekPool(tk.Tk):
             return
 
         try:
-            if not self._readme_mode and (self.commands_text.get('1.0', tk.END).\
-                                         replace('\n', '').replace(' ', '')):
+            if self._readme_mode and self._pre_readme_text:
+                self.commands_text.config(state=tk.NORMAL)
+                self.commands_text.delete('1.0', tk.END)
+                self.commands_text.insert('1.0', self._pre_readme_text)
+
+            if self.commands_text.get('1.0', tk.END).\
+                 replace('\n', '').replace(' ', ''):
                 self.save_commands_list(filename=LAST_CMD_LIST_NAME)
         except Exception:
             print(format_exc())

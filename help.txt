@@ -46,9 +46,7 @@ The argument types are as follows:
 
 
   cwd
-    Changes the current working directory, allowing Tool to operate on
-    folders it isn't inside. This allows you to use one copy of tool for
-    any number of separate tags directories and Halo CE installations.
+    Changes the current working directory, allowing Tool to operate on folders it isn't inside. This allows you to use one copy of tool for any number of separate tags directories and Halo CE installations.
 
     #  ARGUMENTS
     ############
@@ -58,8 +56,7 @@ The argument types are as follows:
 
 
   del
-    Removes a variable from the list of replacements.
-    See the 'set' directive.
+    Removes a variable from the list of replacements. See the 'set' directive for more information on variables.
 
     #  ARGUMENTS
     ############
@@ -76,9 +73,7 @@ The argument types are as follows:
 
 
   run
-    Runs the specified file located in the current working directoy.
-    Any additional arguments after <exec-path> are passed along to the
-    executable when it is ran.
+    Runs the specified file located in the current working directoy. Any additional arguments after <exec-path> are passed along to the executable when it is ran.
     
     Example:
         # run haloce.exe  -console  -devmode
@@ -90,15 +85,13 @@ The argument types are as follows:
 
 
   set
-    Adds a variable to a list that can be used for text replacements.
-    To use the variable, you must put arrow braces around it.
+    Adds a variable to a list that can be used for text replacements. To use the variable, you must put arrow braces around it.
     
     Example:
-        # set   dir   "levels\test\tutorial"
-    
-        structure   <dir>\tutorial
-        lightmaps   <dir>\tutorial  tutorial  1  0.000001
-        build-cache-file   <dir>\tutorial
+        # set		dir   "levels\test\tutorial"
+        structure	<dir>\tutorial
+        lightmaps	<dir>\tutorial  tutorial  1  0.000001
+        build-cache-file	<dir>\tutorial
 
     #  ARGUMENTS
     ############
@@ -110,8 +103,7 @@ The argument types are as follows:
 
 
   w
-    Tells Pool to wait until all currently running Tool instances
-    are closed before continuing executing commands and directives.
+    Tells Pool to wait until all currently running Tool instances are closed before continuing executing commands and directives.
 
     #  ARGUMENTS
     ############
@@ -170,7 +162,7 @@ The argument types are as follows:
 
     #  ARGUMENTS
     ############
-    <scenario-name>  (file-no-ext)
+    <scenario-path>  (file-no-ext)
         Name of the .scenario to build the mapfile from.
 
 
@@ -180,8 +172,7 @@ The argument types are as follows:
     #  ARGUMENTS
     ############
     <mod-name>  (str)
-        The name of the mod this scenario belongs to.
-        This will also be used when naming the new data-files.
+        The name of the mod this scenario belongs to. This will also be used when naming the new data-files.
 
     <create-anew>  (bool)
         Should new data-files be created before building the map?
@@ -192,7 +183,7 @@ The argument types are as follows:
     <use-memory-upgrades>  (bool)
         Does the scenario require Open Sauces memory upgrades to run?
 
-    <scenario-name>  (file-no-ext)
+    <scenario-path>  (file-no-ext)
         Name of the .scenario to build the mapfile from.
 
 
@@ -210,7 +201,7 @@ The argument types are as follows:
     <use-memory-upgrades>  (bool)
         Does the scenario require Open Sauces memory upgrades to run?
 
-    <scenario-name>  (file-no-ext)
+    <scenario-path>  (file-no-ext)
         Name of the .scenario to build the mapfile from.
 
 
@@ -241,14 +232,14 @@ The argument types are as follows:
   collision-geometry
     Compiles a directory of .jms models in the data folder into a model_collision_geometry tag. The directory you specify must contain these files in a folder named "physics". Do NOT type the "physics" part of the path; it is implied.
     
-    Each jms file in the "physics" folder must be named after the permutation that jms file contains. Here are most of the special permutation names as well as when they are used:
+    The name of each jms file in the "physics" folder must be the permutation name that jms file contains. Here are most of the special permutation names as well as when they are used:
            __base		(the default model)
            ~blur		(vehicle tires are spinning fast)
            ~primary-blur	(weapon primary trigger is firing fast)
            ~secondary-blur	(weapon secondary trigger is firing fast)
            ~damaged	(health of a region hit zero and died)
     
-    If there is a "physics.jms" file in the "physics" folder, make sure it either has no vertices and triangles, or you have Pool's "Fix physics.jms" setting checked. Otherwise the command might fail.
+    If there is a "physics.jms" file in the "physics" folder, make sure it either has no vertices and triangles, or you have Pool's "Fix physics.jms" setting checked. The command might fail otherwise.
 
     #  ARGUMENTS
     ############
@@ -261,7 +252,7 @@ The argument types are as follows:
 
     #  ARGUMENTS
     ############
-    <scenario-name>  (file-no-ext)
+    <scenario-path>  (file-no-ext)
 
 
   compile-shader-postprocess
@@ -282,15 +273,34 @@ The argument types are as follows:
 
 
   hud-messages
+    Compiles a "hud messages.hmt" file in the specified folder into a hud_message_text tag. The .hmt file must be saved in Unicode 16Bit encoding(not ANSI/ASCI/UTF8). Each line in the .hmt file must have the format "X=Y" where X is the message name, and Y is the message.
+    
+    The message name must be 31 characters or less. The entire message must be on the same line as the "X=" part. If you need to put a line break in the message, type |n instead. You can also specify a button/weapon icon to appear in part of the message using special characters. Here is a list of the icon names:
+           %a-button, %b-button, %x-button, %y-button
+           %black-button, %white-button, %left-trigger, %right-trigger
+           %dpad-up, %dpad-down, %dpad-left, %dpad-right
+           %start-button, %back-button, %integrated-light, %jump
+           %left-thumb, %right-thumb, %left-stick, %right-stick
+           %action, %throw-grenade, %primary-trigger
+           %use-equipment, %rotate-weapons, %rotate-grenades
+           %zoom, %crouch, %accept, %back, %move, %look
+           %custom-1, %custom-2, %custom-3, %custom-4
+           %custom-5, %custom-6, %custom-7, %custom-8
+    
+    Example:
+           pickup=Press %action to swap|n%custom-1|nfor|n%custom-2
+
     #  ARGUMENTS
     ############
-    <path>  (dir)
+    <hmt-path>  (dir)
+        The directory containing the "hud messages.hmt" file.
 
     <scenario-name>  (str)
+        After the hud_messages_text tag is compiled, this is the name of the scenario to put a reference to it in. This scenario must be in the same folder as where the hud_message_text tag will compile to.
 
 
   import-device-defaults
-    Unknown
+    My guess is that this creates a device_defaults tag from your own savegame preferences. I doubt this has realistically ever been useful to anyone other than Gearbox Software and Bungie.
 
     #  ARGUMENTS
     ############
@@ -300,18 +310,14 @@ The argument types are as follows:
 
 
   import-structure-lightmap-uvs
-    Replaces the lightmap UVs of a bsp with custom ones loaded from an obj file.
-    The obj file must have lightmaps grouped by object and have the group index
-    appending the group name (lightmap_0). Best way to ensure this is to export
-    a fresh lightmaps obj using Aether, import it into your modelling program,
-    and then ONLY edit the UVs to ensure the model matches the bsp.
+    Replaces the lightmap UVs of a bsp with custom ones loaded from an obj file. The obj file must have lightmaps grouped by object and have the group index appending the group name (lightmap_0). Best way to ensure this is to export a fresh lightmaps obj using Aether, import it into your modelling program, and then ONLY edit the UVs to ensure the model matches the bsp.
 
     #  ARGUMENTS
     ############
-    <structure-bsp>  (file-no-ext)
+    <structure-bsp-path>  (file-no-ext)
         Location of the target bsp, relative to the tags directory.
 
-    <obj-file>  (file-no-ext)
+    <obj-file-path>  (file-no-ext)
         Location of the source obj, relative to the data directory.
 
 
@@ -326,7 +332,7 @@ The argument types are as follows:
 
     #  ARGUMENTS
     ############
-    <scenario>  (file-no-ext)
+    <scenario-path>  (file-no-ext)
         Filepath to the scenario that uses the bsp you want to light.
 
     <bsp-name>  (str)
@@ -354,7 +360,7 @@ The argument types are as follows:
   model
     Compiles a directory of .jms models in the data folder into a gbxmodel tag. The directory you specify must contain these files in a folder named "models". Do NOT type the "models" part of the path; it is implied.
     
-    Each jms file in the "models" folder must be named after the permutation that jms file contains. Here are most of the special permutation names as well as when they are used:
+    The name of each jms file in the "models" folder must be the permutation name that jms file contains. Here are most of the special permutation names as well as when they are used:
            __base		(the default model)
            ~blur		(vehicle tires are spinning fast)
            ~primary-blur	(weapon primary trigger is firing fast)
@@ -391,13 +397,12 @@ The argument types are as follows:
 
 
   remove-os-tag-data
-    Removes OS tag data that would prevent loading in the stock tools.
-    Back up your tags before hand to be safe.
+    Removes OS tag data that would prevent loading in the stock tools. Back up your tags before hand to be safe.
 
     #  ARGUMENTS
     ############
-    <tag-name>  (file-no-ext)
-        Name of the tag to clean.
+    <tag-path>  (file-no-ext)
+        Filepath to the tag to clean.
 
     <tag-type>  (str)
         Type of the tag (the tags file extension).
@@ -407,8 +412,7 @@ The argument types are as follows:
 
 
   runtime-cache-view
-    Allows you to view the contents of the tag cache in an executing
-    instance of Halo CE. See the tools own help for more details.
+    Allows you to view the contents of the tag cache in an executing instance of Halo CE. See the tools own help for more details.
 
     #  ARGUMENTS
     ############
@@ -436,7 +440,6 @@ The argument types are as follows:
 
     <platform>  (str)
         The format to compile the sounds to. The xbox and wav formats are basically the same, and are the only ones that will work on an Xbox. Ogg can only be used PC, and has higher quality than the others. If you have a choice, choose xbox for short quick sounds, and ogg for music or dialog.
-        
 
     <use-high-quality(ogg_only)>  (bool)
         Prioritize audio quality over filesize?
@@ -455,38 +458,64 @@ The argument types are as follows:
 
 
   strings
+    Compiles a folder .txt files into string_list tags. Each .txt file must be saved in ANSI or ASCII encoding.
+    
+    NOTE: After each separate string in the text file you must put ###END-STRING### on the next line. This is how it should look:
+    
+           Here is my first string
+           ###END-STRING###
+           Here is my second string
+           ###END-STRING###
+           Here is my last string
+           ###END-STRING###
+
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The folder containing the .txt files to turn into string_list tags.
 
 
   structure
+    Compiles a .jms model in the data folder into a scenario_structure_bsp (sbsp) tag. The directory you specify must contain this .jms file in a folder named "models". Do NOT type the "models" part of the path; it is implied.
+    
+    The name of the jms file in the "models" folder is the name the bsp it compiles to will be given. This is typically the same name as the scenario, but large levels may utilize multiple bsps.
+    
+    If a scenario tag doesn't already exist in the folder this sbsp tag will be compiled into, one referencing the new bsp will be created.
+
     #  ARGUMENTS
     ############
     <scenario-directory>  (dir)
+        The directory containing the "models" folder that contains the .jms file you are compiling.
 
     <bsp-name>  (str)
+        The name of the .jms file to compile, as well as the name to give the scenario_structure_bsp tag you are compiling.
 
 
   structure-breakable-surfaces
-    Unknown
+    Creates breakable surfaces structures in the specified structure_scenario_bsp (sbsp) tag. Each surface has a flag to specify if it is breakable. When the sbsp tag is compiled from a .jms file, the shaders determine whether to set these flags for each surface. This command will generate breakable-surface structures for each surface flagged as breakable. Surfaces will not actually break if these structures are not generated after compiling the sbsp tag.
 
     #  ARGUMENTS
     ############
-    <structure-name>  (file-no-ext)
+    <structure-path>  (file-no-ext)
+        The scenario-structure-bsp tag to generate breakable surfaces for.
 
 
   structure-lens-flares
-    Unknown
+    Calculates and inserts lens flare markers and dependencies into the specified scenario_structure_bsp (sbsp) tag. The lens_flares as well as how far apart to place them are pulled from the sbsp's shaders.
+    The only shaders tags that can reference lens_flare tags are these:
+           shader_environment
+           shader_transparent_generic
+           shader_transparent_chicago
+           shader_transparent_chicago_extended
 
     #  ARGUMENTS
     ############
-    <bsp-name>  (file-no-ext)
+    <bsp-path>  (file-no-ext)
+        The scenario-structure-bsp tag to calculate lens flares markers and dependencies for.
 
 
   tag-load-test
-    Validates that a tag and ALL of its children can be loaded without error.
-    Optionally prints additional diagnostic information.
+    Validates that a tag and ALL of its children can be loaded without error. Optionally prints additional diagnostic information.
 
     #  ARGUMENTS
     ############
@@ -513,13 +542,25 @@ The argument types are as follows:
 
 
   unicode-strings
+    Compiles a folder .txt files into unicode_string_list tags. Each .txt file must be saved in Unicode 16Bit encoding. Big/little endian byteorder does not matter, just do not save as ANSI, ASCII, or UTF8, only UTF16.
+    
+    NOTE: After each separate string in the text file you must put ###END-STRING### on the next line. This is how it should look:
+    
+           Here is my first string
+           ###END-STRING###
+           Here is my second string
+           ###END-STRING###
+           Here is my last string
+           ###END-STRING###
+
     #  ARGUMENTS
     ############
     <source-directory>  (dir)
+        The folder containing the .txt files to turn into unicode_string_list tags.
 
 
   windows-font
-    Shows a prompt which allows you to select an installed windows font you wish to compile into a font tag.
+    Displays a prompt which allows you to select an installed Windows font you wish to compile into a font tag.
 
     #  ARGUMENTS
     ############
