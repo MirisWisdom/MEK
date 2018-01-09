@@ -120,14 +120,14 @@ The argument types are as follows:
     
     Each jm* type compiles to a different type of animation. dx/dy/dz means the animation will permanently move the object in the world on that/those axis, while dyaw means it will permanently rotate the object. These are typically used for movement and turning.
     
-    base (overlays be be played on it)
+    base (overlays can be played on it)
            jmm:	none
            jmw:	none (completely world relative)
            jma:	dx/dy
            jmt:	dx/dy/dyaw
            jmz:	dx/dy/dz/dyaw
     
-    overlay (played on the current base {aiming, tire suspension, etc})
+    overlay (plays on the current base {aiming, tire suspension, etc})
            jmo:	none
     
     replacement (replaces anything being played {grenade throw, etc})
@@ -158,16 +158,16 @@ The argument types are as follows:
 
 
   build-cache-file
-    Builds a cache file with no Open Sauce enhancements whatsoever.
+    Builds a map cache file with no Open Sauce enhancements whatsoever.
 
     #  ARGUMENTS
     ############
     <scenario-path>  (file-no-ext)
-        Name of the .scenario to build the mapfile from.
+        Filepath of the scenario tag to build the map cache file from.
 
 
   build-cache-file-ex
-    Builds a cache file with extra Open Sauce arguments.
+    Builds a map cache file with extra Open Sauce arguments.
 
     #  ARGUMENTS
     ############
@@ -184,11 +184,11 @@ The argument types are as follows:
         Does the scenario require Open Sauces memory upgrades to run?
 
     <scenario-path>  (file-no-ext)
-        Name of the .scenario to build the mapfile from.
+        Filepath of the scenario tag to build the map cache file from.
 
 
   build-cache-file-new
-    Builds a cache file with extra Open Sauce arguments.
+    Builds a map cache file with extra Open Sauce arguments.
 
     #  ARGUMENTS
     ############
@@ -202,7 +202,7 @@ The argument types are as follows:
         Does the scenario require Open Sauces memory upgrades to run?
 
     <scenario-path>  (file-no-ext)
-        Name of the .scenario to build the mapfile from.
+        Filepath of the scenario tag to build the map cache file from.
 
 
   build-cpp-definition
@@ -214,7 +214,7 @@ The argument types are as follows:
         The four character code designated for this tag type. For example, 'bitm' is for bitmap, 'matg' is globals, and 'snd!' is sound.
 
     <add-boost-asserts>  (bool)
-        Whether or not to add assertions to the C++ definition to help make sure the structures are the correct size if you modify them.
+        Add assertions to the C++ definition to help make sure the structures are the correct size if you modify them?
 
 
   build-packed-file
@@ -253,6 +253,7 @@ The argument types are as follows:
     #  ARGUMENTS
     ############
     <scenario-path>  (file-no-ext)
+        Filepath of the scenario tag whose scripts to compile.
 
 
   compile-shader-postprocess
@@ -342,7 +343,7 @@ The argument types are as follows:
         Use highest quality radiosity settings?
 
     <stop-threshold>  (float)
-        The percentage of light remaining to stop calculating at. Light is cast in multiple passes from each surface, getting progressively finer with each pass. Each pass also reduces the total amount of light to be cast from each surface. When the amount of light remaining hits this value, radiosity will stop.
+        The amount of light remaining to stop calculating at. Light is cast in multiple passes from each surface, getting progressively finer with each pass. Each pass also reduces the total amount of light to be cast from each surface. When the amount of light remaining hits this value, radiosity will stop.
 
 
   merge-scenery
@@ -408,7 +409,7 @@ The argument types are as follows:
         Type of the tag (the tags file extension).
 
     <recursive>  (bool)
-        Whether to also process all tags referred to by the given tag.
+        Process all tags referred to by the given tag?
 
 
   runtime-cache-view
@@ -526,19 +527,19 @@ The argument types are as follows:
         Root tag's group name.
 
     <prompt-to-continue>  (bool)
-        Prompt to continue for each child tag.
+        Prompt to continue for each child tag?
 
     <prompt-to-fix-unresolved>  (bool)
         NOT YET IMPLEMENTED.
 
     <load-non-resolving-refs>  (bool)
-        Load all tag_references, even if they're non-resolving.
+        Load all tag_references, even if they're non-resolving?
 
     <print-size>  (bool)
-        Print the total size of the tag hierarchy as well as the tag_group memory.
+        Print the total size of the tag hierarchy as well as the tag_group memory?
 
     <verbose>  (bool)
-        Outputs progress/extra information as it processes the tags.
+        Output progress/extra information as the tag(s) is/are processesd?
 
 
   unicode-strings

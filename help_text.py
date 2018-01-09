@@ -98,14 +98,14 @@ TOOL_COMMAND_HELP = FrozenDict({
         "on that/those axis, while dyaw means it will permanently rotate "
         "the object. These are typically used for movement and turning.\n"
         "\n"
-        "base (overlays be be played on it)\n"
+        "base (overlays can be played on it)\n"
         "       jmm:\tnone\n"
         "       jmw:\tnone (completely world relative)\n"
         "       jma:\tdx/dy\n"
         "       jmt:\tdx/dy/dyaw\n"
         "       jmz:\tdx/dy/dz/dyaw\n"
         "\n"
-        "overlay (played on the current base {aiming, tire suspension, etc})\n"
+        "overlay (plays on the current base {aiming, tire suspension, etc})\n"
         "       jmo:\tnone\n"
         "\n"
         "replacement (replaces anything being played {grenade throw, etc})\n"
@@ -134,12 +134,12 @@ TOOL_COMMAND_HELP = FrozenDict({
          'The directory containing the bitmaps to be compiled.'),
         ),
     "build-cache-file": (
-        'Builds a cache file with no Open Sauce enhancements whatsoever.',
+        'Builds a cache file(a .map file) with no Open Sauce enhancements.',
         ("scenario-path", 'file-no-ext',
-         'Name of the .scenario to build the mapfile from.'),
+         'Filepath of the scenario tag to build the map cache file from.'),
         ),
     "build-cache-file-ex": (
-        'Builds a cache file with extra Open Sauce arguments.',
+        'Builds a cache file(a .map file) with extra Open Sauce arguments.',
         ("mod-name", 'str',
          'The name of the mod this scenario belongs to. '
          'This will also be used when naming the new data-files.'),
@@ -150,10 +150,10 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("use-memory-upgrades", 'bool',
          'Does the scenario require Open Sauces memory upgrades to run?'),
         ("scenario-path", 'file-no-ext',
-         'Name of the .scenario to build the mapfile from.'),
+         'Filepath of the scenario tag to build the map cache file from.'),
         ),
     "build-cache-file-new": (
-        'Builds a cache file with extra Open Sauce arguments.',
+        'Builds a cache file(a .map file) with extra Open Sauce arguments.',
         ("create-anew", 'bool',
          'Should new data-files be created before building the map?'),
         ("store-resources", 'bool',
@@ -161,7 +161,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("use-memory-upgrades", 'bool',
          'Does the scenario require Open Sauces memory upgrades to run?'),
         ("scenario-path", 'file-no-ext',
-         'Name of the .scenario to build the mapfile from.'),
+         'Filepath of the scenario tag to build the map cache file from.'),
         ),
     "build-cpp-definition": (
         "Builds a C++ definition for the tag-group specified and writes it to "
@@ -170,8 +170,8 @@ TOOL_COMMAND_HELP = FrozenDict({
          "The four character code designated for this tag type. For example, "
          "'bitm' is for bitmap, 'matg' is globals, and 'snd!' is sound."),
         ("add-boost-asserts", 'bool',
-         "Whether or not to add assertions to the C++ definition to help "
-         "make sure the structures are the correct size if you modify them."),
+         "Add assertions to the C++ definition to help make sure the "
+         "structures are the correct size if you modify them?"),
         ),
     "build-packed-file": (
         "Something to do with compiling open-sauce shaders. Not useful to map makers.",
@@ -203,7 +203,7 @@ TOOL_COMMAND_HELP = FrozenDict({
     "compile-scripts": (
         "NOT YET IMPLEMENTED",
         ("scenario-path", 'file-no-ext',
-         ""),
+         'Filepath of the scenario tag whose scripts to compile.'),
         ),
     "compile-shader-postprocess": (
         'Creates shader_postprocess_generic tags from HLSL .fx shaders in the data directory.',
@@ -281,7 +281,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("render-high-quality", 'bool',
          "Use highest quality radiosity settings?"),
         ("stop-threshold", 'float',
-         "The percentage of light remaining to stop calculating at. Light is "
+         "The amount of light remaining to stop calculating at. Light is "
          "cast in multiple passes from each surface, getting progressively "
          "finer with each pass. Each pass also reduces the total amount of "
          "light to be cast from each surface. When the amount of light "
@@ -334,7 +334,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("tag-path", 'file-no-ext', 'Filepath to the tag to clean.'),
         ("tag-type", 'str', 'Type of the tag (the tags file extension).'),
         ("recursive", 'bool',
-         'Whether to also process all tags referred to by the given tag.'),
+         'Process all tags referred to by the given tag?'),
         ),
     "runtime-cache-view": (
         'Allows you to view the contents of the tag cache in an executing '
@@ -428,7 +428,7 @@ TOOL_COMMAND_HELP = FrozenDict({
         "       shader_transparent_generic\n"
         "       shader_transparent_chicago\n"
         "       shader_transparent_chicago_extended",
-        ("bsp-path", 'file-no-ext',
+        ("structure-path", 'file-no-ext',
          "The scenario-structure-bsp tag to calculate lens flares markers "
          "and dependencies for."),
         ),
@@ -438,15 +438,15 @@ TOOL_COMMAND_HELP = FrozenDict({
         ("tag-name", 'file-no-ext', "Root tag's path."),
         ("group", 'str', "Root tag's group name."),
         ("prompt-to-continue", 'bool',
-         'Prompt to continue for each child tag.'),
+         'Prompt to continue for each child tag?'),
         ("prompt-to-fix-unresolved", 'bool',
          'NOT YET IMPLEMENTED.'),
         ("load-non-resolving-refs", 'bool',
-         "Load all tag_references, even if they're non-resolving."),
+         "Load all tag_references, even if they're non-resolving?"),
         ("print-size", 'bool',
-         'Print the total size of the tag hierarchy as well as the tag_group memory.'),
+         'Print the total size of the tag hierarchy as well as the tag_group memory?'),
         ("verbose", 'bool',
-         'Outputs progress/extra information as it processes the tags.'),
+         'Output progress/extra information as the tag(s) is/are processesd?'),
         ),
     "unicode-strings": (
         "Compiles a folder .txt files into unicode_string_list tags. Each "
