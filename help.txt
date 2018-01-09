@@ -158,7 +158,7 @@ The argument types are as follows:
 
 
   build-cache-file
-    Builds a map cache file with no Open Sauce enhancements whatsoever.
+    Builds a cache file(a .map file) with no Open Sauce enhancements.
 
     #  ARGUMENTS
     ############
@@ -167,7 +167,7 @@ The argument types are as follows:
 
 
   build-cache-file-ex
-    Builds a map cache file with extra Open Sauce arguments.
+    Builds a cache file(a .map file) with extra Open Sauce arguments.
 
     #  ARGUMENTS
     ############
@@ -188,7 +188,7 @@ The argument types are as follows:
 
 
   build-cache-file-new
-    Builds a map cache file with extra Open Sauce arguments.
+    Builds a cache file(a .map file) with extra Open Sauce arguments.
 
     #  ARGUMENTS
     ############
@@ -511,7 +511,7 @@ The argument types are as follows:
 
     #  ARGUMENTS
     ############
-    <bsp-path>  (file-no-ext)
+    <structure-path>  (file-no-ext)
         The scenario-structure-bsp tag to calculate lens flares markers and dependencies for.
 
 

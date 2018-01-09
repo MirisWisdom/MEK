@@ -546,8 +546,7 @@ class HekPool(tk.Tk):
 
             vals = new_vals
             if typ == 'cwd':
-                loc_vars['cwd'] = ''.join(
-                    "%s " % s for s in vals)[:-1].strip('"')
+                loc_vars['cwd'] = ' '.join(s for s in vals).strip('"')
             elif typ == "set" and len(vals) >= 2:
                 loc_vars[vals[0]] = vals[1]
             elif typ == "del" and vals[0] != 'cwd':
@@ -652,7 +651,7 @@ class HekPool(tk.Tk):
 
             # DO NOT strip the last space off the end. This allows quickly
             # right clicking the end of the line to add the next argument
-            new_arg_string = ''.join('%s ' % a for a in cmd_args)
+            new_arg_string = ' '.join(a for a in cmd_args) + ' '
             if disabled:
                 new_arg_string = ';' + new_arg_string
 
@@ -1644,9 +1643,8 @@ class HekPool(tk.Tk):
                         if vals:
                             # if spaces are in the filepath, put them back in.
                             # also, strip parenthese since cmd doesn't know how.
-                            loc_vars["cwd"] = (
-                                ''.join("%s " % s for s in vals)[:-1].\
-                                strip('"').replace('/', '\\'))
+                            loc_vars["cwd"] = (' '.join(s for s in vals).\
+                                               strip('"').replace('/', '\\'))
                         else:
                             self.set_line_style(i, "error")
                     elif typ == 'k':
