@@ -161,9 +161,7 @@ class HekPool(tk.Tk):
     _execution_thread = None
     _template_opt_cache = None
     _reset_style_on_click = False
-    _readme_mode = False
     _unsaved_edits = False
-    _pre_readme_text = ""
 
     fixed_font = None
 
@@ -199,7 +197,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.0.1'
+    version = '1.0.2'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -427,12 +425,9 @@ class HekPool(tk.Tk):
                 parent=self.commands_text)
 
     def start_readme(self):
-        if self._execution_state or self._readme_mode:
+        if self._execution_state:
             return
 
-        self._readme_mode = True
-        self.title('%s v%s [README MODE]' % (self.app_name, self.version))
-        self._pre_readme_text = self.commands_text.get('1.0', tk.END)
         self.commands_text.config(state=tk.NORMAL)
         self.commands_text.delete('1.0', tk.END)
         self.commands_text.insert('1.0', README_TEXT)
@@ -971,9 +966,6 @@ class HekPool(tk.Tk):
         with open(filepath, 'r') as f:
             data = f.read()
 
-        if self._readme_mode:
-            self.cancel_pressed()
-
         cmd_list_name = splitext(basename(filepath))[0]
         if cmd_list_name != LAST_CMD_LIST_NAME:
             self.curr_commands_list_name = cmd_list_name
@@ -1376,13 +1368,6 @@ class HekPool(tk.Tk):
 
     def cancel_pressed(self):
         self._stop_processing = True
-        if self._readme_mode:
-            self._readme_mode = False
-            self.title('%s v%s' % (self.app_name, self.version))
-            self.commands_text.delete('1.0', tk.END)
-            self.commands_text.insert('1.0', self._pre_readme_text)
-            self._pre_readme_text = ""
-            self.reset_line_style()
 
     def execute_selected_pressed(self):
         try:
@@ -1666,7 +1651,7 @@ class HekPool(tk.Tk):
                         else:
                             self.set_line_style(i, "error")
                     elif typ == "run":
-                        if self._readme_mode or self._stop_processing:
+                        if self._stop_processing:
                             completed[i] = dict()
                             self.set_line_style(i, "processed")
                         else:
@@ -1685,7 +1670,7 @@ class HekPool(tk.Tk):
 
                     log_path = join(cwd, 'debug.txt')
                     if log_path not in log_paths:
-                        if clear_log and not self._readme_mode:
+                        if clear_log:
                             try:
                                 with open(log_path, "w") as f:
                                     f.truncate()
@@ -1720,7 +1705,7 @@ class HekPool(tk.Tk):
                         # start the command
                         cmd_args  = tuple(a for a in cmd_args_dict if cmd_args_dict[a])
                         exec_args = tuple(a.replace('/', '\\') for a in exec_args)
-                        if self._readme_mode or self._stop_processing:
+                        if self._stop_processing:
                             completed[i] = {}
                             self.set_line_style(i, "processed")
                         else:
@@ -1960,11 +1945,6 @@ class HekPool(tk.Tk):
             return
 
         try:
-            if self._readme_mode and self._pre_readme_text:
-                self.commands_text.config(state=tk.NORMAL)
-                self.commands_text.delete('1.0', tk.END)
-                self.commands_text.insert('1.0', self._pre_readme_text)
-
             if self.commands_text.get('1.0', tk.END).\
                  replace('\n', '').replace(' ', ''):
                 self.save_commands_list(filename=LAST_CMD_LIST_NAME)

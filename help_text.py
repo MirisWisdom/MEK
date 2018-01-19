@@ -2,15 +2,7 @@ import os
 import traceback
 from supyr_struct.defs.frozen_dict import FrozenDict
 
-README_TEXT = ''';                            HELLO!
-; Don't worry if you had something typed in here before. Once you click
-; the Cancel button to exit this introduction it will be pasted back in.
-; Any tool commands ran while in this "introduction" mode wont actually
-; be executed(this includes the #run directive), so play around with it.
-; This intro can be viewed any time by going to "Help->Introduction".
-
-
-;                         WHAT IS POOL
+README_TEXT = ''';                         WHAT IS POOL
 ; So first off, what is Pool and why should I use it? Pool is a wrapper
 ; for tool.exe that allows you to batch process tool commands, run up to
 ; 64 tool commands in parallel, run tool on directories other than the
