@@ -14,3 +14,6 @@ def beep(interval=0, count=1):
             sleep(float(interval))
     except KeyboardInterrupt:
         pass
+
+if __name__ == '__main__':
+    beep()
