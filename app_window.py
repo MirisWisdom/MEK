@@ -159,7 +159,7 @@ class HekPool(tk.Tk):
     _execution_state = 0  # 0 == not executing,  1 == executing
     _stop_processing = False
     _execution_thread = None
-    _template_opt_cache = None
+    _action_opt_cache = None
     _reset_style_on_click = False
     _unsaved_edits = False
 
@@ -197,7 +197,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.0.3'
+    version = '1.0.4'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -241,8 +241,8 @@ class HekPool(tk.Tk):
         # make the menubar
         self.main_menu = tk.Menu(self)
         self.file_menu = tk.Menu(self.main_menu, tearoff=0)
-        self.templates_menu = tk.Menu(self.main_menu, tearoff=0,
-                                      postcommand=self.generate_templates_menu)
+        self.actions_menu = tk.Menu(self.main_menu, tearoff=0,
+                                      postcommand=self.generate_actions_menu)
         self.settings_menu = tk.Menu(self.main_menu, tearoff=0)
         self.tools_menu = tk.Menu(self.main_menu, tearoff=0,
                                   postcommand=self.generate_tools_menu)
@@ -250,7 +250,7 @@ class HekPool(tk.Tk):
         self.config(menu=self.main_menu)
         self.main_menu.add_cascade(label="File", menu=self.file_menu)
         self.main_menu.add_cascade(label="Settings", menu=self.settings_menu)
-        self.main_menu.add_cascade(label="Templates", menu=self.templates_menu)
+        self.main_menu.add_cascade(label="Actions", menu=self.actions_menu)
         self.main_menu.add_cascade(label="Select Tool", menu=self.tools_menu)
         self.main_menu.add_cascade(label="Help", menu=self.help_menu)
 
@@ -275,7 +275,7 @@ class HekPool(tk.Tk):
         self.file_menu.add_command(label="Edit colors",
                                    command=self.edit_style_in_text_editor)
         self.file_menu.add_command(label="Edit right-click menu",
-                                   command=self.edit_templates_in_text_editor)
+                                   command=self.edit_actions_in_text_editor)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.close)
 
@@ -402,7 +402,7 @@ class HekPool(tk.Tk):
 
         self.apply_style()
         self.apply_config()
-        self.load_templates()
+        self.load_actions()
 
         if isfile(join(self.commands_lists_dir, LAST_CMD_LIST_NAME + '.txt')):
             self.load_commands_list(LAST_CMD_LIST_NAME)
@@ -450,7 +450,7 @@ class HekPool(tk.Tk):
         if (not self.smart_assist_on_rclick.get() or self.check_can_copy() or
                 len(raw_cmd_str.strip(' ').strip('\t')) == 0):
             # empty line. post the menu to select a command
-            self.post_templates_menu(e)
+            self.post_actions_menu(e)
             return
 
         cmd_args, disabled = self.get_command(posy)
@@ -470,7 +470,7 @@ class HekPool(tk.Tk):
         cmd_info  = cmd_infos.get(cmd_type)
         help_info = help_infos.get(cmd_type, ())
         if cmd_info is None:
-            self.post_templates_menu(e)
+            self.post_actions_menu(e)
             return
 
         # locate which argument in the command string we are hovering over
@@ -520,7 +520,7 @@ class HekPool(tk.Tk):
                                     parent=self.commands_text)
             return
         elif arg_index not in range(len(cmd_info)):
-            self.post_templates_menu(e)
+            self.post_actions_menu(e)
             return
 
         cwd = dirname(self.get_tool_path())
@@ -655,8 +655,8 @@ class HekPool(tk.Tk):
             self.commands_text.insert('%d.0' % posy, new_arg_string)
             self.set_line_style(posy, self.get_line_style(posy))
 
-    def post_templates_menu(self, e):
-        self.templates_menu.post(e.x_root, e.y_root)
+    def post_actions_menu(self, e):
+        self.actions_menu.post(e.x_root, e.y_root)
 
     def ignore_keypress(self, e=None):
         self.commands_text.delete(tk.INSERT)
@@ -735,35 +735,35 @@ class HekPool(tk.Tk):
             print(format_exc())
             print("Could not open %s" % STYLE_CFG_NAME)
 
-    def edit_templates_in_text_editor(self):
-        Thread(target=self._edit_templates_in_text_editor, daemon=True).start()
+    def edit_actions_in_text_editor(self):
+        Thread(target=self._edit_actions_in_text_editor, daemon=True).start()
 
-    def _edit_templates_in_text_editor(self):
-        templates_path = join(self.working_dir, TEMPLATES_CFG_NAME)
-        if not isfile(templates_path):
-            self.save_templates()
-            if not isfile(templates_path):
+    def _edit_actions_in_text_editor(self):
+        actions_path = join(self.working_dir, ACTIONS_CFG_NAME)
+        if not isfile(actions_path):
+            self.save_actions()
+            if not isfile(actions_path):
                 return
 
         try:
             proc_controller = ProcController()
-            self._start_process(None, TEXT_EDITOR_NAME, (templates_path, ),
+            self._start_process(None, TEXT_EDITOR_NAME, (actions_path, ),
                                 proc_controller=proc_controller)
 
             while proc_controller.returncode is None:
                 sleep(0.1)
-            self.load_templates()
+            self.load_actions()
         except Exception:
             print(format_exc())
-            print("Could not open %s" % TEMPLATES_CFG_NAME)
+            print("Could not open %s" % ACTIONS_CFG_NAME)
 
-    def load_templates(self):
+    def load_actions(self):
         try:
-            templates_path = join(self.working_dir, TEMPLATES_CFG_NAME)
-            if not isfile(templates_path):
+            actions_path = join(self.working_dir, ACTIONS_CFG_NAME)
+            if not isfile(actions_path):
                 return
 
-            with open(templates_path, 'r') as f:
+            with open(actions_path, 'r') as f:
                 data = ''
                 for line in f:
                     line = line.replace('\t', ' ').replace('\r', '\n').\
@@ -789,19 +789,19 @@ class HekPool(tk.Tk):
                 data = data.strip('\n').replace('{', '(').replace('}', ')').\
                        replace('[', '(').replace(']', ')').replace('(', '("')
 
-                new_templates = eval("list((%s))" % data)
+                new_actions = eval("list((%s))" % data)
             malformed = False
         except Exception:
             malformed = True
-            new_templates = ()
+            new_actions = ()
 
-        sanitized_new_templates = []
-        valid_items = set(tuple(SPECIAL_TEMPLATES_KWDS) +
+        sanitized_new_actions = []
+        valid_items = set(tuple(SPECIAL_ACTIONS_KWDS) +
                           tuple(TOOL_COMMANDS) + tuple(DIRECTIVES))
-        for item in new_templates:
+        for item in new_actions:
             if isinstance(item, str):
                 if item in valid_items:
-                    sanitized_new_templates.append(item)
+                    sanitized_new_actions.append(item)
                 continue
 
             malformed |= not(hasattr(item, '__len__') and len(item))
@@ -812,18 +812,18 @@ class HekPool(tk.Tk):
                 if name in valid_items:
                     sanitized_items.append(name)
 
-            sanitized_new_templates.append([casc_name] + sanitized_items)
+            sanitized_new_actions.append([casc_name] + sanitized_items)
 
         if malformed:
-            print("Could not load %s as it is malformed." % TEMPLATES_CFG_NAME)
+            print("Could not load %s as it is malformed." % ACTIONS_CFG_NAME)
         else:
-            del TEMPLATE_MENU_LAYOUT[:]
-            TEMPLATE_MENU_LAYOUT.extend(sanitized_new_templates)
+            del ACTION_MENU_LAYOUT[:]
+            ACTION_MENU_LAYOUT.extend(sanitized_new_actions)
 
-    def save_templates(self):
-        with open(join(self.working_dir, TEMPLATES_CFG_NAME), 'w') as f:
+    def save_actions(self):
+        with open(join(self.working_dir, ACTIONS_CFG_NAME), 'w') as f:
             f.write("""
-; This file controls what shows up in the templates menu when you
+; This file controls what shows up in the actions menu when you
 ; right-click an empty line or access it through the menu bar.
 ; You can make Tool commands and Pool directives appear either
 ; directly in the menu, or inside a cascade in the menu.
@@ -835,7 +835,7 @@ class HekPool(tk.Tk):
 ;
 ; The cut, copy, and paste keywords cannot be used inside a cascade.
 ;
-; If the templates fail to load at all, make sure:
+; If the actions fail to load at all, make sure:
 ;    * You don't have any missing starting or ending parenthese
 ;    * You have only one command/cascade defined per line
 ;    * You do not have a cascade inside a cascade(not allowed)
@@ -843,7 +843,7 @@ class HekPool(tk.Tk):
 ;    * ONLY spaces/tabs are on lines containing CLOSING parenthese
 
 """)
-            for item in TEMPLATE_MENU_LAYOUT:
+            for item in ACTION_MENU_LAYOUT:
                 if isinstance(item, str):
                     f.write('\n%s\n' % item)
                     continue
@@ -862,10 +862,10 @@ class HekPool(tk.Tk):
             for dir_name in sorted(DIRECTIVES):
                 f.write(";     %s\n" % dir_name)
 
-            f.write("\n\n; All special template keywords:\n;\n")
-            for name in sorted(SPECIAL_TEMPLATES_KWDS):
+            f.write("\n\n; All special action keywords:\n;\n")
+            for name in sorted(SPECIAL_ACTIONS_KWDS):
                 f.write(";     %s\n" % name)
-                f.write(";         %s\n" % SPECIAL_TEMPLATES_KWDS[name])
+                f.write(";         %s\n" % SPECIAL_ACTIONS_KWDS[name])
 
     def do_clipboard_action(self, event_type):
         cmd_text = self.commands_text
@@ -1783,51 +1783,51 @@ class HekPool(tk.Tk):
             except Exception:
                 print(format_exc())
 
-    def generate_templates_menu(self):
-        if self._template_opt_cache == TEMPLATE_MENU_LAYOUT:
-            for i in range(len(TEMPLATE_MENU_LAYOUT)):
-                item, state = TEMPLATE_MENU_LAYOUT[i], tk.DISABLED
+    def generate_actions_menu(self):
+        if self._action_opt_cache == ACTION_MENU_LAYOUT:
+            for i in range(len(ACTION_MENU_LAYOUT)):
+                item, state = ACTION_MENU_LAYOUT[i], tk.DISABLED
                 if item not in ("<<cut>>", "<<copy>>", "<<paste>>"):
                     continue
                 elif ((item == "<<paste>>" and self.check_can_paste()) or
                       (item != "<<paste>>" and self.check_can_copy())):
                     state = tk.NORMAL
 
-                self.templates_menu.entryconfigure(i, state=state)
+                self.actions_menu.entryconfigure(i, state=state)
 
             return
 
-        self.templates_menu.delete(0, "end")
-        self._template_opt_cache = list(TEMPLATE_MENU_LAYOUT)
+        self.actions_menu.delete(0, "end")
+        self._action_opt_cache = list(ACTION_MENU_LAYOUT)
 
-        # generate the options for templates_menu
-        for item in TEMPLATE_MENU_LAYOUT:
+        # generate the options for actions_menu
+        for item in ACTION_MENU_LAYOUT:
             if isinstance(item, str):
                 if item == "<<divider>>":
-                    self.templates_menu.add_separator()
+                    self.actions_menu.add_separator()
                 elif item in ("<<cut>>", "<<copy>>", "<<paste>>"):
                     item = item.strip('<').strip('>').capitalize()
                     state = self.check_can_paste if item == 'Paste' else\
                             self.check_can_copy
 
-                    self.templates_menu.add_command(
+                    self.actions_menu.add_command(
                         state=tk.NORMAL if state() else tk.DISABLED, label=item,
                         command=lambda i=item: self.do_clipboard_action(i))
                 else:
-                    self.templates_menu.add_command(
+                    self.actions_menu.add_command(
                         label=item, command=lambda n=item:
-                        self.insert_template(n))
+                        self.insert_action(n))
                 continue
 
             casc_name, temp_names = item[0], item[1:]
-            new_menu = tk.Menu(self.templates_menu, tearoff=0)
-            self.templates_menu.add_cascade(label=casc_name, menu=new_menu)
+            new_menu = tk.Menu(self.actions_menu, tearoff=0)
+            self.actions_menu.add_cascade(label=casc_name, menu=new_menu)
             for name in temp_names:
                 if name == "<<divider>>":
                     new_menu.add_separator()
                     continue
                 new_menu.add_command(label=name, command=lambda n=name:
-                                     self.insert_template(n))
+                                     self.insert_action(n))
 
         gc.collect()
 
@@ -1919,7 +1919,7 @@ class HekPool(tk.Tk):
             self.last_load_dir = dirname(fp)
             self.add_tool_path(fp)
 
-    def insert_template(self, temp_type):
+    def insert_action(self, temp_type):
         if temp_type in TOOL_COMMANDS:
             params = TOOL_COMMANDS.get(temp_type, ())
         elif temp_type in DIRECTIVES:
@@ -1953,7 +1953,7 @@ class HekPool(tk.Tk):
 
         try:
             self.save_style()
-            self.save_templates()
+            self.save_actions()
         except Exception:
             print(format_exc())
 

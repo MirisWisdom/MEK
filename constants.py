@@ -4,7 +4,7 @@ MAX_PROCESS_CT = 64
 
 OGG_DLL_ZIP_NAME = "ogg_v1.1.2_dll_fix.zip"
 STYLE_CFG_NAME = "colors.txt"
-TEMPLATES_CFG_NAME = "templates.txt"
+ACTIONS_CFG_NAME = "actions.txt"
 LAST_CMD_LIST_NAME = ".recent"
 
 BLACK_COLOR = '#%02x%02x%02x' % (0, 0, 0)  # black
@@ -296,7 +296,7 @@ TOOL_COMMANDS = FrozenDict({
     })
 
 
-SPECIAL_TEMPLATES_KWDS = FrozenDict({
+SPECIAL_ACTIONS_KWDS = FrozenDict({
     "<<cut>>": "Cuts the selected text out and puts it into the clipboard.",
     "<<copy>>": "Copies the selected text into the clipboard.",
     "<<paste>>": "Pastes the text from the clipboard into the text.",
@@ -304,7 +304,7 @@ SPECIAL_TEMPLATES_KWDS = FrozenDict({
     })
 
 
-TEMPLATE_MENU_LAYOUT = [
+ACTION_MENU_LAYOUT = [
     "<<cut>>",
     "<<copy>>",
     "<<paste>>",

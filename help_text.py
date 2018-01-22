@@ -62,7 +62,7 @@ README_TEXT = ''';                         WHAT IS POOL
 ;     browser will appear, letting you select the scenario to use.
 
 
-;           THESE COLORS HURT AND I HATE THE TEMPLATES!!!
+;           THESE COLORS HURT AND I HATE THE ACTION MENUS!!!
 ; If you don't like the text color scheme or the commands that appear
 ; in the right-click menu, you can change them through the File menu.
 ; The color scheme and menu options will be opened in notepad, and
