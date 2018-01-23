@@ -17,14 +17,12 @@ from tkinter import messagebox
 from traceback import format_exc
 
 from supyr_struct.defs.constants import *
-from binilla.util import *
-from binilla.widgets import BinillaWidget
-from binilla.util import float_to_str
 
 from hek_pool.constants import *
+from hek_pool.config_def import config_def, CFG_DIRS
 from hek_pool.help_text import README_TEXT, HELP_NAME,\
      TOOL_COMMAND_HELP, DIRECTIVES_HELP, generate_help
-from hek_pool.config_def import config_def, CFG_DIRS
+from hek_pool.util import *
 
 
 platform = sys.platform.lower()
@@ -48,7 +46,7 @@ else:
     TEXT_EDITOR_NAME = "vim"
 
 
-curr_dir = dirname(__file__)
+curr_dir = get_cwd(__file__)
 default_config_path = curr_dir + '%shek_pool.cfg' % PATHDIV
 using_console = bool(sys.stdout)
 if using_console:
