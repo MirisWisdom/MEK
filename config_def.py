@@ -1,6 +1,6 @@
 from supyr_struct.defs.tag_def import TagDef
 from supyr_struct.field_types import *
-from binilla.constants import *
+from supyr_struct.defs.constants import *
 
 CFG_DIRS = (
     "working_dir",

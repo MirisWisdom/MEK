@@ -37,8 +37,8 @@ setup(
         },
     platforms=["POSIX", "Windows"],
     #keywords="",
-    install_requires=['supyr_struct', 'binilla'],
-    requires=['supyr_struct', 'binilla'],
+    install_requires=['supyr_struct', 'threadsafe_tkinter'],
+    requires=['supyr_struct', 'threadsafe_tkinter'],
     provides=['hek_pool'],
     classifiers=[
         "Development Status :: 4 - Beta",
