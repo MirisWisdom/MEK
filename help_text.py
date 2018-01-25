@@ -1,4 +1,5 @@
 import os
+import tempfile
 import traceback
 from hek_pool.util import get_cwd
 from hek_pool import constants
@@ -586,11 +587,21 @@ The argument types are as follows:
             help_text += '\n'
 
     if save_to_file:
-        help_filepath = os.path.join(get_cwd(__file__), constants.HELP_NAME)
-        with open(help_filepath, "w") as f:
-            f.write(help_text)
+        try:
+            try:
+                fp = os.path.join(get_cwd(__file__), constants.HELP_NAME)
+                with open(fp, "w") as f:
+                    f.write(help_text)
+            except Exception:
+                fp = os.path.join(tempfile.gettempdir(), constants.HELP_NAME)
+                with open(fp, "w") as f:
+                    f.write(help_text)
 
-    return help_text
+            return fp
+        except Exception:
+            print(traceback.format_exc())
+
+        return help_text
 
 
 if __name__ == "__main__":

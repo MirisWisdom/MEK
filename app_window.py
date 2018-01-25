@@ -7,6 +7,7 @@ import threadsafe_tkinter as tk
 import tkinter.ttk as ttk
 import zipfile
 
+from traceback import format_exc
 from os.path import basename, exists, isfile, dirname, join, relpath, splitext
 from time import time, sleep
 from threading import Thread
@@ -94,8 +95,12 @@ def fix_ogg_encoder_dlls(cwd):
                 except Exception:
                     continue
 
-                with dll_zip.open(name) as zf, open(fp, "wb+") as f:
-                    f.write(zf.read())
+                try:
+                    with dll_zip.open(name) as zf, open(fp, "wb+") as f:
+                        f.write(zf.read())
+                except Exception:
+                    self.file_open_error(fp)
+                    raise
     except Exception:
         print(format_exc())
 
@@ -429,6 +434,12 @@ class HekPool(tk.Tk):
                 "is very hard to read with 3+ tool commands going all at once.",
                 parent=self.commands_text)
 
+    def file_open_error(self, filepath):
+        messagebox.showerror(
+            "Failed to open/read/write a file.",
+            'Could not open "%s".\nRun Pool as admin to fix this.' % filepath,
+            parent=self.commands_text)
+
     def start_readme(self):
         if self._execution_state:
             return
@@ -704,12 +715,7 @@ class HekPool(tk.Tk):
 
     def _show_help_in_text_editor(self):
         try:
-            help_path = join(self.working_dir, HELP_NAME)
-            if not isfile(help_path):
-                generate_help(True)
-                if not isfile(help_path):
-                    return
-
+            help_path = generate_help(True)
             proc_controller = ProcController(abandon=True)
             self._start_process(None, TEXT_EDITOR_NAME, (help_path, ),
                                 proc_controller=proc_controller)
@@ -826,8 +832,10 @@ class HekPool(tk.Tk):
             ACTION_MENU_LAYOUT.extend(sanitized_new_actions)
 
     def save_actions(self):
-        with open(join(self.working_dir, ACTIONS_CFG_NAME), 'w') as f:
-            f.write("""
+        fp = join(self.working_dir, ACTIONS_CFG_NAME)
+        try:
+            with open(fp, 'w') as f:
+                f.write("""
 ; This file controls what shows up in the actions menu when you
 ; right-click an empty line or access it through the menu bar.
 ; You can make Tool commands and Pool directives appear either
@@ -848,29 +856,31 @@ class HekPool(tk.Tk):
 ;    * ONLY spaces/tabs are on lines containing CLOSING parenthese
 
 """)
-            for item in ACTION_MENU_LAYOUT:
-                if isinstance(item, str):
-                    f.write('\n%s\n' % item)
-                    continue
+                for item in ACTION_MENU_LAYOUT:
+                    if isinstance(item, str):
+                        f.write('\n%s\n' % item)
+                        continue
 
-                casc_name, temp_names = item[0], item[1:]
-                f.write('\n( %s\n' % casc_name)
-                for name in temp_names:
-                    f.write('    %s\n' % name)
-                f.write("    )\n")
+                    casc_name, temp_names = item[0], item[1:]
+                    f.write('\n( %s\n' % casc_name)
+                    for name in temp_names:
+                        f.write('    %s\n' % name)
+                    f.write("    )\n")
 
-            f.write("\n\n; All Tool commands:\n;\n")
-            for cmd_name in sorted(TOOL_COMMANDS):
-                f.write(";     %s\n" % cmd_name)
+                f.write("\n\n; All Tool commands:\n;\n")
+                for cmd_name in sorted(TOOL_COMMANDS):
+                    f.write(";     %s\n" % cmd_name)
 
-            f.write("\n\n; All Pool directives:\n;\n")
-            for dir_name in sorted(DIRECTIVES):
-                f.write(";     %s\n" % dir_name)
+                f.write("\n\n; All Pool directives:\n;\n")
+                for dir_name in sorted(DIRECTIVES):
+                    f.write(";     %s\n" % dir_name)
 
-            f.write("\n\n; All special action keywords:\n;\n")
-            for name in sorted(SPECIAL_ACTIONS_KWDS):
-                f.write(";     %s\n" % name)
-                f.write(";         %s\n" % SPECIAL_ACTIONS_KWDS[name])
+                f.write("\n\n; All special action keywords:\n;\n")
+                for name in sorted(SPECIAL_ACTIONS_KWDS):
+                    f.write(";     %s\n" % name)
+                    f.write(";         %s\n" % SPECIAL_ACTIONS_KWDS[name])
+        except Exception:
+            self.file_open_error(fp)
 
     def do_clipboard_action(self, event_type):
         cmd_text = self.commands_text
@@ -1012,13 +1022,17 @@ class HekPool(tk.Tk):
         # use r+ mode rather than w if the file exists since it might be hidden.
         # apparently on windows the w mode will fail to open hidden files.
         mode = 'r+' if isfile(filepath) else 'w'
-        with open(filepath, mode) as f:
-            f.truncate(0)
-            data = self.commands_text.get('1.0', tk.END)
-            if data[-1] in '\n\r':
-                # always seems to be an extra new line. remove that.
-                data = data[:-1]
-            f.write(data)
+        try:
+            with open(filepath, mode) as f:
+                f.truncate(0)
+                data = self.commands_text.get('1.0', tk.END)
+                if data[-1] in '\n\r':
+                    # always seems to be an extra new line. remove that.
+                    data = data[:-1]
+                f.write(data)
+        except Exception:
+            self.file_open_error(filepath)
+            return
 
         self._unsaved_edits = False
         if filename == LAST_CMD_LIST_NAME:
@@ -1189,20 +1203,24 @@ class HekPool(tk.Tk):
             text_tags_colors.update(new_style)
 
     def save_style(self):
-        with open(join(self.working_dir, STYLE_CFG_NAME), 'w') as f:
-            f.write(
+        fp = join(self.working_dir, STYLE_CFG_NAME)
+        try:
+            with open(fp, 'w') as f:
+                f.write(
                 """
 ; These sets of hex values determine the letter(fg) and background(bg) colors
 ; for the specified type of text. For example, lines being processed use the
 ; "processed" colors, while commented lines use the "commented" colors.
 """)
-            for name in sorted(text_tags_colors):
-                f.write("\n%s = (\n" % name)
-                colors = text_tags_colors[name]
-                for color_name in sorted(colors):
-                    f.write('    %s = "%s"\n' %
-                            (color_name, colors[color_name][1:]))
-                f.write("    )\n")
+                for name in sorted(text_tags_colors):
+                    f.write("\n%s = (\n" % name)
+                    colors = text_tags_colors[name]
+                    for color_name in sorted(colors):
+                        f.write('    %s = "%s"\n' %
+                                (color_name, colors[color_name][1:]))
+                    f.write("    )\n")
+        except Exception:
+            self.file_open_error(fp)
 
     def make_config(self, filepath=None):
         if filepath is None:
@@ -1718,8 +1736,14 @@ class HekPool(tk.Tk):
                                 toolbeta_path = join(cwd, "toolbeta.map")
                                 try:
                                     if not isfile(toolbeta_path):
-                                        with open(toolbeta_path, 'w') as f:
-                                            f.write("I shouldn't have had to do this...")
+                                        try:
+                                            with open(toolbeta_path, 'w') as f:
+                                                f.write("I shouldn't have had to do this...")
+                                                f.flush()
+                                        except Exception:
+                                            self.file_open_error(toolbeta_path)
+                                            raise
+
                                         if SetFileAttributesW:
                                             SetFileAttributesW(toolbeta_path, 2)
                                 except Exception:
