@@ -20,7 +20,7 @@ from supyr_struct.defs.constants import *
 
 from hek_pool.constants import *
 from hek_pool.config_def import config_def, CFG_DIRS
-from hek_pool.help_text import README_TEXT, HELP_NAME,\
+from hek_pool.help_text import README_TEXT,\
      TOOL_COMMAND_HELP, DIRECTIVES_HELP, generate_help
 from hek_pool.util import *
 
@@ -195,7 +195,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.0.4'
+    version = '1.1.0'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -221,6 +221,13 @@ class HekPool(tk.Tk):
 
         self.processes = {}
         self.tool_paths = []
+        try:
+            try:
+                self.iconbitmap(join(curr_dir, 'pool.ico'))
+            except Exception:
+                self.iconbitmap(join(curr_dir, 'icons', 'pool.ico'))
+        except Exception:
+            print(format_exc())
 
         if type(self).fixed_font is None:
             type(self).fixed_font = Font(family="Terminal", size=10)

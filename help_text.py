@@ -1,6 +1,7 @@
 import os
 import traceback
-from supyr_struct.defs.frozen_dict import FrozenDict
+from hek_pool.util import get_cwd
+from hek_pool import constants
 
 README_TEXT = ''';                         WHAT IS POOL
 ; So first off, what is Pool and why should I use it? Pool is a wrapper
@@ -76,9 +77,8 @@ README_TEXT = ''';                         WHAT IS POOL
 ; an actual REPLACEMENT for tool.exe, so this is good enough for me.
 '''
 
-HELP_NAME = "help.txt"
 
-TOOL_COMMAND_HELP = FrozenDict({
+TOOL_COMMAND_HELP = constants.FrozenDict({
     "animations": (
         "Compiles a folder of jma/jmm/jmo/jmr/jmt/jmw/jmz animations in "
         "the data folder into a model_animations tag. The directory you "
@@ -586,7 +586,7 @@ The argument types are as follows:
             help_text += '\n'
 
     if save_to_file:
-        help_filepath = os.path.join(os.path.dirname(__file__), HELP_NAME)
+        help_filepath = os.path.join(get_cwd(__file__), constants.HELP_NAME)
         with open(help_filepath, "w") as f:
             f.write(help_text)
 

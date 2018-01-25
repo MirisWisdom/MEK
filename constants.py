@@ -2,10 +2,11 @@ from supyr_struct.defs.frozen_dict import FrozenDict
 
 MAX_PROCESS_CT = 64
 
-OGG_DLL_ZIP_NAME = "ogg_v1.1.2_dll_fix.zip"
-STYLE_CFG_NAME = "colors.txt"
-ACTIONS_CFG_NAME = "actions.txt"
+HELP_NAME = "pool_help.txt"
+STYLE_CFG_NAME = "pool_colors.txt"
+ACTIONS_CFG_NAME = "pool_actions.txt"
 LAST_CMD_LIST_NAME = ".recent"
+OGG_DLL_ZIP_NAME = "ogg_v1.1.2_dll_fix.zip"
 
 BLACK_COLOR = '#%02x%02x%02x' % (0, 0, 0)  # black
 
