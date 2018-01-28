@@ -200,7 +200,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.1.1'
+    version = '1.1.2'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -610,10 +610,11 @@ class HekPool(tk.Tk):
                 if typ == "file-no-ext":
                     new_val = splitext(new_val)[0]
 
-            if new_val:
-                new_val = '"%s"' % relpath(new_val.replace('/', '\\'), start_dir)
-            else:
+            new_val = '"%s"' % new_val.replace('/', '\\')
+            if not new_val:
                 new_val = None
+            elif cmd_type != "cwd":
+                new_val = relpath(new_val, start_dir)
         elif typ == 'bool':
             message = None
             if arg_index + 1 < len(help_info):
