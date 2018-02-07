@@ -8,8 +8,8 @@ except ImportError:
 curr_dir = dirname(__file__)
 
 #               YYYY.MM.DD
-release_date = "2018.01.28"
-version = (1, 1, 2)  # DONT FORGET TO UPDATE THE VERSION IN app_window.py
+release_date = "2018.02.07"
+version = (1, 1, 3)  # DONT FORGET TO UPDATE THE VERSION IN app_window.py
 
 try:
     try:
@@ -32,7 +32,7 @@ setup(
         'hek_pool',
         ],
     package_data={
-        '': ['*.txt', '*.md', '*.rst', '*.pyw'],
+        '': ['*.txt', '*.md', '*.rst', '*.pyw', '*.ico'],
         'hek_pool': ['cmd_lists/*.txt', 'ogg_v1.1.2_dll_fix.zip'],
         },
     platforms=["POSIX", "Windows"],
