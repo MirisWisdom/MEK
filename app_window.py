@@ -200,7 +200,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.1.3'
+    version = '1.1.4'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 

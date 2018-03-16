@@ -358,8 +358,19 @@ TOOL_COMMAND_HELP = constants.FrozenDict({
          "Ogg can only be used PC, and has higher quality than the others. "
          "If you have a choice, choose xbox for short quick sounds, and ogg "
          "for music or dialog."),
-        ("use-high-quality(ogg_only)", 'bool',
-         "Prioritize audio quality over filesize?"),
+        ("ogg-quality", 'float',
+         "The relative quality of ogg compressed audio. Higher values create "
+         "higher quality audio, but also higher filesize. Valid values are "
+         "(-0.1, 1]. The value -0.1 is itself not a valid value, so -0.09999999 "
+         "is the closest you can get to it.\n"
+         "\n"
+         "-0.1 = ~48 kbit/s\n"
+         " 0.0 = ~64 kbit/s\n"
+         " 0.2 = ~96 kbit/s\n"
+         " 0.4 = ~128 kbit/s\n"
+         " 0.6 = ~192 kbit/s\n"
+         " 0.8 = ~256 kbit/s\n"
+         " 1.0 = ~500 kbit/s"),
         ),
     "sounds_by_type": (
         "Unknown",

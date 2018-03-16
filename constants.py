@@ -247,7 +247,7 @@ TOOL_COMMANDS = FrozenDict({
     "sounds": (
         ("directory-path",             ) + DATA_DIR_MACRO,
         ("platform", "str-no-quote", 'xbox', ("ogg", "xbox", "wav")),
-        ("use-high-quality(ogg_only)", ) + BOOL_MACRO,
+        ("ogg-quality", "float", "1.0", (-0.09999999, 1.0)),
         ),
     "sounds_by_type": (
         ("directory-path",      ) + DATA_DIR_MACRO,
