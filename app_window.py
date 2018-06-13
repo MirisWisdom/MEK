@@ -200,7 +200,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.1.5'
+    version = '1.1.6'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -615,7 +615,8 @@ class HekPool(tk.Tk):
                 new_val = None
             else:
                 if cmd_type != "cwd":
-                    new_val = relpath(new_val, start_dir)
+                    new_val = relpath(new_val, cwd)
+
                 new_val = '"%s"' % new_val
 
         elif typ == 'bool':
