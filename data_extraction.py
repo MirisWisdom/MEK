@@ -29,15 +29,15 @@ from supyr_struct.defs.util import *
 from supyr_struct.defs.audio.wav import wav_def
 from supyr_struct.field_types import FieldType
 
-from .util import is_protected_tag, fourcc, is_reserved_tag
-from .h2.util import *
-from .adpcm import decode_adpcm_samples, ADPCM_BLOCKSIZE, PCM_BLOCKSIZE
-from .hek.defs.objs.matrices import Matrix, matrix_to_quaternion
-from .hek.defs.objs.p8_palette import load_palette
-from .hek.defs.hmt_ import icon_types as hmt_icon_types
-from .hsc import get_hsc_data_block, hsc_bytecode_to_string
-from .jms import write_jms, JmsNode, JmsMaterial, JmsMarker,\
-     JmsVertex, JmsTriangle
+from reclaimer.util import is_protected_tag, fourcc, is_reserved_tag
+from reclaimer.h2.util import *
+from reclaimer.adpcm import decode_adpcm_samples, ADPCM_BLOCKSIZE, PCM_BLOCKSIZE
+from reclaimer.hek.defs.objs.matrices import Matrix, matrix_to_quaternion
+from reclaimer.hek.defs.objs.p8_palette import load_palette
+from reclaimer.hek.defs.hmt_ import icon_types as hmt_icon_types
+from reclaimer.hsc import get_hsc_data_block, hsc_bytecode_to_string
+from reclaimer.model.jms import write_jms, JmsModel, JmsNode,\
+     JmsMaterial, JmsMarker, JmsVertex, JmsTriangle
 
 #load the palette for p-8 bump maps
 P8_PALETTE = load_palette()
@@ -590,8 +590,9 @@ def extract_physics(tagdata, tag_path, **kw):
     if not kw.get('overwrite', True) and isfile(filepath):
         return
 
-    nodes = [JmsNode("root")]
-    markers = []
+    jms_data = JmsModel()
+    nodes = jms_data.nodes = [JmsNode("root")]
+    markers = jms_data.markers
 
     child_node_ct = 0
     for mp in tagdata.mass_points.STEPTREE:
@@ -612,7 +613,7 @@ def extract_physics(tagdata, tag_path, **kw):
 
         markers.append(
             JmsMarker(
-                mp.name, -1, mp.model_node, i, j, k, w,
+                mp.name, "physics", -1, mp.model_node, i, j, k, w,
                 mp.position.x * 100, mp.position.y * 100, mp.position.z * 100,
                 mp.radius * 100,
                 ))
@@ -624,7 +625,7 @@ def extract_physics(tagdata, tag_path, **kw):
             nodes.append(JmsNode("node_%s" % (i + 1), -1, i + 2))
         nodes[-1].sibling_index = -1
 
-    write_jms(filepath, checksum=0, nodes=nodes, markers=markers)
+    write_jms(filepath, jms_data)
 
 
 def extract_model(tagdata, tag_path, **kw):
@@ -660,7 +661,7 @@ def extract_model(tagdata, tag_path, **kw):
             trans = inst.translation
             rot = inst.rotation
             perm_markers.append(JmsMarker(
-                marker_name, inst.region_index, inst.node_index,
+                marker_name, perm_name, inst.region_index, inst.node_index,
                 rot.i, rot.j, rot.k, rot.w,
                 trans.x * 100, trans.y * 100, trans.z * 100,
                 1.0
@@ -703,7 +704,7 @@ def extract_model(tagdata, tag_path, **kw):
                 trans = m.translation
                 rot = m.rotation
                 perm_markers.append(JmsMarker(
-                    m.name, region_index, m.node_index,
+                    m.name, perm_name, region_index, m.node_index,
                     rot.i, rot.j, rot.k, rot.w,
                     trans.x * 100, trans.y * 100, trans.z * 100,
                     1.0
@@ -813,8 +814,7 @@ def extract_model(tagdata, tag_path, **kw):
                                         v[0] * 100, v[1] * 100, v[2] * 100,
                                         ni, nj, nk,
                                         v[9]//3, 1.0 - (v[10]/32767),
-                                        u_scale * v[6]/32767,
-                                        v_scale *(1.0 - v[7]/32767)))
+                                        u_scale * v[6]/32767, 1.0 - v_scale * v[7]/32767))
                             elif compressed:
                                 for v in part.compressed_vertices.STEPTREE:
                                     n = v[3]
@@ -830,8 +830,7 @@ def extract_model(tagdata, tag_path, **kw):
                                         v[0] * 100, v[1] * 100, v[2] * 100,
                                         ni, nj, nk,
                                         v[9]//3, 1.0 - (v[10]/32767),
-                                        u_scale * v[6]/32767,
-                                        v_scale *(1.0 - v[7]/32767)))
+                                        u_scale * v[6]/32767, 1.0 - v_scale * v[7]/32767))
                             elif not compressed and unparsed:
                                 vert_data = part.uncompressed_vertices.STEPTREE.data
                                 for off in range(0, len(vert_data), 68):
@@ -841,8 +840,7 @@ def extract_model(tagdata, tag_path, **kw):
                                         v[0] * 100, v[1] * 100, v[2] * 100,
                                         v[3], v[4], v[5],
                                         node_map[v[15]], max(0, min(1, v[17])),
-                                        u_scale * v[12],
-                                        v_scale * (1.0 - v[13])))
+                                        u_scale * v[12], 1.0 - v_scale * v[13]))
                             else:
                                 for v in part.uncompressed_vertices.STEPTREE:
                                     verts.append(JmsVertex(
@@ -850,8 +848,7 @@ def extract_model(tagdata, tag_path, **kw):
                                         v[0] * 100, v[1] * 100, v[2] * 100,
                                         v[3], v[4], v[5],
                                         node_map[v[15]], max(0, min(1, v[17])),
-                                        u_scale * v[12],
-                                        v_scale * (1.0 - v[13])))
+                                        u_scale * v[12], 1.0 - v_scale * v[13]))
                         except Exception:
                             print(format_exc())
                             print("If you see this, tell Moses to stop "
@@ -892,10 +889,9 @@ def extract_model(tagdata, tag_path, **kw):
                             print(format_exc())
                             print("Could not parse triangle blocks.")
 
-            write_jms(filepath, checksum=tagdata.node_list_checksum,
-                      materials=materials, regions=regions,
-                      nodes=nodes, markers=markers,
-                      vertices=verts, triangles=tris)
+            write_jms(filepath, JmsModel(
+                "", tagdata.node_list_checksum, nodes, materials,
+                markers, regions, verts, tris))
 
 
 h1_data_extractors = {
