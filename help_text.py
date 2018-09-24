@@ -379,7 +379,7 @@ TOOL_COMMAND_HELP = constants.FrozenDict({
         ("round-to-64-samples", 'bool', ''),
         ),
     "strings": (
-        "Compiles a folder .txt files into string_list tags. Each .txt file "
+        "Compiles a folder of .txt files into string_list tags. Each .txt file "
         "must be saved in ANSI or ASCII encoding.\n"
         "\n"
         "NOTE: After each separate string in the text file you must put "
@@ -453,7 +453,7 @@ TOOL_COMMAND_HELP = constants.FrozenDict({
          'Output progress/extra information as the tag(s) is/are processesd?'),
         ),
     "unicode-strings": (
-        "Compiles a folder .txt files into unicode_string_list tags. Each "
+        "Compiles a folder of .txt files into unicode_string_list tags. Each "
         ".txt file must be saved in Unicode 16Bit encoding. Big/little endian "
         "byteorder does not matter, just do not save as ANSI, ASCII, or UTF8, "
         "only UTF16.\n"
