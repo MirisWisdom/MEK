@@ -120,18 +120,23 @@ The argument types are as follows:
     
     Each jm* type compiles to a different type of animation. dx/dy/dz means the animation will permanently move the object in the world on that/those axis, while dyaw means it will permanently rotate the object. These are typically used for movement and turning.
     
-    base (overlays can be played on it)
+    base
+           (replaces the current animation on all nodes)
            jmm:	none
            jmw:	none (completely world relative)
            jma:	dx/dy
            jmt:	dx/dy/dyaw
            jmz:	dx/dy/dz/dyaw
     
-    overlay (plays on the current base {aiming, tire suspension, etc})
+    overlay:
+           (applied over the current base {aiming, talking, etc})
            jmo:	none
     
-    replacement (replaces anything being played {grenade throw, etc})
+    replacement
+           (animates only specific nodes {throw, melee, etc})
            jmr:	dx/dy
+    
+    Replacement animations are special, as they can be played over base animations partially. Any nodes the replacement animation doesnt animate, are animated by the current base. This allows replacement animations to animate the upper body when throwing a grenade, but have the animation for the characters leg movement handled by the base(walking, standing, crouching, etc).
 
     #  ARGUMENTS
     ############
@@ -467,7 +472,7 @@ The argument types are as follows:
 
 
   strings
-    Compiles a folder .txt files into string_list tags. Each .txt file must be saved in ANSI or ASCII encoding.
+    Compiles a folder of .txt files into string_list tags. Each .txt file must be saved in ANSI or ASCII encoding.
     
     NOTE: After each separate string in the text file you must put ###END-STRING### on the next line. This is how it should look:
     
@@ -551,7 +556,7 @@ The argument types are as follows:
 
 
   unicode-strings
-    Compiles a folder .txt files into unicode_string_list tags. Each .txt file must be saved in Unicode 16Bit encoding. Big/little endian byteorder does not matter, just do not save as ANSI, ASCII, or UTF8, only UTF16.
+    Compiles a folder of .txt files into unicode_string_list tags. Each .txt file must be saved in Unicode 16Bit encoding. Big/little endian byteorder does not matter, just do not save as ANSI, ASCII, or UTF8, only UTF16.
     
     NOTE: After each separate string in the text file you must put ###END-STRING### on the next line. This is how it should look:
     

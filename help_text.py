@@ -91,18 +91,28 @@ TOOL_COMMAND_HELP = constants.FrozenDict({
         "on that/those axis, while dyaw means it will permanently rotate "
         "the object. These are typically used for movement and turning.\n"
         "\n"
-        "base (overlays can be played on it)\n"
+        "base\n"
+        "       (replaces the current animation on all nodes)\n"
         "       jmm:\tnone\n"
         "       jmw:\tnone (completely world relative)\n"
         "       jma:\tdx/dy\n"
         "       jmt:\tdx/dy/dyaw\n"
         "       jmz:\tdx/dy/dz/dyaw\n"
         "\n"
-        "overlay (plays on the current base {aiming, tire suspension, etc})\n"
+        "overlay:\n"
+        "       (applied over the current base {aiming, talking, etc})\n"
         "       jmo:\tnone\n"
         "\n"
-        "replacement (replaces anything being played {grenade throw, etc})\n"
-        "       jmr:\tdx/dy",
+        "replacement\n"
+        "       (animates only specific nodes {throw, melee, etc})\n"
+        "       jmr:\tdx/dy\n"
+        "\n"
+        "Replacement animations are special, as they can be played over base "
+        "animations partially. Any nodes the replacement animation doesnt "
+        "animate, are animated by the current base. This allows replacement "
+        "animations to animate the upper body when throwing a grenade, but "
+        "have the animation for the characters leg movement handled by the "
+        "base(walking, standing, crouching, etc).",
         ("source-directory", 'dir',
          'The directory containing the "animations" folder to be compiled.'),
         ),
