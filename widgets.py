@@ -24,7 +24,7 @@ curr_dir = get_cwd(__file__)
 no_op = lambda *a, **kw: None
 
 # max number of characters long a tag name can be before halo wont accept it
-MAX_NAME_LEN = 243
+MAX_NAME_LEN = 254
 
 
 meta_tag_def = TagDef("meta tag",
@@ -818,13 +818,15 @@ class RefinerySettingsWindow(tk.Toplevel):
         self.data_dir_frame  = tk.LabelFrame(
             self.dirs_frame, text="Default data extraction folder")
         self.tags_list_frame = tk.LabelFrame(
-            self.dirs_frame, text="Tags list log(erase to disable logging)")
+            self.dirs_frame, text="Tags list log (erase to disable logging)")
 
         for attr in ("extract_from_ce_resources", "overwrite", "recursive",
                      "rename_duplicates_in_scnr", "decode_adpcm",
                      "generate_comp_verts", "generate_uncomp_verts",
                      "fix_tag_classes", "use_hashcaches", "use_heuristics",
-                     "autoload_resources", "extract_cheape",
+                     "autoload_resources", "extract_cheape", "show_all_fields",
+                     "valid_tag_paths_are_accurate", "limit_tag_path_lengths",
+                     "scrape_tag_paths_from_scripts", "shallow_ui_widget_nesting",
                      "show_output", "fix_tag_index_offset"):
             object.__setattr__(self, attr, settings.get(attr, tk.IntVar(self)))
 
@@ -857,7 +859,7 @@ class RefinerySettingsWindow(tk.Toplevel):
             variable=self.generate_uncomp_verts)
         self.decode_adpcm_cbtn = tk.Checkbutton(
             self.data_fixing_frame, variable=self.decode_adpcm,
-            text="Decode Xbox audio when extracting data(slow)")
+            text="Decode Xbox audio when extracting data (slow)")
 
         self.fix_tag_classes_cbtn = tk.Checkbutton(
             self.deprotect_frame, text="Fix tag classes",
@@ -868,6 +870,19 @@ class RefinerySettingsWindow(tk.Toplevel):
         self.use_heuristics_cbtn = tk.Checkbutton(
             self.deprotect_frame, text="Use heuristics",
             variable=self.use_heuristics)
+        self.valid_tag_paths_are_accurate_cbtn = tk.Checkbutton(
+            self.deprotect_frame, text="Do not rename non-protected tag paths",
+            variable=self.valid_tag_paths_are_accurate)
+        self.scrape_tag_paths_from_scripts_cbtn = tk.Checkbutton(
+            self.deprotect_frame, text="Scrape tag paths from scenario scripts",
+            variable=self.scrape_tag_paths_from_scripts)
+        self.limit_tag_path_lengths_cbtn = tk.Checkbutton(
+            self.deprotect_frame, text="Limit tag paths to 254 characters (tool.exe limitation)",
+            variable=self.limit_tag_path_lengths)
+        self.shallow_ui_widget_nesting_cbtn = tk.Checkbutton(
+            self.deprotect_frame, text="Use shallow ui_widget_definition nesting",
+            variable=self.shallow_ui_widget_nesting)
+
         self.fix_tag_index_offset_cbtn = tk.Checkbutton(
             self.deprotect_frame, text=("Fix tag index offset when saving\n" +
                                         "WARNING: Can corrupt certain maps"),
@@ -880,6 +895,9 @@ class RefinerySettingsWindow(tk.Toplevel):
         self.extract_cheape_cbtn = tk.Checkbutton(
             self.other_frame, variable=self.extract_cheape,
             text="Extract cheape.map when extracting from yelo maps")
+        self.show_all_fields_cbtn = tk.Checkbutton(
+            self.other_frame, variable=self.show_all_fields,
+            text="Show hidden fields when viewing metadata")
 
         # tags directory
         self.tags_dir_entry = tk.Entry(
@@ -925,11 +943,16 @@ class RefinerySettingsWindow(tk.Toplevel):
             w.pack(padx=4, anchor='w')
 
         for w in (self.fix_tag_classes_cbtn, self.fix_tag_index_offset_cbtn,
-                  #self.use_hashcaches_cbtn, self.use_heuristics_cbtn
+                  self.use_heuristics_cbtn, #self.use_hashcaches_cbtn,
+                  self.valid_tag_paths_are_accurate_cbtn,
+                  #self.scrape_tag_paths_from_scripts_cbtn,
+                  self.limit_tag_path_lengths_cbtn,
+                  self.shallow_ui_widget_nesting_cbtn,
                   ):
             w.pack(padx=4, anchor='w')
 
-        for w in (self.autoload_resources_cbtn, self.extract_cheape_cbtn, ):
+        for w in (self.autoload_resources_cbtn, self.extract_cheape_cbtn,
+                  self.show_all_fields_cbtn,):
             w.pack(padx=4, anchor='w')
 
         for w1, w2 in ((self.tags_dir_entry, self.tags_dir_browse_button),
