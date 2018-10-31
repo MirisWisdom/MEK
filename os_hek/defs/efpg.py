@@ -8,7 +8,7 @@ shader = Struct("shader",
 
 shader_index = Struct("shader index",
     dyn_senum32("shader",
-        DYN_NAME_PATH="tagdata.shaders.STEPTREE[DYN_I].shader.filepath"),
+        DYN_NAME_PATH="tagdata.efpg_attrs.shaders.STEPTREE[DYN_I].shader.filepath"),
     SIZE=4
     )
 
@@ -16,17 +16,22 @@ exposed_parameter = Struct("exposed parameter",
     ascii_str32("exposed name"),
     ascii_str32("parameter name"),
     dyn_senum32("shader index",
-        DYN_NAME_PATH="tagdata.shader_indices.STEPTREE[DYN_I].NAME"),
+        DYN_NAME_PATH="tagdata.efpg_attrs.shader_indices.STEPTREE[DYN_I].NAME"),
     SIZE=80
     )
 
-efpg_body = Struct("tagdata",
-    efpp_attrs,
+efpg_attrs = Struct("efpg attrs",
     reflexive("shaders", shader, 12,
         DYN_NAME_PATH='.shader.filepath'),
     reflexive("shader indices", shader_index, 12),
     reflexive("exposed parameters", exposed_parameter, 32,
         DYN_NAME_PATH='.exposed_name'),
+    SIZE=36
+    )
+
+efpg_body = Struct("tagdata",
+    efpp_attrs,
+    efpg_attrs,
     SIZE=96
     )
 

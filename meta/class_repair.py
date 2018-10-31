@@ -1,6 +1,35 @@
 from reclaimer.meta.halo1_map_fast_functions import *
 
 
+def get_tagc_refs(meta_offset, map_data, magic, tag_classes_by_id):
+    try:
+        ct, moff, _ = read_reflexive(map_data, meta_offset - magic)
+    except Exception:
+        return (), ()
+
+    if ct > 200 or ct <= 0 or moff != meta_offset + 12:
+        return (), ()
+
+    # might be Soul, but need to check tag classes to make sure
+    try:
+        reffed_ids = []
+        reffed_types = []
+        for moff2 in iter_reflexive_offs(map_data, meta_offset - magic, 16):
+            map_data.seek(moff2 - magic + 12)
+            tag_id = int.from_bytes(map_data.read(4), "little") & 0xFFFF
+            if tag_id == 0xFFFF:
+                continue
+
+            reffed_ids.append(tag_id)
+            reffed_types.append(tag_classes_by_id.get(tag_id))
+
+        return reffed_ids, reffed_types
+    except Exception:
+        pass
+
+    return (), ()
+
+
 def repair_hud_background(index_array, map_data, magic, repair, engine, offset):
     args = (index_array, map_data, magic, repair, engine, b'mtib')
     repair_dependency(*(args + (offset + 36, )))
@@ -61,23 +90,22 @@ def repair_unit_attrs(offset, index_array, map_data, magic, repair, engine):
 
         repair_dependency(*(args + (b'vtca', moff + 248)))
 
-        if engine == "yelo":
+        if "yelo" in engine:
             # seat extension
             for moff2 in iter_reflexive_offs(map_data, moff + 264 - magic, 100):
-                off = moff2 - magic
                 # seat boarding
-                for moff3 in iter_reflexive_offs(map_data, off + 28, 112):
+                for moff3 in iter_reflexive_offs(map_data, moff2 + 28 - magic, 112):
                     # seat keyframe action
-                    for moff4 in iter_reflexive_offs(map_data, moff3 + 76, 152):
-                        repair_dependency(*(args + (b'!tpj', moff3 + 48)))
-                        repair_dependency(*(args + (b'effe', moff3 + 68)))
+                    for moff4 in iter_reflexive_offs(map_data, moff3 + 76 - magic, 152):
+                        repair_dependency(*(args + (b'!tpj', moff4 + 48)))
+                        repair_dependency(*(args + (b'effe', moff4 + 68)))
 
                 # seat damage
-                for moff3 in iter_reflexive_offs(map_data, off + 40, 136):
+                for moff3 in iter_reflexive_offs(map_data, moff2 + 40 - magic, 136):
                     repair_dependency(*(args + (b'!tpj', moff3 + 4)))
                     repair_dependency(*(args + (b'!tpj', moff3 + 96)))
 
-    if engine == "yelo":
+    if "yelo" in engine:
         # unit extension
         for moff in iter_reflexive_offs(map_data, offset + 288 - magic, 60):
             # mounted states
@@ -156,6 +184,13 @@ def repair_DeLa(tag_id, index_array, map_data, magic, repair, engine):
     for moff in iter_reflexive_offs(map_data, tag_offset + 84 - magic, 72):
         repair_dependency(*(args + (b'aLeD', moff + 8)))
         repair_dependency(*(args + (b'!dns', moff + 24)))
+
+    ct, _, __ = read_reflexive(map_data, tag_offset + 96 - magic)
+    if ct > 32:
+        # some people apparently think its cute to set this reflexive
+        # count so high so that tool just fails to compile the tag
+        map_data.seek(tag_offset + 96 - magic)
+        map_data.write(b'\x20\x00\x00\x00')
 
     repair_dependency(*(args + (b'rtsu', tag_offset + 236)))
     repair_dependency(*(args + (b'tnof', tag_offset + 252)))
@@ -589,8 +624,8 @@ def repair_part(tag_id, index_array, map_data, magic, repair, engine):
     repair_dependency(*(args + (b'mtib', tag_offset + 0x4)))
     repair_dependency(*(args + (b'yhpp', tag_offset + 0x14)))
     repair_dependency(*(args + (b'toof', tag_offset + 0x24)))
-    repair_dependency(*(args + (b'effe', tag_offset + 0x48)))
-    repair_dependency(*(args + (b'effe', tag_offset + 0x58)))
+    repair_dependency(*(args + (None, tag_offset + 0x48)))
+    repair_dependency(*(args + (None, tag_offset + 0x58)))
     repair_dependency(*(args + (b'mtib', tag_offset + 0xFC)))
 
 
@@ -652,8 +687,21 @@ def repair_scnr(tag_id, index_array, map_data, magic, repair, engine):
     tag_offset = index_array[tag_id].meta_offset
     args = (index_array, map_data, magic, repair, engine)
 
-    if engine == "yelo":
+    if "yelo" in engine:
         repair_dependency(*(args + (b'oley', tag_offset)))
+
+    for moff in iter_reflexive_offs(map_data, tag_offset + 1288 - magic, 64):
+        # OPEN SAUCE BSP MODIFIERS
+        for moff2 in iter_reflexive_offs(map_data, moff + 4 - magic, 124):
+            repair_dependency_array(*(args + (b'mtib', moff2 + 36, 4)))
+
+        for moff2 in iter_reflexive_offs(map_data, moff + 16 - magic, 44):
+            for moff3 in iter_reflexive_offs(map_data, moff2 + 32 - magic, 20):
+                repair_dependency(*(args + (b' yks', moff3 + 4)))
+
+    repair_dependency(*(args + (b'rtsu', tag_offset + 1396)))
+    repair_dependency(*(args + (b'rtsu', tag_offset + 1412)))
+    repair_dependency(*(args + (b' tmh', tag_offset + 1428)))
 
     ct, moff, _ = read_reflexive(map_data, tag_offset + 48 - magic)
     repair_dependency_array(*(args + (b' yks', moff, ct)))
@@ -727,7 +775,7 @@ def repair_shader(tag_id, index_array, map_data, magic, repair, engine):
         repair_dependency(*(args + (b'mtib', tag_offset + 0x22C)))
         repair_dependency(*(args + (b'mtib', tag_offset + 0x2FC)))
         # shader environment os extension
-        if engine == "yelo":
+        if "yelo" in engine:
             ct, moff, _ = read_reflexive(map_data, tag_offset + 0xC8 - magic)
             repair_dependency_array(*(args + (b'mtib', moff + 8, ct, 100)))
 
@@ -737,7 +785,7 @@ def repair_shader(tag_id, index_array, map_data, magic, repair, engine):
         repair_dependency(*(args + (b'mtib', tag_offset + 0xB4)))
         repair_dependency(*(args + (b'mtib', tag_offset + 0x13C)))
         # shader model os extension
-        if engine == "yelo":
+        if "yelo" in engine:
             for moff in iter_reflexive_offs(
                     map_data, tag_offset + 0xC8 - magic, 192):
                 repair_dependency(*(args + (b'mtib', moff)))

@@ -1,7 +1,45 @@
 '''
 This module implements some basic matrix classes
 '''
-from math import log, sqrt
+from math import log, sqrt, cos, sin, atan2, asin, acos, pi
+
+
+def euler_to_quaternion(y, p, r):
+    '''Angles are expected to be in radians.'''
+    c0, c1, c2 = cos(y / 2), cos(p / 2), cos(r / 2)
+    s1, s2, s3 = sin(y / 2), sin(p / 2), sin(r / 2)
+    return (s1*s2*c2*+ c0*c1*s3,
+            s1*c1*c2 + c0*s2*s3,
+            c0*s2*c2 - s1*c1*s3,
+            c0*c1*c2 - s1*s2*s3)
+
+
+def quaternion_to_euler(i, j, k, w):
+    '''Angles returned are in radians.'''
+    p_sin = 2*(i * j + k * w);
+    # check for singularities at north and south poles
+    if p_sin > 0.99999999999999:
+        return 2 * atan2(i, w),   pi / 2, 0
+    elif p_sin < -0.99999999999999:
+        return -2 * atan2(i, w), -pi / 2, 0
+    else:
+        y = atan2(2*(j*w - i*k), 1 - 2*(j**2 - k**2));
+        p = asin(p_sin);
+        r = atan2(2*(i*w - j*k), 1 - 2*(i**2 - k**2))
+        return y, p, r
+    
+
+def axis_angle_to_quaternion(x, y, z, a):
+    '''Angle is expected to be in radians.'''
+    a = a / 2
+    return x * sin(a), y * sin(a), z * sin(a), cos(a)
+
+
+def quaternion_to_axis_angle(i, j, k, w):
+    assert w <= 1.0 and w >= -1.0
+    length = sqrt(1 - w**2)
+    return i / length, j / length, k / length, 2 * acos(w)
+
 
 def multiply_quaternions(q0, q1):
     assert len(q0) == 4
@@ -10,7 +48,7 @@ def multiply_quaternions(q0, q1):
     j = -q0[0] * q1[2] + q0[1] * q1[3] + q0[2] * q1[0] + q0[3] * q1[1]
     k =  q0[0] * q1[1] - q0[1] * q1[0] + q0[2] * q1[3] + q0[3] * q1[2]
     w = -q0[0] * q1[0] - q0[1] * q1[1] - q0[2] * q1[2] + q0[3] * q1[3]
-    return type(q0)(i, j, k, w)
+    return type(q0)((i, j, k, w))
 
 
 def quaternion_to_matrix(i, j, k, w):
@@ -52,7 +90,17 @@ def matrix_to_quaternion(matrix):
         k = 0.25 * s
         w = (m10 - m01) / s
 
-    return (i, j, k, w)
+    return i, j, k, w
+
+
+# shorthand names
+matrix_to_quat = matrix_to_quaternion
+quat_to_matrix = quaternion_to_matrix
+euler_to_quat = euler_to_quaternion
+quat_to_euler = quaternion_to_euler
+axis_angle_to_quat = axis_angle_to_quaternion
+quat_to_axis_angle = quaternion_to_axis_angle
+multiply_quats = multiply_quaternions
 
 
 class MatrixRow(list):

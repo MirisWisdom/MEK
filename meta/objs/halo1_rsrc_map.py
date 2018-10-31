@@ -157,9 +157,13 @@ class Halo1RsrcMap(HaloMap):
 
     def get_meta(self, tag_id, reextract=False):
         '''Returns just the meta of the tag without any raw data.'''
+        if tag_id is None:
+            return
 
         # if we are given a 32bit tag id, mask it off
         tag_id &= 0xFFFF
+        if tag_id >= len(self.tag_index.tag_index):
+            return
         tag_index_ref = self.tag_index.tag_index[tag_id]
         tag_cls = dict(
             sound="snd!", bitmap="bitm", font="font",
@@ -184,7 +188,7 @@ class Halo1RsrcMap(HaloMap):
             desc['TYPE'].parser(
                 desc, parent=block, attr_index=0, rawdata=self.map_data,
                 tag_index=self.rsrc_header.tag_paths, tag_cls=tag_cls,
-                root_offset=tag_index_ref.meta_offset, **kwargs)
+                root_offset=tag_index_ref.meta_offset, indexed=True, **kwargs)
             FieldType.force_normal()
             self.inject_rawdata(block[0], tag_cls, tag_index_ref)
         except Exception:
@@ -219,6 +223,7 @@ class Halo1RsrcMap(HaloMap):
                 bitmap.bitmap_data_pointer = bitmap.base_address = 0
 
         elif tag_cls == "snd!":
+            meta.maximum_bend_per_second = meta.maximum_bend_per_second ** 30
             for pitch_range in meta.pitch_ranges.STEPTREE:
                 for permutation in pitch_range.permutations.STEPTREE:
                     if permutation.compression.enum_name == "none":
