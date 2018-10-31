@@ -116,7 +116,7 @@ class Block():
         if isinstance(index, str):
             return self.__getattr__(index)
         raise TypeError("'index' must be of type '%s', not '%s'" %
-                        (type(str), type(index)))
+                        (str, type(index)))
 
     def __setitem__(self, index, new_value):
         '''
@@ -130,7 +130,7 @@ class Block():
             self.__setattr__(index, new_value)
         else:
             raise TypeError("'index' must be of type '%s', not '%s'" %
-                            (type(str), type(index)))
+                            (str, type(index)))
 
     def __delitem__(self, index):
         '''
@@ -144,7 +144,7 @@ class Block():
             self.__delattr__(index)
         else:
             raise TypeError("'index' must be of type '%s', not '%s'" %
-                            (type(str), type(index)))
+                            (str, type(index)))
 
     def __str__(self, **kwargs):
         '''
@@ -757,8 +757,14 @@ class Block():
 
             # make the buffer as large as the Block is calculated to fill
             if zero_fill:
-                try: buffer.seek(block.binsize - 1); buffer.write(b'\x00')
-                except AttributeError: pass
+                try:
+                    blocksize = block.binsize
+                    buffer.seek(0, 2)
+                    if buffer.tell() < blocksize:
+                        buffer.seek(blocksize - 1)
+                        buffer.write(b'\x00')
+                except AttributeError:
+                    pass
 
             # commence the writing process
             desc[TYPE].serializer(block, parent=parent, attr_index=attr_index,
