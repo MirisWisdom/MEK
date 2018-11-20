@@ -81,9 +81,14 @@ class Halo2Map(HaloMap):
                 # map already loaded
                 continue
 
-            map_path = join(maps_dir, "%s.map" % map_name)
+            map_path = join(maps_dir, map_name)
 
-            if not exists(map_path): map_path += ".dtz"
+            if exists(map_path + ".map"):
+                map_path += ".map"
+            elif exists(map_path + "_DECOMP.map"):
+                map_path += "_DECOMP.map"
+            else:
+                map_path += ".map.dtz"
 
             while map_path and not exists(map_path):
                 map_path = askopenfilename(
@@ -97,6 +102,7 @@ class Halo2Map(HaloMap):
                     maps_dir = dirname(map_path)
                 else:
                     print("    You wont be able to extract from %s.map" % map_name)
+                    break
 
             map_paths[map_name] = map_path
 
@@ -152,7 +158,7 @@ class Halo2Map(HaloMap):
                 ugh__id = None
                 for b in self.tag_index.tag_index:
                     if fourcc(b.class_1.data) == "ugh!":
-                        ugh__id = b.id.tag_table_index
+                        ugh__id = b.id & 0xFFff
                         break
 
                 self.ugh__meta = self.get_meta(ugh__id)
@@ -179,7 +185,7 @@ class Halo2Map(HaloMap):
         if tag_id is None:
             return
 
-        scnr_id = self.orig_tag_index.scenario_tag_id[0]
+        scnr_id = self.orig_tag_index.scenario_tag_id & 0xFFff
         tag_index_array = self.tag_index.tag_index
         shared_map    = self.maps.get("shared")
 
@@ -189,7 +195,7 @@ class Halo2Map(HaloMap):
             return
 
         if self.engine != "halo2alpha":
-            matg_id = self.orig_tag_index.globals_tag_id[0]
+            matg_id = self.orig_tag_index.globals_tag_id & 0xFFff
             sp_shared_map = self.maps.get("single_player_shared")
 
             if tag_id >= 10000 and shared_map is not self:
@@ -228,7 +234,7 @@ class Halo2Map(HaloMap):
             print(format_exc())
             return
 
-        self.record_map_cache_read(tag_id, 0)  # cant get size quickly enough
+        self.record_map_cache_read(tag_id, 0)
         if self.map_cache_over_limit():
             self.clear_map_cache()
 

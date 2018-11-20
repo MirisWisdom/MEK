@@ -169,12 +169,6 @@ def byteswap_comp_verts(verts_block):
 def byteswap_tris(tris_block):
     raw_block = tris_block.STEPTREE
     raw_data  = raw_block.data
-    remainder = len(raw_data)%6
-
-    if remainder == 2:
-        raw_data += b'\xff\xff\xff\xff'
-    elif remainder == 4:
-        raw_data += b'\xff\xff'
 
     # replace the verts with the byteswapped and trimmed ones
     raw_block.data = new_raw = bytearray(6*(len(raw_data)//6))
@@ -214,12 +208,14 @@ def byteswap_animation(anim):
     if len(frame_info) < frame_info_size:
         raise ValueError("Expected %s bytes of frame info in '%s', but got %s" %
                          (frame_info_size, anim.name, len(frame_info)))
-    elif len(default_data) < default_data_size:
+    elif default_data and len(default_data) < default_data_size:
         raise ValueError("Expected %s bytes of default data in '%s', but got %s" %
                          (default_data_size, anim.name, len(default_data)))
-    elif len(frame_data) - comp_data_offset < uncomp_frame_data_size:
-        raise ValueError("Expected %s bytes of frame data in '%s', but got %s" %
-                         (uncomp_frame_data_size, anim.name, len(frame_data)))
+    elif not anim.flags.compressed_data:
+        if len(frame_data) - comp_data_offset < uncomp_frame_data_size:
+            raise ValueError(
+                "Expected %s bytes of frame data in '%s', but got %s" %
+                (uncomp_frame_data_size, anim.name, len(frame_data)))
 
     new_frame_info   = bytearray(frame_info_size)
     new_default_data = bytearray(default_data_size)

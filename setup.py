@@ -8,8 +8,8 @@ except ImportError:
 curr_dir = dirname(__file__)
 
 #               YYYY.MM.DD
-release_date = "2018.10.27"
-version = (2, 1, 6)
+release_date = "2018.11.16"
+version = (2, 1, 8)
 
 try:
     try:
@@ -43,6 +43,7 @@ games built with the Blam engine',
         'reclaimer.hek.defs.objs',
         'reclaimer.meta',
         'reclaimer.meta.objs',
+        'reclaimer.meta.wrappers',
         'reclaimer.model',
         'reclaimer.misc',
         'reclaimer.misc.defs',

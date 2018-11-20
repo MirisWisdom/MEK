@@ -69,6 +69,8 @@ def save_sound_perms(permlist, filepath_base, sample_rate,
 
         if encoding in ("ogg", "wma"):
             filepath += ".%s" % encoding
+        elif not encoding:
+            filepath += ".bin"
         else:
             filepath += ".wav"
 
@@ -77,7 +79,7 @@ def save_sound_perms(permlist, filepath_base, sample_rate,
         if not overwrite and isfile(filepath):
             continue
 
-        if encoding in ("ogg", "wma"):
+        if encoding in ("ogg", "wma") or not encoding:
             try:
                 folderpath = dirname(filepath)
                 # If the path doesnt exist, create it
@@ -229,10 +231,12 @@ def extract_h2_sounds(tagdata, tag_path, **kw):
 
     channels    = {0: 1,     1: 2,     2: 6    }.get(tagdata.encoding.data)
     sample_rate = {0: 22050, 1: 44100, 2: 32000}.get(tagdata.sample_rate.data)
-    compression = tagdata.compression.enum_name
+    compression = ""
+    if channels in (1, 2):
+        compression = tagdata.compression.enum_name
 
     if tagdata.encoding.enum_name == "codec":
-        return "    CANNOT YET EXTRACT THIS FORMAT."
+        pass # return "    CANNOT YET EXTRACT THIS FORMAT."
         '''
         The codec format seems to be encoded with wmaudio2.
 
@@ -942,12 +946,14 @@ def extract_animation(tagdata, tag_path, **kw):
         return
 
     filepath_base = join(kw['out_dir'], dirname(tag_path), "animations")
-    endian = "<" if kw.get('halo_map') else ">"
+    endian = ">"
+    if kw.get('halo_map') and kw.get('halo_map').engine != "halo1anni":
+        endian = "<"
+
     unpack_trans = PyStruct(endian + "3f").unpack
     unpack_ijkw  = PyStruct(endian + "4h").unpack
     unpack_dxdy  = PyStruct(endian + "2f").unpack
     unpack_float = PyStruct(endian + "f").unpack
-    
 
     anim_nodes = []
     for node in tagdata.nodes.STEPTREE:

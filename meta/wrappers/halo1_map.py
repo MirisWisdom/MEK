@@ -1,8 +1,7 @@
 from math import pi, sqrt, log
 from os.path import exists, join
-from struct import pack_into
+from struct import Struct as PyStruct
 from tkinter.filedialog import askopenfilename
-from traceback import format_exc
 
 from .halo_map import *
 from reclaimer.hek.defs.sbsp import sbsp_meta_header_def
@@ -57,12 +56,9 @@ class Halo1Map(HaloMap):
         if not sounds or self.is_resource:
             return
 
-        if id(sounds) != self.sound_rsrc_id:
-            pass
-        elif not(self.ce_rsrc_sound_indexes_by_path and
-                 self.ce_tag_indexs_by_paths):
-            pass
-        else:
+        if id(sounds) == self.sound_rsrc_id and (
+                self.ce_rsrc_sound_indexes_by_path and
+                self.ce_tag_indexs_by_paths):
             return
 
         self.sound_rsrc_id = id(sounds)
@@ -74,8 +70,8 @@ class Halo1Map(HaloMap):
 
             if sounds is not None:
                 i = 0
-                for tag_header in sounds.rsrc_header.tag_paths:
-                    rsrc_snd_map[tag_header.tag_path] = i
+                for tag_header in sounds.rsrc_map.data.tags:
+                    rsrc_snd_map[tag_header.tag.path] = i
                     i += 1
 
             i = 0
@@ -88,7 +84,7 @@ class Halo1Map(HaloMap):
             if tag_cls != "snd!":
                 return ()
 
-            rsrc_id = meta.promotion_sound.id[0]
+            rsrc_id = meta.promotion_sound.id & 0xFFff
             if rsrc_id == 0xFFFF: return ()
 
             sounds = self.maps.get("sounds")
@@ -112,7 +108,7 @@ class Halo1Map(HaloMap):
         dependencies = []
 
         for node in nodes:
-            if node.id[0] == 0xFFFF:
+            if node.id & 0xFFff == 0xFFFF:
                 continue
             dependencies.append(node)
         return dependencies
@@ -148,26 +144,30 @@ class Halo1Map(HaloMap):
 
         # get the scenario meta
         try:
-            self.scnr_meta = self.get_meta(tag_index.scenario_tag_id[0])
-
+            self.scnr_meta = self.get_meta(tag_index.scenario_tag_id & 0xFFff)
             if self.scnr_meta is not None:
                 bsp_sizes   = self.bsp_sizes
                 bsp_magics  = self.bsp_magics
                 bsp_offsets = self.bsp_header_offsets
                 for b in self.scnr_meta.structure_bsps.STEPTREE:
                     bsp = b.structure_bsp
-                    bsp_offsets[bsp.id.tag_table_index] = b.bsp_pointer
-                    bsp_magics[bsp.id.tag_table_index]  = b.bsp_magic
-                    bsp_sizes[bsp.id.tag_table_index]   = b.bsp_size
+                    bsp_offsets[bsp.id & 0xFFff] = b.bsp_pointer
+                    bsp_magics[bsp.id & 0xFFff]  = b.bsp_magic
+                    bsp_sizes[bsp.id & 0xFFff]   = b.bsp_size
 
                 # read the sbsp headers
                 for tag_id, offset in bsp_offsets.items():
-                    header = sbsp_meta_header_def.build(rawdata=self.map_data,
-                                                        offset=offset)
+                    if self.engine == "halo1anni":
+                        with FieldType.force_big:
+                            header = sbsp_meta_header_def.build(
+                                rawdata=self.map_data, offset=offset)
+                    else:
+                        header = sbsp_meta_header_def.build(
+                            rawdata=self.map_data, offset=offset)
+
                     if header.sig != header.get_desc("DEFAULT", "sig"):
-                        raise ValueError(
-                            "Sbsp header is invalid for '%s'" %
-                            tag_index_array[tag_id].tag.tag_path)
+                        print("Sbsp header is invalid for '%s'" %
+                              tag_index_array[tag_id].tag.tag_path)
                     self.bsp_headers[tag_id] = header
             else:
                 print("Could not read scenario tag")
@@ -181,7 +181,7 @@ class Halo1Map(HaloMap):
             matg_id = None
             for b in tag_index_array:
                 if fourcc(b.class_1.data) == "matg":
-                    matg_id = b.id.tag_table_index
+                    matg_id = b.id & 0xFFff
                     break
 
             self.matg_meta = self.get_meta(matg_id)
@@ -222,12 +222,12 @@ class Halo1Map(HaloMap):
             return
         tag_index_ref = tag_index_array[tag_id]
 
-        if tag_id != tag_index.scenario_tag_id[0] or self.is_resource:
-            tag_cls = None
-            if tag_index_ref.class_1.enum_name not in ("<INVALID>", "NONE"):
-                tag_cls = fourcc(tag_index_ref.class_1.data)
-        else:
+
+        tag_cls = None
+        if tag_id == tag_index.scenario_tag_id & 0xFFFF:
             tag_cls = "scnr"
+        elif tag_index_ref.class_1.enum_name not in ("<INVALID>", "NONE"):
+            tag_cls = fourcc(tag_index_ref.class_1.data)
 
         # if we dont have a defintion for this tag_cls, then return nothing
         if self.get_meta_descriptor(tag_cls) is None:
@@ -270,7 +270,7 @@ class Halo1Map(HaloMap):
 
             return rsrc_map.get_meta(tag_id)
         elif not reextract:
-            if tag_id == tag_index.scenario_tag_id[0] and self.scnr_meta:
+            if tag_id == tag_index.scenario_tag_id & 0xFFff and self.scnr_meta:
                 return self.scnr_meta
             elif tag_cls == "matg" and self.matg_meta:
                 return self.matg_meta
@@ -310,6 +310,7 @@ class Halo1Map(HaloMap):
         engine     = self.engine
         map_data   = self.map_data
         tag_index  = self.tag_index
+        byteswap = kwargs.get("byteswap", True)
 
         predicted_resources = []
 
@@ -324,6 +325,7 @@ class Halo1Map(HaloMap):
         elif tag_cls in ("antr", "magy"):
             # byteswap animation data
             for anim in meta.animations.STEPTREE:
+                if not byteswap: break
                 byteswap_animation(anim)
 
         elif tag_cls == "bitm":
@@ -380,6 +382,7 @@ class Halo1Map(HaloMap):
             # byteswap the raw bsp collision data
             for node in meta.nodes.STEPTREE:
                 for perm_bsp in node.bsps.STEPTREE:
+                    if not byteswap: break
                     byteswap_coll_bsp(perm_bsp)
 
         elif tag_cls == "effe":
@@ -429,8 +432,8 @@ class Halo1Map(HaloMap):
             meta.stencil_bitmap.filepath = meta.source_bitmap.filepath = ''
 
         elif tag_cls in ("mode", "mod2"):
-            if engine in ("halo1yelo", "halo1ce", "halo1pc", "halo1pcdemo",
-                          "stubbspc"):
+            if engine in ("halo1yelo", "halo1ce", "halo1pc",
+                          "halo1anni", "halo1pcdemo", "stubbspc"):
                 # model_magic seems to be the same for all pc maps
                 verts_start = tag_index.model_data_offset
                 tris_start  = verts_start + tag_index.vertex_data_size
@@ -500,13 +503,26 @@ class Halo1Map(HaloMap):
                     map_data.seek(tris_off)
                     raw_tris  = map_data.read(2*(info.index_count + 2))
 
+                    # append the padding indices to the triangle strip
+                    if len(raw_tris)%6 == 2:
+                        raw_tris += b'\xff\xff\xff\xff'
+                    elif len(raw_tris)%6 == 4:
+                        raw_tris += b'\xff\xff'
+
                     # put the raw data in the verts and tris blocks
                     verts_block.STEPTREE.data = raw_verts
                     tris_block.STEPTREE.data  = raw_tris
 
                     # call the byteswappers
-                    byteswap_verts(verts_block)
-                    byteswap_tris(tris_block)
+                    if byteswap:
+                        byteswap_verts(verts_block)
+                        byteswap_tris(tris_block)
+
+                    # set the size of the reflexives
+                    # this is NOT redundant. anniversary maps wont byteswap,
+                    # so the size setting occuring in the byteswap wont happen.
+                    verts_block.size = len(verts_block.STEPTREE.data) // vert_size
+                    tris_block.size  = len(tris_block.STEPTREE.data) // 6
 
                     # null out the model_meta_info
                     info.index_type.data  = info.index_count  = 0
@@ -535,7 +551,8 @@ class Halo1Map(HaloMap):
             meta.proj_attrs.physics.final_velocity *= 30
 
         elif tag_cls == "sbsp":
-            byteswap_sbsp_meta(meta)
+            if byteswap:
+                byteswap_sbsp_meta(meta)
 
             # null out the runtime decals
             del meta.runtime_decals.STEPTREE[:]
@@ -550,9 +567,21 @@ class Halo1Map(HaloMap):
             else:
                 generate_verts = kwargs.get("generate_comp_verts", False)
 
-            # local variables for faster access
-            s_unpack = unpack
-            s_pack_into = pack_into
+            endian = "<"
+            if engine == "halo1anni":
+                endian = ">"
+
+            comp_vert_nbt_unpacker = PyStruct(endian + "3I").unpack
+            uncomp_vert_nbt_packer = PyStruct(endian + "12s9f8s").pack_into
+
+            comp_vert_nuv_unpacker = PyStruct(endian + "I2h").unpack
+            uncomp_vert_nuv_packer = PyStruct(endian + "5f").pack_into
+
+            uncomp_vert_nbt_unpacker = PyStruct(endian + "9f").unpack
+            comp_vert_nbt_packer = PyStruct(endian + "12s3I8s").pack_into
+
+            uncomp_vert_nuv_unpacker = PyStruct(endian + "5f").unpack
+            comp_vert_nuv_packer = PyStruct(endian + "I2h").pack_into
 
             for lightmap in meta.lightmaps.STEPTREE:
                 for b in lightmap.materials.STEPTREE:
@@ -579,7 +608,7 @@ class Halo1Map(HaloMap):
                         in_off  = 0
                         out_off = 0
                         for i in range(vert_count):
-                            n, b, t = s_unpack("<3I",
+                            n, b, t = comp_vert_nbt_unpacker(
                                 comp_buffer[in_off + 12: in_off + 24])
                             ni = (n&1023) / 1023
                             nj = ((n>>11)&1023) / 1023
@@ -607,19 +636,20 @@ class Halo1Map(HaloMap):
                             tmag = max(sqrt(ti**2 + tj**2 + tk**2), 0.00000000001)
                             
                             # write the uncompressed data
-                            s_pack_into('<12s9f8s', uncomp_buffer, out_off,
-                                        comp_buffer[in_off: in_off + 12],
-                                        ni/nmag, nj/nmag, nk/nmag,
-                                        bi/bmag, bj/bmag, bk/bmag,
-                                        ti/tmag, tj/tmag, tk/tmag,
-                                        comp_buffer[in_off + 24: in_off + 32])
+                            uncomp_vert_nbt_packer(
+                                uncomp_buffer, out_off,
+                                comp_buffer[in_off: in_off + 12],
+                                ni/nmag, nj/nmag, nk/nmag,
+                                bi/bmag, bj/bmag, bk/bmag,
+                                ti/tmag, tj/tmag, tk/tmag,
+                                comp_buffer[in_off + 24: in_off + 32])
 
                             in_off  += 32
                             out_off += 56
 
                         for i in range(lightmap_vert_count):
-                            n, u, v = s_unpack(
-                                "<I2h", comp_buffer[in_off: in_off + 8])
+                            n, u, v = comp_vert_nuv_unpacker(
+                                comp_buffer[in_off: in_off + 8])
                             ni = (n&1023) / 1023
                             nj = ((n>>11)&1023) / 1023
                             nk = ((n>>22)&511) / 511
@@ -629,9 +659,9 @@ class Halo1Map(HaloMap):
                             mag = max(sqrt(ni**2 + nj**2 + nk**2), 0.00000000001)
 
                             # write the uncompressed data
-                            s_pack_into('<5f', uncomp_buffer, out_off,
-                                        ni/mag, nj/mag, nk/mag,
-                                        u/32767, v/32767)
+                            uncomp_vert_nuv_packer(
+                                uncomp_buffer, out_off,
+                                ni/mag, nj/mag, nk/mag, u/32767, v/32767)
 
                             in_off  += 8
                             out_off += 20
@@ -646,9 +676,9 @@ class Halo1Map(HaloMap):
                         # for speed purposes, we'll assume all vectors
                         # are already normalized to a length of ~1.0
                         for i in range(vert_count):
-                            ni, nj, nk, bi, bj, bk, ti, tj, tk = s_unpack(
-                                "<9f", uncomp_buffer[in_off + 12:
-                                                     in_off + 48])
+                            ni, nj, nk, bi, bj, bk, ti, tj, tk = \
+                                uncomp_vert_nbt_unpacker(
+                                    uncomp_buffer[in_off + 12: in_off + 48])
                             ni = int(min(ni, 1.0)*1023)
                             nj = int(min(nj, 1.0)*1023)
                             nk = int(min(nk, 1.0)*511)
@@ -669,20 +699,20 @@ class Halo1Map(HaloMap):
                             if tk < 0: tk = max(tk, -511)  + 1023
 
                             # write the compressed data
-                            s_pack_into('<12s3I8s', comp_buffer, out_off,
-                                        uncomp_buffer[in_off: in_off + 12],
-                                        ni + (nj<<11) + (nk<<22),
-                                        bi + (bj<<11) + (bk<<22),
-                                        ti + (tj<<11) + (tk<<22),
-                                        uncomp_buffer[in_off + 48:
-                                                      in_off + 56])
+                            comp_vert_nbt_packer(
+                                comp_buffer, out_off,
+                                uncomp_buffer[in_off: in_off + 12],
+                                ni + (nj<<11) + (nk<<22),
+                                bi + (bj<<11) + (bk<<22),
+                                ti + (tj<<11) + (tk<<22),
+                                uncomp_buffer[in_off + 48: in_off + 56])
 
                             in_off  += 56
                             out_off += 32
 
                         for i in range(lightmap_vert_count):
-                            ni, nj, nk, u, v = s_unpack(
-                                "<5f", uncomp_buffer[in_off: in_off + 20])
+                            ni, nj, nk, u, v = uncomp_vert_nuv_unpacker(
+                                uncomp_buffer[in_off: in_off + 20])
                             ni = int(min(ni, 1.0)*1023)
                             nj = int(min(nj, 1.0)*1023)
                             nk = int(min(nk, 1.0)*511)
@@ -691,10 +721,10 @@ class Halo1Map(HaloMap):
                             if nk < 0: nk = max(nk, -511)  + 1023
 
                             # write the compressed data
-                            s_pack_into('<I2h', comp_buffer, out_off,
-                                        ni + (nj<<11) + (nk<<22),
-                                        int(min(max(u, -1.0), 1.0)*32767),
-                                        int(min(max(v, -1.0), 1.0)*32767))
+                            comp_vert_nuv_packer(
+                                comp_buffer, out_off,  ni + (nj<<11) + (nk<<22),
+                                int(min(max(u, -1.0), 1.0)*32767),
+                                int(min(max(v, -1.0), 1.0)*32767))
 
                             in_off  += 20
                             out_off += 8
@@ -714,7 +744,8 @@ class Halo1Map(HaloMap):
             predicted_resources.append(meta.predicted_resources)
 
             # byteswap the script syntax data
-            byteswap_scnr_script_syntax_data(meta)
+            if byteswap:
+                byteswap_scnr_script_syntax_data(meta)
 
             # rename duplicate stuff that causes errors when compiling scripts
             if kwargs.get("rename_scnr_dups", False):
@@ -743,6 +774,7 @@ class Halo1Map(HaloMap):
         elif tag_cls == "snd!":
             meta.maximum_bend_per_second = meta.maximum_bend_per_second ** 30
             for pitch_range in meta.pitch_ranges.STEPTREE:
+                if not byteswap: break
                 for permutation in pitch_range.permutations.STEPTREE:
                     if permutation.compression.enum_name == "none":
                         # byteswap pcm audio
@@ -807,7 +839,8 @@ class Halo1Map(HaloMap):
     def load_all_resource_maps(self, maps_dir=""):
         if self.is_resource:
             return
-        elif self.engine not in ("halo1pc", "halo1pcdemo", "halo1ce", "halo1yelo"):
+        elif self.engine not in ("halo1pc", "halo1pcdemo",
+                                 "halo1ce", "halo1yelo"):
             return
 
         if not maps_dir:

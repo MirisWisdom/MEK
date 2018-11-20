@@ -17,17 +17,13 @@ INVALID_PATH_CHARS.update('<>:"|?*')
 
 
 def is_reserved_tag(tag_index_ref):
-    return (tuple(tag_index_ref.id[:]) == (0xFFFF, 0xFFFF) and
+    return (tag_index_ref.id == 0xFFffFFff and
             tag_index_ref.class_1.data == 0xFFFFFFFF)
 
 
 def is_protected_tag(tagpath):
-    return tagpath in RESERVED_WINDOWS_FILENAME_MAP or (
+    return not tagpath or tagpath in RESERVED_WINDOWS_FILENAME_MAP or (
         not INVALID_PATH_CHARS.isdisjoint(set(tagpath)))
-
-
-def fourcc(value):
-    return value.to_bytes(4, byteorder='big').decode(encoding='latin-1')
 
 
 def float_to_str(f, max_sig_figs=7):
@@ -38,7 +34,7 @@ def float_to_str(f, max_sig_figs=7):
 
     sig_figs = -1
     if abs(f) > 0:
-        sig_figs = int(max_sig_figs - log(abs(f), 10))
+        sig_figs = int(round(max_sig_figs - log(abs(f), 10)))
 
     if sig_figs < 0:
         return str(f).split(".")[0]

@@ -12,7 +12,6 @@ from supyr_struct.buffer import BytearrayBuffer, BytesBuffer, PeekableMmap
 from supyr_struct.field_types import FieldType
 from supyr_struct.defs.frozen_dict import FrozenDict
 
-from ..resource import resource_def
 from ..halo_map import get_map_version, get_map_header,\
      get_tag_index, get_index_magic, get_map_magic, get_is_compressed_map,\
      decompress_map, map_header_demo_def, tag_index_pc_def
@@ -29,7 +28,7 @@ def h2_alpha_to_h1_tag_index(map_header, tag_index):
     new_index_array = new_index.tag_index
 
     # copy information from the h2 index into the h1 index
-    new_index.scenario_tag_id[:] = tag_index.scenario_tag_id[:]
+    new_index.scenario_tag_id = tag_index.scenario_tag_id
     new_index.tag_index_offset = tag_index.tag_index_offset
     new_index.tag_count = tag_index.tag_count
 
@@ -57,7 +56,7 @@ def h2_to_h1_tag_index(map_header, tag_index):
     new_index_array = new_index.tag_index
 
     # copy information from the h2 index into the h1 index
-    new_index.scenario_tag_id[:] = tag_index.scenario_tag_id[:]
+    new_index.scenario_tag_id = tag_index.scenario_tag_id
     new_index.tag_index_offset = tag_index.tag_index_offset
     new_index.tag_count = tag_index.tag_count
 
@@ -74,6 +73,7 @@ def h2_to_h1_tag_index(map_header, tag_index):
             new_index_entry.class_1.data = new_index_entry.class_2.data =\
                                            new_index_entry.class_3.data =\
                                            0xFFFFFFFF
+            new_index_entry.id = 0xFFFFFFFF
             continue
         else:
             types = tag_types[old_index_entry.tag_class.data]
@@ -81,7 +81,6 @@ def h2_to_h1_tag_index(map_header, tag_index):
             new_index_entry.class_2 = types[1]
             new_index_entry.class_3 = types[2]
 
-            #new_index_entry.path_offset = ????
             new_index_entry.tag.tag_path = map_header.strings.\
                                            tag_name_table[i].tag_name
 
@@ -102,7 +101,7 @@ class HaloMap:
 
     # these are the different pieces of the map as parsed blocks
     map_header  = None
-    rsrc_header = None
+    rsrc_map    = None
     tag_index   = None
     orig_tag_index = None  # the tag index specific to the
     #                        halo version that this map is from
@@ -146,7 +145,7 @@ class HaloMap:
 
         self._ids_of_tags_read = set()
         if map_data_cache_limit is not None:
-            self.map_data_cache_limit = map_data_cache_limit
+            self.map_data_cache_limit = HaloMap.map_data_cache_limit
 
         self.maps = {} if maps is None else maps
 
