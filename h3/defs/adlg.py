@@ -1,4 +1,22 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: DeadCanadian
+# 	naming stuff
+# revision: 3		author: OrangeMohawk
+# 	Responses/Indexes
+# revision: 4		author: Lord Zedd
+# 	Updates and corrections
+# revision: 5		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
 
 adlg_vocalization_perception_type = (
@@ -8,10 +26,9 @@ adlg_vocalization_perception_type = (
     )
 
 
-adlg_vocalization_response = Struct("responses",
-    string_id_meta("vocalization_name"),
-    Bool16("flags",
-        ),
+adlg_vocalization_response = Struct("response", 
+    h3_string_id("vocalization_name"),
+    Bool16("flags", *unknown_flags_16),
     SInt16("vocalization_index"),
     SInt16("response_type"),
     SInt16("import_dialogue_index"),
@@ -19,12 +36,11 @@ adlg_vocalization_response = Struct("responses",
     )
 
 
-adlg_vocalization = Struct("vocalizations",
-    string_id_meta("vocalization"),
+adlg_vocalization = Struct("vocalization", 
+    h3_string_id("vocalization"),
     SInt16("parent_index"),
     SInt16("priority"),
-    Bool32("flags",
-        ),
+    Bool32("flags", *unknown_flags_32),
     SInt16("glance_behavior"),
     SInt16("glance_recipient"),
     SEnum16("perception_type", *adlg_vocalization_perception_type),
@@ -45,61 +61,69 @@ adlg_vocalization = Struct("vocalizations",
     Float("skip_fraction1"),
     Float("skip_fraction2"),
     Float("skip_fraction3"),
-    string_id_meta("sample_line"),
-    reflexive("responses", adlg_vocalization_response),
+    h3_string_id("sample_line"),
+    h3_reflexive("responses", adlg_vocalization_response),
     ENDIAN=">", SIZE=92
     )
 
 
-adlg_pattern = Struct("patterns",
+adlg_pattern = Struct("pattern", 
     SInt16("dialogue_type"),
     SInt16("vocalizations_index"),
-    string_id_meta("vocalization_name"),
+    h3_string_id("vocalization_name"),
     SInt16("speaker_type"),
-    Bool16("flags",
-        ),
+    Bool16("flags", *unknown_flags_16),
     SInt16("hostility"),
-    Bool16("unknown",
-        ),
-    SInt16("unknown_1"),
+    Bool16("unknown_0", *unknown_flags_16),
+    SInt16("unknown_1", VISIBLE=False),
     SInt16("cause_type"),
-    string_id_meta("cause_ai_type_name"),
-    Pad(4),
-    SInt16("unknown_3"),
-    SInt16("unknown_4"),
+    h3_string_id("cause_ai_type_name"),
+    BytesRaw("unknown_2", SIZE=4, VISIBLE=False),
+    SInt16("unknown_3", VISIBLE=False),
+    SInt16("unknown_4", VISIBLE=False),
     SInt16("attitude"),
-    SInt16("unknown_5"),
-    Bool32("conditions",
-        ),
+    SInt16("unknown_5", VISIBLE=False),
+    Bool32("conditions", *unknown_flags_32),
     SInt16("spacial_relationship"),
     SInt16("damage_type"),
-    SInt16("unknown_6"),
+    SInt16("unknown_6", VISIBLE=False),
     SInt16("subject_type"),
-    string_id_meta("subject_ai_type_name"),
+    h3_string_id("subject_ai_type_name"),
     ENDIAN=">", SIZE=52
     )
 
 
-adlg_dialog_data = Struct("dialog_data",
+adlg_dialog_data = Struct("dialog_data", 
     SInt16("start_index"),
     SInt16("length"),
     ENDIAN=">", SIZE=4
     )
 
 
-adlg_involuntary_data = Struct("involuntary_data",
+adlg_involuntary_data = Struct("involuntary_data", 
     SInt16("involuntary_vocalization_index"),
-    SInt16("unknown"),
+    SInt16("unknown", VISIBLE=False),
     ENDIAN=">", SIZE=4
     )
 
 
-adlg_meta_def = BlockDef("adlg",
-    Pad(16),
-    reflexive("vocalizations", adlg_vocalization),
-    reflexive("patterns", adlg_pattern),
-    Pad(12),
-    reflexive("dialog_data", adlg_dialog_data),
-    reflexive("involuntary_data", adlg_involuntary_data),
-    TYPE=Struct, ENDIAN=">", SIZE=76
+adlg_body = Struct("tagdata", 
+    BytesRaw("unknown_0", SIZE=16, VISIBLE=False),
+    h3_reflexive("vocalizations", adlg_vocalization),
+    h3_reflexive("patterns", adlg_pattern),
+    BytesRaw("unknown_1", SIZE=12, VISIBLE=False),
+    h3_reflexive("dialog_data", adlg_dialog_data),
+    h3_reflexive("involuntary_data", adlg_involuntary_data),
+    ENDIAN=">", SIZE=76
+    )
+
+
+def get():
+    return adlg_def
+
+adlg_def = TagDef("adlg",
+    h3_blam_header('adlg'),
+    adlg_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["adlg"], endian=">", tag_cls=H3Tag
     )

@@ -1,62 +1,17 @@
-from reclaimer.common_descs import *
-from supyr_struct.defs.tag_def import TagDef
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
 
-lsnd_sound_class = (
-    "projectile_impact",
-    "projectile_detonation",
-    "projectile_flyby",
-    "projectile_detonation_lod",
-    "weapon_fire",
-    "weapon_ready",
-    "weapon_reload",
-    "weapon_empty",
-    "weapon_charge",
-    "weapon_overheat",
-    "weapon_idle",
-    "weapon_melee",
-    "weapon_animation",
-    "object_impacts",
-    "particle_impacts",
-    "weapon_fire_lod",
-    "unused1_impacts",
-    "unused2_impacts",
-    "unit_footsteps",
-    "unit_dialog",
-    "unit_animation",
-    "unit_unused",
-    "vehicle_collision",
-    "vehicle_engine",
-    "vehicle_animation",
-    "vehicle_engine_lod",
-    "device_door",
-    "device_unused0",
-    "device_machinery",
-    "device_stationary",
-    "device_unused1",
-    "device_unused2",
-    "music",
-    "ambient_nature",
-    "ambient_machinery",
-    "ambient_stationary",
-    "huge_ass",
-    "object_looping",
-    "cinematic_music",
-    "unknown_unused0",
-    "unknown_unused1",
-    "ambient_flock",
-    "no_pad",
-    "no_pad_stationary",
-    "mission_unused0",
-    "cortana_mission",
-    "cortana_gravemind_channel",
-    "mission_dialog",
-    "cinematic_dialog",
-    "scripted_cinematic_foley",
-    "game_event",
-    "ui",
-    "test",
-    "multilingual_test",
-    )
+from ..common_descs import *
+from .objs.tag import *
+from supyr_struct.defs.tag_def import TagDef
 
 lsnd_track_output_effect = (
     "none",
@@ -66,53 +21,49 @@ lsnd_track_output_effect = (
     )
 
 
-lsnd_track = Struct("tracks",
-    string_id_meta("name"),
-    Bool32("flags",
+lsnd_track = Struct("track", 
+    h3_string_id("name"),
+    Bool32("flags", 
         "fade_in_at_start",
         "fade_out_at_stop",
         ),
     Float("gain"),
     Float("fade_in_duration"),
     Float("fade_out_duration"),
-    dependency("in"),
-    dependency("loop"),
-    dependency("out"),
-    dependency("alternate_loop"),
-    dependency("alternate_out"),
+    h3_dependency("in"),
+    h3_dependency("loop"),
+    h3_dependency("out"),
+    h3_dependency("alternate_loop"),
+    h3_dependency("alternate_out"),
     SEnum16("output_effect", *lsnd_track_output_effect),
-    SInt16("unknown"),
-    dependency("alternate_transition_in"),
-    dependency("alternate_transition_out"),
+    SInt16("unknown", VISIBLE=False),
+    h3_dependency("alternate_transition_in"),
+    h3_dependency("alternate_transition_out"),
     Float("alternate_crossfade_duration"),
     Float("alternate_fade_out_duration"),
     ENDIAN=">", SIZE=144
     )
 
 
-lsnd_detail_sound = Struct("detail_sounds",
-    string_id_meta("name"),
-    dependency("sound"),
-    Float("random_period_bounds_min"),
-    Float("random_period_bounds_max"),
-    Float("unknown"),
-    Bool32("flags",
-        "don_t_play_with_alternate",
-        "don_t_play_without_alternate",
+lsnd_detail_sound = Struct("detail_sound", 
+    h3_string_id("name"),
+    h3_dependency("sound"),
+    QStruct("random_period_bounds", INCLUDE=from_to),
+    Float("unknown", VISIBLE=False),
+    Bool32("flags", 
+        "dont_play_with_alternate",
+        "dont_play_without_alternate",
         "start_immediately_with_loop",
         ),
-    float_rad("yaw_bounds_min"),
-    float_rad("yaw_bounds_max"),
-    float_rad("pitch_bounds_min"),
-    float_rad("pitch_bounds_max"),
-    Float("distance_bounds_min"),
-    Float("distance_bounds_max"),
+    from_to_rad("yaw_bounds"),
+    from_to_rad("pitch_bounds"),
+    QStruct("distance_bounds", INCLUDE=from_to),
     ENDIAN=">", SIZE=60
     )
 
 
-lsnd_meta_def = BlockDef("lsnd",
-    Bool32("flags",
+lsnd_body = Struct("tagdata", 
+    Bool32("flags", 
         "deafening_to_ais",
         "not_a_loop",
         "stops_music",
@@ -123,13 +74,24 @@ lsnd_meta_def = BlockDef("lsnd",
         "combine_all_3d_playback",
         ),
     Float("marty_s_music_time"),
-    Float("unknown"),
-    Float("unknown_1"),
-    Float("unknown_2"),
-    dependency("unused"),
-    SEnum16("sound_class", *lsnd_sound_class),
-    SInt16("unknown_3"),
-    reflexive("tracks", lsnd_track),
-    reflexive("detail_sounds", lsnd_detail_sound),
-    TYPE=Struct, ENDIAN=">", SIZE=64
+    Float("unknown_0", VISIBLE=False),
+    Float("unknown_1", VISIBLE=False),
+    Float("unknown_2", VISIBLE=False),
+    h3_dependency("unused"),
+    SEnum16("sound_class", *snd__sound_class),
+    SInt16("unknown_3", VISIBLE=False),
+    h3_reflexive("tracks", lsnd_track),
+    h3_reflexive("detail_sounds", lsnd_detail_sound),
+    ENDIAN=">", SIZE=64
+    )
+
+
+def get():
+    return lsnd_def
+
+lsnd_def = TagDef("lsnd",
+    h3_blam_header('lsnd'),
+    lsnd_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["lsnd"], endian=">", tag_cls=H3Tag
     )

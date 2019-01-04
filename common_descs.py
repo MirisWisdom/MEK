@@ -155,6 +155,27 @@ def rawtext_ref(name, f_type=StrRawLatin1, max_size=None,
             )
 
 
+def get_meta_dependency_filepath(parent=None, tag_index_manager=None, **kwargs):
+    if tag_index_manager and parent:
+        tag_index_ref = tag_index_manager.get_tag_index_ref(parent.id)
+        if tag_index_ref:
+            parent.filepath = tag_index_ref.path
+            return
+    parent.filepath = ""
+
+
+def dependency_uint32(name='tag ref', **kwargs):
+    kwargs.setdefault(VISIBLE, False)
+    kwargs.setdefault(ORIENT, "h")
+    return QStruct(name,
+        UInt32("id"),
+        STEPTREE=Computed("filepath",
+            COMPUTE_READ=get_meta_dependency_filepath, WIDGET_WIDTH=32
+            ),
+        **kwargs
+        )
+
+
 def dependency(name='tag ref', valid_ids=None, **kwargs):
     '''This function serves to macro the creation of a tag dependency'''
     if isinstance(valid_ids, tuple):
@@ -169,6 +190,31 @@ def dependency(name='tag ref', valid_ids=None, **kwargs):
         INCLUDE=tag_ref_struct,
         STEPTREE=StrTagRef(
             "filepath", SIZE=tag_ref_str_size, GUI_NAME="", MAX=254),
+        **kwargs
+        )
+
+
+def zone_asset(name, **kwargs):
+    return ZoneAsset(name, INCLUDE=zone_asset_struct, **kwargs)
+
+
+def string_id(name, index_bit_ct, set_bit_ct, len_bit_ct=None, **kwargs):
+    if len_bit_ct is None:
+        len_bit_ct = 32 - index_bit_ct - set_bit_ct
+
+    kwargs.setdefault(STRINGID_IDX_BITS, index_bit_ct)
+    kwargs.setdefault(STRINGID_SET_BITS, set_bit_ct)
+    kwargs.setdefault(STRINGID_LEN_BITS, len_bit_ct)
+    kwargs.setdefault(ORIENT, "h")
+    return StringID(name,
+        UInt32('string id', VISIBLE=False),
+        STEPTREE=WritableComputed("string",
+            COMPUTE_READ=read_string_id_string,
+            COMPUTE_WRITE=write_string_id_string,
+            COMPUTE_SIZECALC=(lambda node, **kw: len(node) + bool(node)),
+            SIZE=get_set_string_id_size, GUI_NAME="",
+            WIDGET_WIDTH=32, NODE_CLS=str, MAX=(1 << len_bit_ct)
+            ),
         **kwargs
         )
 
@@ -223,13 +269,6 @@ sec_sq_unit_scale = get_unit_scale(1/4)
 irad = 180/pi
 irad_per_sec_unit_scale = get_unit_scale(1/2, irad)
 irad_per_sec_sq_unit_scale = get_unit_scale(1/4, irad)
-
-def string_id_meta(name):
-    return StringID(name,
-        UInt16('id'),  # cant name it "index" as that is a method name
-        UInt8('unused', VISIBLE=False),
-        UInt8('length'),
-        )
 
 def dyn_senum8(name, *args, **kwargs):
     kwargs.setdefault('DEFAULT', -1)
@@ -300,10 +339,27 @@ def float_zero_to_inf(name, *args, **kwargs):
     return Float(name, *args, SIDETIP="[0,+inf]", **kwargs)
 
 
-from_to = QStruct('',
-    Float("from", GUI_NAME=''),
-    Float("to"),
-    ORIENT='h'
+from_to_float = QStruct('',
+    Float("from", GUI_NAME=''), Float("to"), ORIENT='h'
+    )
+from_to = from_to_float
+from_to_sint32 = QStruct('',
+    SInt32("from", GUI_NAME=''), SInt32("to"), ORIENT='h'
+    )
+from_to_sint16 = QStruct('',
+    SInt16("from", GUI_NAME=''), SInt16("to"), ORIENT='h'
+    )
+from_to_sint8 = QStruct('',
+    SInt8("from", GUI_NAME=''), SInt8("to"), ORIENT='h'
+    )
+from_to_uint32 = QStruct('',
+    UInt32("from", GUI_NAME=''), UInt32("to"), ORIENT='h'
+    )
+from_to_uint16 = QStruct('',
+    UInt16("from", GUI_NAME=''), UInt16("to"), ORIENT='h'
+    )
+from_to_uint8 = QStruct('',
+    UInt8("from", GUI_NAME=''), UInt8("to"), ORIENT='h'
     )
 
 def color_argb_uint32(name, **kwargs):
@@ -549,7 +605,7 @@ rawdata_ref_struct = RawdataRef('rawdata ref',
         VISIBLE=False,
         ),
     UInt32("raw pointer", VISIBLE=False),  # doesnt use magic
-    UInt32("pointer", VISIBLE=False, DEFAULT=0xFFFFFFFF),
+    UInt32("pointer", VISIBLE=False),
     UInt32("id", VISIBLE=False),
     ORIENT='h'
     )
@@ -557,7 +613,7 @@ rawdata_ref_struct = RawdataRef('rawdata ref',
 # This is the descriptor used wherever a tag reference a reflexive
 reflexive_struct = Reflexive('reflexive',
     SInt32("size", VISIBLE=False),
-    UInt32("pointer", VISIBLE=False, DEFAULT=0xFFFFFFFF),
+    UInt32("pointer", VISIBLE=False),
     UInt32("id", VISIBLE=False),  # 0 in meta it seems
     )
 
@@ -579,6 +635,12 @@ predicted_resource = Struct('predicted resource',
     UInt32('tag index'),
     )
 
+zone_asset_struct = ZoneAsset("zone asset",
+    UInt16("salt"),
+    UInt16("idx"),
+    UInt32("unused", VISIBLE=False),
+    )
+
 extra_layers_block = dependency("extra layer", valid_shaders)
 
 damage_modifiers = QStruct("damage modifiers",
@@ -587,12 +649,9 @@ damage_modifiers = QStruct("damage modifiers",
 
 # Miscellaneous shared descriptors
 compressed_normal_32 = BitStruct('compressed_norm32',
-    S1BitInt("i",
-        SIZE=11, UNIT_SCALE=1/1023, MIN=-1023, MAX=1023, WIDGET_WIDTH=10),
-    S1BitInt("j",
-        SIZE=11, UNIT_SCALE=1/1023, MIN=-1023, MAX=1023, WIDGET_WIDTH=10),
-    S1BitInt("k",
-        SIZE=10, UNIT_SCALE=1/511, MIN=-511, MAX=511, WIDGET_WIDTH=10),
+    S1BitInt("i", SIZE=11, UNIT_SCALE=1/1023, MIN=-1023, MAX=1023, WIDGET_WIDTH=10),
+    S1BitInt("j", SIZE=11, UNIT_SCALE=1/1023, MIN=-1023, MAX=1023, WIDGET_WIDTH=10),
+    S1BitInt("k", SIZE=10, UNIT_SCALE=1/511,  MIN=-511,  MAX=511,  WIDGET_WIDTH=10),
     ORIENT='h'
     )
 
@@ -634,6 +693,21 @@ argb_uint32 = UInt32('argb_uint32',
     WIDGET=HaloUInt32ColorPickerFrame, COLOR_CHANNELS="argb", ORIENT="h")
 
 # rotations
+ijkw_sint16 = QStruct('ijkw_sint16',
+    SInt16("i", UNIT_SCALE=1/32767), SInt16("j", UNIT_SCALE=1/32767),
+    SInt16("k", UNIT_SCALE=1/32767), SInt16("w", UNIT_SCALE=1/32767,
+                                            DEFAULT=32767),
+    ORIENT='h'
+    )
+ijk_sint16 = QStruct('ijk_sint16',
+    SInt16("i", UNIT_SCALE=1/32767), SInt16("j", UNIT_SCALE=1/32767),
+    SInt16("k", UNIT_SCALE=1/32767),
+    ORIENT='h'
+    )
+ij_sint16 = QStruct('ij_sint16',
+    SInt16("i", UNIT_SCALE=1/32767), SInt16("j", UNIT_SCALE=1/32767),
+    ORIENT='h'
+    )
 ijkw_float = QStruct('ijkw_float',
     Float("i"), Float("j"), Float("k"), Float("w", DEFAULT=1.0),
     ORIENT='h'
@@ -714,6 +788,20 @@ def blam_header_os(tagid, version=1):
 
 valid_tags_os = tag_class_os(*sorted(tag_class_fcc_to_ext_os.keys()))
 
+# i'm so cheeky, look at me abusing Courier New
+blam_engine_id = UEnum32("engine id",
+    ("halo_1", 'blam'),
+    ("halo_2", 'b2am'),
+    ("halo_3", 'b3am'),
+    ("halo_4", 'b4am'),
+    ("halo_5", 'b5am'),
+    ("halo_odst", 'ODST'),
+    ("halo_reach", 'bRam'),
+    ("halo_reach_beta", 'bRBm'),
+    ("halo_4_net_test", 'b4Tm'),
+    DEFAULT='blam', EDITABLE=False
+    )
+
 # Descriptors
 tag_header_os = Struct("blam header",
     Pad(36),
@@ -729,10 +817,7 @@ tag_header_os = Struct("blam header",
     UInt16("version", DEFAULT=1, EDITABLE=False),
     UInt8("integrity0", DEFAULT=0, EDITABLE=False),
     UInt8("integrity1", DEFAULT=255, EDITABLE=False),
-    UEnum32("engine id",
-        ("halo 1", 'blam'),
-        DEFAULT='blam', EDITABLE=False
-        ),
+    blam_engine_id,
     VISIBLE=False, SIZE=64, ENDIAN=">"  # KEEP THE ENDIAN SPECIFICATION
     )
 

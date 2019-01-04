@@ -1,103 +1,19 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: Lord Zedd
+# 	Portin'
+# revision: 3		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
-
-ctrl_ai_propertie_leap_jump_speed = (
-    "none",
-    "down",
-    "step",
-    "crouch",
-    "stand",
-    "storey",
-    "tower",
-    "infinite",
-    )
-
-ctrl_ai_propertie_size = (
-    "default",
-    "tiny",
-    "small",
-    "medium",
-    "large",
-    "huge",
-    "immobile",
-    )
-
-ctrl_attachment_change_color = (
-    "none",
-    "primary",
-    "secondary",
-    "tertiary",
-    "quaternary",
-    )
-
-ctrl_lightmap_shadow_mode_size = (
-    "default",
-    "never",
-    "always",
-    "unknown",
-    )
-
-ctrl_multiplayer_object_propertie_object_type = (
-    "ordinary",
-    "weapon",
-    "grenade",
-    "projectile",
-    "powerup",
-    "equipment",
-    "light_land_vehicle",
-    "heavy_land_vehicle",
-    "flying_vehicle",
-    "teleporter_2way",
-    "teleporter_sender",
-    "teleporter_receiver",
-    "player_spawn_location",
-    "player_respawn_zone",
-    "hold_spawn_objective",
-    "capture_spawn_objective",
-    "hold_destination_objective",
-    "capture_destination_objective",
-    "hill_objective",
-    "infection_haven_objective",
-    "territory_objective",
-    "vip_boundary_objective",
-    "vip_destination_objective",
-    "juggernaut_destination_objective",
-    )
-
-ctrl_multiplayer_object_propertie_shape = (
-    "none",
-    "sphere",
-    "cylinder",
-    "box",
-    )
-
-ctrl_multiplayer_object_propertie_spawn_timer_mode = (
-    "on_death",
-    "on_disturbance",
-    )
-
-ctrl_object_type = (
-    "biped",
-    "vehicle",
-    "weapon",
-    "equipment",
-    "terminal",
-    "projectile",
-    "scenery",
-    "machine",
-    "control",
-    "sound_scenery",
-    "crate",
-    "creature",
-    "giant",
-    "effect_scenery",
-    )
-
-ctrl_sweetener_size = (
-    "small",
-    "medium",
-    "large",
-    )
 
 ctrl_triggers_when = (
     "touched_by_player",
@@ -112,111 +28,102 @@ ctrl_type = (
     "generator",
     )
 
-ctrl_water_density = (
-    "default",
-    "least",
-    "some",
-    "equal",
-    "more",
-    "more_still",
-    "lots_more",
-    )
 
-
-ctrl_early_mover_propertie = Struct("early_mover_properties",
-    string_id_meta("name"),
+ctrl_early_mover_propertie = Struct("early_mover_propertie", 
+    h3_string_id("name"),
     Pad(36),
     ENDIAN=">", SIZE=40
     )
 
 
-ctrl_ai_propertie = Struct("ai_properties",
-    Bool32("flags",
+ctrl_ai_propertie = Struct("ai_propertie", 
+    Bool32("flags", 
         "destroyable_cover",
         "pathfinding_ignore_when_dead",
         "dynamic_cover",
         ),
-    string_id_meta("ai_type_name"),
-    Pad(4),
-    SEnum16("size", *ctrl_ai_propertie_size),
-    SEnum16("leap_jump_speed", *ctrl_ai_propertie_leap_jump_speed),
+    h3_string_id("ai_type_name"),
+    BytesRaw("unknown", SIZE=4, VISIBLE=False),
+    SEnum16("size", *bloc_ai_propertie_size),
+    SEnum16("leap_jump_speed", *bloc_ai_propertie_leap_jump_speed),
     ENDIAN=">", SIZE=16
     )
 
 
-ctrl_function = Struct("functions",
-    Bool32("flags",
+ctrl_function = Struct("function", 
+    Bool32("flags", 
         "invert",
         "mapping_does_not_controls_active",
         "always_active",
         "random_time_offset",
         ),
-    string_id_meta("import_name"),
-    string_id_meta("export_name"),
-    string_id_meta("turn_off_with"),
+    h3_string_id("import_name"),
+    h3_string_id("export_name"),
+    h3_string_id("turn_off_with"),
     Float("minimum_value"),
-    rawdata_ref("default_function"),
-    string_id_meta("scale_by"),
+    h3_rawdata_ref("default_function"),
+    h3_string_id("scale_by"),
     ENDIAN=">", SIZE=44
     )
 
 
-ctrl_attachment = Struct("attachments",
-    dependency("attachment"),
-    string_id_meta("marker"),
-    SEnum16("change_color", *ctrl_attachment_change_color),
-    SInt16("unknown"),
-    string_id_meta("primary_scale"),
-    string_id_meta("secondary_scale"),
+ctrl_attachment = Struct("attachment", 
+    h3_dependency("attachment"),
+    h3_string_id("marker"),
+    SEnum16("change_color", *bloc_attachment_change_color),
+    SInt16("unknown", VISIBLE=False),
+    h3_string_id("primary_scale"),
+    h3_string_id("secondary_scale"),
     ENDIAN=">", SIZE=32
     )
 
 
-ctrl_widget = Struct("widgets",
-    dependency("type"),
+ctrl_widget = Struct("widget", 
+    h3_dependency("type"),
     ENDIAN=">", SIZE=16
     )
 
 
-ctrl_change_color_initial_permutation = Struct("initial_permutations",
+ctrl_change_color_initial_permutation = Struct("initial_permutation", 
     Pad(4),
     color_rgb_float("color_lower_bound"),
     color_rgb_float("color_upper_bound"),
-    string_id_meta("variant_name"),
+    h3_string_id("variant_name"),
     ENDIAN=">", SIZE=32
     )
 
 
-ctrl_change_color_function = Struct("functions",
-    Bool32("scale_flags",
+ctrl_change_color_function = Struct("function", 
+    Bool32("scale_flags", 
         "blend_in_hsv",
         "more_colors",
         ),
     color_rgb_float("color_lower_bound"),
     color_rgb_float("color_upper_bound"),
-    string_id_meta("darken_by"),
-    string_id_meta("scale_by"),
+    h3_string_id("darken_by"),
+    h3_string_id("scale_by"),
     ENDIAN=">", SIZE=32
     )
 
 
-ctrl_change_color = Struct("change_colors",
-    reflexive("initial_permutations", ctrl_change_color_initial_permutation),
-    reflexive("functions", ctrl_change_color_function),
+ctrl_change_color = Struct("change_color", 
+    h3_reflexive("initial_permutations", ctrl_change_color_initial_permutation),
+    h3_reflexive("functions", ctrl_change_color_function),
     ENDIAN=">", SIZE=24
     )
 
 
-ctrl_predicted_resource = Struct("predicted_resources",
+ctrl_predicted_resource = Struct("predicted_resource", 
     SInt16("type"),
     SInt16("resource_index"),
-    UInt32("tag_index"),
+    dependency_uint32("tag_index", VISIBLE=False),
+    VISIBLE=False,
     ENDIAN=">", SIZE=8
     )
 
 
-ctrl_multiplayer_object_propertie = Struct("multiplayer_object_properties",
-    Bool16("engine_flags",
+ctrl_multiplayer_object_propertie = Struct("multiplayer_object_propertie", 
+    Bool16("engine_flags", 
         "capture_the_flag",
         "slayer",
         "oddball",
@@ -227,47 +134,47 @@ ctrl_multiplayer_object_propertie = Struct("multiplayer_object_properties",
         "vip",
         "infection",
         ),
-    SEnum8("object_type", *ctrl_multiplayer_object_propertie_object_type),
-    Bool8("teleporter_flags",
+    SEnum8("object_type", *bloc_multiplayer_object_propertie_object_type),
+    Bool8("teleporter_flags", 
         "disallows_players",
         "allows_land_vehicles",
         "allows_heavy_vehicles",
         "allows_flying_vehicles",
         "allows_projectiles",
         ),
-    Bool16("flags",
+    Bool16("flags", 
         "editor_only",
         ),
-    SEnum8("shape", *ctrl_multiplayer_object_propertie_shape),
-    SEnum8("spawn_timer_mode", *ctrl_multiplayer_object_propertie_spawn_timer_mode),
+    SEnum8("shape", *bloc_multiplayer_object_propertie_shape),
+    SEnum8("spawn_timer_mode", *bloc_multiplayer_object_propertie_spawn_timer_mode),
     SInt16("spawn_time"),
     SInt16("abandon_time"),
     Float("radius_width"),
     Float("length"),
     Float("top"),
     Float("bottom"),
-    Float("unknown"),
-    Float("unknown_1"),
-    Float("unknown_2"),
-    SInt32("unknown_3"),
-    SInt32("unknown_4"),
-    dependency("child_object"),
+    Float("unknown_0", VISIBLE=False),
+    Float("unknown_1", VISIBLE=False),
+    Float("unknown_2", VISIBLE=False),
+    SInt32("unknown_3", VISIBLE=False),
+    SInt32("unknown_4", VISIBLE=False),
+    h3_dependency("child_object"),
     SInt32("unknown_5"),
-    dependency("shape_shader"),
-    dependency("unknown_shader"),
-    dependency("unknown_6"),
-    dependency("unknown_7"),
-    dependency("unknown_8"),
-    dependency("unknown_9"),
-    dependency("unknown_10"),
-    dependency("unknown_11"),
+    h3_dependency("shape_shader"),
+    h3_dependency("unknown_shader"),
+    h3_dependency("unknown_6"),
+    h3_dependency("unknown_7"),
+    h3_dependency("unknown_8"),
+    h3_dependency("unknown_9"),
+    h3_dependency("unknown_10"),
+    h3_dependency("unknown_11"),
     ENDIAN=">", SIZE=196
     )
 
 
-ctrl_meta_def = BlockDef("ctrl",
-    SEnum16("object_type", *ctrl_object_type),
-    Bool16("flags",
+ctrl_body = Struct("tagdata", 
+    SEnum16("object_type", *bloc_object_type),
+    Bool16("flags_0", 
         "does_not_cast_shadow",
         "search_cardinal_direction_lightmaps",
         ("not_a_pathfinding_obstacle", 1 << 3),
@@ -283,36 +190,32 @@ ctrl_meta_def = BlockDef("ctrl",
         "effects_created_by_this_object_do_not_spawn_objects_in_multiplayer",
         ),
     Float("bounding_radius"),
-    Float("bounding_offset_x"),
-    Float("bounding_offset_y"),
-    Float("bounding_offset_z"),
+    QStruct("bounding_offset", INCLUDE=xyz_float),
     Float("acceleration_scale"),
-    SEnum16("lightmap_shadow_mode_size", *ctrl_lightmap_shadow_mode_size),
-    SEnum8("sweetener_size", *ctrl_sweetener_size),
-    SEnum8("water_density", *ctrl_water_density),
-    SInt32("unknown"),
+    SEnum16("lightmap_shadow_mode_size", *bloc_lightmap_shadow_mode_size),
+    SEnum8("sweetener_size", *bloc_sweetener_size),
+    SEnum8("water_density", *bloc_water_density),
+    SInt32("unknown_0", VISIBLE=False),
     Float("dynamic_light_sphere_radius"),
-    Float("dynamic_light_sphere_offset_x"),
-    Float("dynamic_light_sphere_offset_y"),
-    Float("dynamic_light_sphere_offset_z"),
-    string_id_meta("default_model_variant"),
-    dependency("model"),
-    dependency("crate_object"),
-    dependency("collision_damage"),
-    reflexive("early_mover_properties", ctrl_early_mover_propertie),
-    dependency("creation_effect"),
-    dependency("material_effects"),
-    dependency("melee_impact"),
-    reflexive("ai_properties", ctrl_ai_propertie),
-    reflexive("functions", ctrl_function),
+    QStruct("dynamic_light_sphere_offset", INCLUDE=xyz_float),
+    h3_string_id("default_model_variant"),
+    h3_dependency("model"),
+    h3_dependency("crate_object"),
+    h3_dependency("collision_damage"),
+    h3_reflexive("early_mover_properties", ctrl_early_mover_propertie),
+    h3_dependency("creation_effect"),
+    h3_dependency("material_effects"),
+    h3_dependency("melee_impact"),
+    h3_reflexive("ai_properties", ctrl_ai_propertie),
+    h3_reflexive("functions", ctrl_function),
     SInt16("hud_text_message_index"),
-    SInt16("unknown_1"),
-    reflexive("attachments", ctrl_attachment),
-    reflexive("widgets", ctrl_widget),
-    reflexive("change_colors", ctrl_change_color),
-    reflexive("predicted_resources", ctrl_predicted_resource),
-    reflexive("multiplayer_object_properties", ctrl_multiplayer_object_propertie),
-    Bool32("flags_1",
+    SInt16("unknown_1", VISIBLE=False),
+    h3_reflexive("attachments", ctrl_attachment),
+    h3_reflexive("widgets", ctrl_widget),
+    h3_reflexive("change_colors", ctrl_change_color),
+    h3_reflexive("predicted_resources", ctrl_predicted_resource),
+    h3_reflexive("multiplayer_object_properties", ctrl_multiplayer_object_propertie),
+    Bool32("flags_1", 
         "position_loops",
         ("position_interpolation", 1 << 2),
         ),
@@ -322,25 +225,36 @@ ctrl_meta_def = BlockDef("ctrl",
     Float("position_acceleration_time"),
     Float("depowered_position_transition_time"),
     Float("depowered_position_acceleration_time"),
-    Bool32("lightmap_flags",
-        "don_t_use_in_lightmap",
-        "don_t_use_in_lightprobe",
+    Bool32("lightmap_flags", 
+        "dont_use_in_lightmap",
+        "dont_use_in_lightprobe",
         ),
-    dependency("open_up"),
-    dependency("close_down"),
-    dependency("opened"),
-    dependency("closed"),
-    dependency("depowered"),
-    dependency("repowered"),
+    h3_dependency("open_up"),
+    h3_dependency("close_down"),
+    h3_dependency("opened"),
+    h3_dependency("closed"),
+    h3_dependency("depowered"),
+    h3_dependency("repowered"),
     Float("delay_time"),
-    dependency("delay_effect"),
+    h3_dependency("delay_effect"),
     Float("automatic_activation_radius"),
     SEnum16("type", *ctrl_type),
     SEnum16("triggers_when", *ctrl_triggers_when),
     Float("call_value"),
-    string_id_meta("action_string"),
-    dependency("on"),
-    dependency("off"),
-    dependency("deny"),
-    TYPE=Struct, ENDIAN=">", SIZE=460
+    h3_string_id("action_string"),
+    h3_dependency("on"),
+    h3_dependency("off"),
+    h3_dependency("deny"),
+    ENDIAN=">", SIZE=460
+    )
+
+
+def get():
+    return ctrl_def
+
+ctrl_def = TagDef("ctrl",
+    h3_blam_header('ctrl'),
+    ctrl_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["ctrl"], endian=">", tag_cls=H3Tag
     )

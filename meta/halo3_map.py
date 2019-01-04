@@ -2,11 +2,13 @@ from ..h3.common_descs import *
 from supyr_struct.defs.tag_def import TagDef, BlockDef
 
 
-def compute_partition_offset(parent=None, **kwargs):
+def compute_partition_offset(parent, **kwargs):
+    if parent.size == 0:
+        parent.file_offset = 0
+        return
+
     partitions = parent.parent
     partition_num = partitions.index(parent)
-    if parent.size == 0:
-        return 0
 
     sections = partitions.parent.sections
     file_offset = 4096*3
@@ -16,20 +18,22 @@ def compute_partition_offset(parent=None, **kwargs):
     for i in range(partition_num):
         file_offset += partitions[i].size
 
-    return file_offset
+    parent.file_offset = file_offset
 
 
-def compute_section_offset(parent=None, **kwargs):
+def compute_section_offset(parent, **kwargs):
+    if parent.size == 0:
+        parent.file_offset = 0
+        return
+
     sections = parent.parent
     section_num = sections.index(parent)
-    if parent.size == 0:
-        return 0
 
     file_offset = 4096*3
     for i in range(section_num):
         file_offset += sections[i].size
 
-    return file_offset
+    parent.file_offset = file_offset
 
 
 def virtual_ptr_to_file_ptr(ptr, section=0, map_header=None, **kwargs):
@@ -81,21 +85,25 @@ def tag_name_table_name_pointer(parent=None, new_value=None, **kwargs):
     parent.offset = new_value - start
 
 
-def compute_string_id_index_offset(parent=None, **kw):
-    return virtual_ptr_to_file_ptr(parent.get_root().string_id_index_offset,
-                                   0, map_header=parent.get_root())
+def compute_string_id_index_offset(parent, **kw):
+    parent.string_id_index_file_offset = virtual_ptr_to_file_ptr(
+        parent.get_root().string_id_index_offset,
+        0, map_header=parent.get_root())
 
-def compute_string_id_table_offset(parent=None, **kw):
-    return virtual_ptr_to_file_ptr(parent.get_root().string_id_table_offset,
-                                   0, map_header=parent.get_root())
+def compute_string_id_table_offset(parent, **kw):
+    parent.string_id_table_file_offset = virtual_ptr_to_file_ptr(
+        parent.get_root().string_id_table_offset,
+        0, map_header=parent.get_root())
 
-def compute_tag_name_index_offset(parent=None, **kw):
-    return virtual_ptr_to_file_ptr(parent.get_root().tag_name_index_offset,
-                                   0, map_header=parent.get_root())
+def compute_tag_name_index_offset(parent, **kw):
+    parent.tag_name_index_file_offset = virtual_ptr_to_file_ptr(
+        parent.get_root().tag_name_index_offset,
+        0, map_header=parent.get_root())
 
-def compute_tag_name_table_offset(parent=None, **kw):
-    return virtual_ptr_to_file_ptr(parent.get_root().tag_name_table_offset,
-                                   0, map_header=parent.get_root())
+def compute_tag_name_table_offset(parent, **kw):
+    parent.tag_name_table_file_offset = virtual_ptr_to_file_ptr(
+        parent.get_root().tag_name_table_offset,
+        0, map_header=parent.get_root())
 
 
 def tag_types_array_pointer(parent=None, new_value=None, **kwargs):
@@ -116,7 +124,7 @@ def root_tags_array_pointer(parent=None, new_value=None, **kwargs):
 
 string_id_table_entry = Container("string id table entry",
     SInt32("offset"),
-    STEPTREE=CStrLatin1("string id", POINTER=string_id_table_name_pointer),
+    STEPTREE=CStrLatin1("string", POINTER=string_id_table_name_pointer),
     )
 
 tag_name_table_entry = Container("tag name table entry",
@@ -127,7 +135,7 @@ tag_name_table_entry = Container("tag name table entry",
 
 string_id_table = Array("string id table",
     SIZE="..string_id_count", SUB_STRUCT=string_id_table_entry,
-    POINTER=".string_id_index_file_offset"
+    POINTER=".string_id_index_file_offset",
     )
 
 tag_name_table = Array("tag name table",
@@ -139,7 +147,7 @@ partition = Struct("partition",
     UInt32("load address"),
     UInt32("size"),
     STEPTREE=Computed("file offset",
-        COMPUTE=compute_partition_offset, WIDGET=EntryFrame, WIDGET_WIDTH=10 
+        COMPUTE_READ=compute_partition_offset, WIDGET_WIDTH=10 
         ),
     SIZE=8
     )
@@ -148,7 +156,7 @@ section = Struct("section",
     UInt32("virtual address"),
     UInt32("size"),
     Computed("file offset",
-        COMPUTE=compute_section_offset, WIDGET=EntryFrame, WIDGET_WIDTH=10
+        COMPUTE_READ=compute_section_offset, WIDGET_WIDTH=10
         ),
     SIZE=8
     )
@@ -162,7 +170,9 @@ h3_map_header = Struct("map header",
         ("halo1pcdemo", 6),
         ("halo1pc", 7),
         ("halo2", 8),
+        ("halo3beta", 9),
         ("halo3", 11),
+        ("haloreach", 12),
         ("halo1ce", 609),
         ),
     UInt32("decomp len"),
@@ -191,10 +201,20 @@ h3_map_header = Struct("map header",
     UInt32("string id index offset"),
     UInt32("string id table offset"),
 
-    Pad(4),
-    UInt32("unknown7"),
-    UInt32("unknown8"),
-    Pad(24),
+    Bool8("required maps",
+        "ui",
+        "shared",
+        "sp_shared"
+        ),
+    Pad(3),
+    UInt32("build_date_low"),
+    UInt32("build_date_high"),
+    UInt32("unknown_ui_map_related_0"),
+    UInt32("unknown_ui_map_related_1"),
+    UInt32("unknown_shared_map_related_0"),
+    UInt32("unknown_shared_map_related_1"),
+    UInt32("unknown_sp_shared_map_related_0"),
+    UInt32("unknown_sp_shared_map_related_1"),
     ascii_str32("map name"),
     Pad(4),
     StrLatin1("scenario tag path", SIZE=260),
@@ -203,12 +223,15 @@ h3_map_header = Struct("map header",
     UInt32("tag name table size"),
     UInt32("tag name index offset"),
 
-    BytesRaw("unknown9", SIZE=36, VISIBLE=False),
-    UInt32("virtual base address"),
+    UInt32("checksum"),
+    BytesRaw("unknown9", SIZE=32, VISIBLE=False),
+    UInt32("virtual address"),
     UInt32("xkd version"),
     Array("partitions", SUB_STRUCT=partition, SIZE=6),
 
-    BytesRaw("unknown10", SIZE=332, VISIBLE=False),
+    UInt32("unknown_count"),
+    BytesRaw("unknown10", SIZE=12, VISIBLE=False),
+    BytesRaw("unknown11", SIZE=316, VISIBLE=False),
     Array("offset masks", SUB_STRUCT=UInt32("mask"), SIZE=4,
         NAME_MAP={"debug": 0, "resource": 1, "tag": 2, "locale": 3}
         ),
@@ -220,34 +243,29 @@ h3_map_header = Struct("map header",
     UEnum32('foot', ('foot', 'foot'), EDITABLE=False, DEFAULT='foot'),
     STEPTREE=Container("strings",
         Computed("string id index file offset",
-            COMPUTE=compute_string_id_index_offset,
-            WIDGET=EntryFrame, WIDGET_WIDTH=10
+            COMPUTE_READ=compute_string_id_index_offset, WIDGET_WIDTH=10
             ),
         Computed("string id table file offset",
-            COMPUTE=compute_string_id_table_offset,
-            WIDGET=EntryFrame, WIDGET_WIDTH=10
+            COMPUTE_READ=compute_string_id_table_offset, WIDGET_WIDTH=10
             ),
         Computed("tag name index file offset",
-            COMPUTE=compute_tag_name_index_offset,
-            WIDGET=EntryFrame, WIDGET_WIDTH=10
+            COMPUTE_READ=compute_tag_name_index_offset, WIDGET_WIDTH=10
             ),
         Computed("tag name table file offset",
-            COMPUTE=compute_tag_name_table_offset,
-            WIDGET=EntryFrame, WIDGET_WIDTH=10
+            COMPUTE_READ=compute_tag_name_table_offset, WIDGET_WIDTH=10
             ),
-        #Computed("test", COMPUTE=lambda **kw: print(kw.get('parent').parent)),
         string_id_table,
         tag_name_table,
         ),
     SIZE=4096*3, ENDIAN=">"
     )
 
-h3_tag_type = Struct("tag header",
+h3_tag_type = Struct("tag type",
     UEnum32("class 1", GUI_NAME="primary tag class",   INCLUDE=valid_h3_tags),
     UEnum32("class 2", GUI_NAME="secondary tag class", INCLUDE=valid_h3_tags),
     UEnum32("class 3", GUI_NAME="tertiary tag class",  INCLUDE=valid_h3_tags),
-    UInt32("string id"),  # specifies the string containing the file
-    #                       extension for this class(i.e: bitm = bitmap)
+    h3_string_id("string id"),  # specifies the string containing the file
+    #                             extension for this class(i.e: bitm = bitmap)
     )
 
 h3_tag_header = Struct("tag header",

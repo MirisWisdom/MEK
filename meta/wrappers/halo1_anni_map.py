@@ -59,25 +59,13 @@ class Halo1AnniMap(Halo1Map):
     tag_headers = None
     defs = None
 
+    handler_class = HaloHandler
+
     inject_rawdata = Halo1RsrcMap.inject_rawdata
 
     def __init__(self, maps=None):
         HaloMap.__init__(self, maps)
         self.setup_tag_headers()
-
-    def setup_tag_headers(self):
-        if Halo1AnniMap.tag_headers is not None:
-            return
-
-        tag_headers = Halo1AnniMap.tag_headers = {}
-        for def_id in sorted(self.defs):
-            if def_id in tag_headers or len(def_id) != 4:
-                continue
-            h_desc, h_block = self.defs[def_id].descriptor[0], [None]
-            h_desc['TYPE'].parser(h_desc, parent=h_block, attr_index=0)
-            tag_headers[def_id] = bytes(
-                h_block[0].serialize(buffer=BytearrayBuffer(),
-                                     calc_pointers=False))
 
     def get_dependencies(self, meta, tag_id, tag_cls):
         if self.is_indexed(tag_id):
@@ -92,7 +80,7 @@ class Halo1AnniMap(Halo1Map):
             if   sounds is None: return ()
             elif rsrc_id >= len(sounds.tag_index.tag_index): return ()
 
-            tag_path = sounds.tag_index.tag_index[rsrc_id].tag.tag_path
+            tag_path = sounds.tag_index.tag_index[rsrc_id].path
             inv_snd_map = getattr(self, 'ce_tag_indexs_by_paths', {})
             tag_id = inv_snd_map.get(tag_path, 0xFFFF)
             if tag_id >= len(self.tag_index.tag_index): return ()
@@ -113,21 +101,6 @@ class Halo1AnniMap(Halo1Map):
             dependencies.append(node)
         return dependencies
 
-    def setup_defs(self):
-        if Halo1AnniMap.defs is None:
-            print("    Loading Halo 1 tag definitions...")
-            Halo1AnniMap.handler = HaloHandler(build_reflexive_cache=False,
-                                               build_raw_data_cache=False)
-
-            Halo1AnniMap.defs = dict(Halo1AnniMap.handler.defs)
-            Halo1AnniMap.defs["sbsp"] = fast_sbsp_def
-            Halo1AnniMap.defs["coll"] = fast_coll_def
-            Halo1AnniMap.defs = FrozenDict(Halo1AnniMap.defs)
-            print("        Finished")
-
-        # make a shallow copy for this instance to manipulate
-        self.defs = dict(self.defs)
-
     def get_meta(self, tag_id, reextract=False, ignore_rsrc_sounds=False):
         '''
         Takes a tag reference id as the sole argument.
@@ -140,11 +113,10 @@ class Halo1AnniMap(Halo1Map):
         tag_index = self.tag_index
         tag_index_array = tag_index.tag_index
 
-        # if we are given a 32bit tag id, mask it off
         tag_id &= 0xFFFF
-        if tag_id >= len(tag_index_array):
+        tag_index_ref = self.tag_index_manager.get_tag_index_ref(tag_id)
+        if tag_index_ref is None:
             return
-        tag_index_ref = tag_index_array[tag_id]
 
         tag_cls = None
         if tag_id == tag_index.scenario_tag_id & 0xFFff:
@@ -169,20 +141,18 @@ class Halo1AnniMap(Halo1Map):
 
         desc = self.get_meta_descriptor(tag_cls)
         block = [None]
-        offset = tag_index_ref.meta_offset - magic
-        if tag_cls == "sbsp":
-            # bsps use their own magic because they are stored in
-            # their own section of the map, directly after the header
-            magic  = (self.bsp_magics[tag_id] -
-                      self.bsp_header_offsets[tag_id])
-            offset = self.bsp_headers[tag_id].meta_pointer - magic
+        pointer_converter = self.bsp_pointer_converters.get(
+            tag_id, self.map_pointer_converter)
+
+        offset = pointer_converter.v_ptr_to_f_ptr(tag_index_ref.meta_offset)
 
         try:
             # read the meta data from the map
             with FieldType.force_big:
                 desc['TYPE'].parser(
-                    desc, parent=block, attr_index=0, magic=magic,
-                    tag_index=tag_index_array, rawdata=map_data, offset=offset)
+                    desc, parent=block, attr_index=0, rawdata=map_data,
+                    map_pointer_converter=pointer_converter,
+                    tag_index_manager=self.tag_index_manager, offset=offset)
         except Exception:
             print(format_exc())
             return

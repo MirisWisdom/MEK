@@ -1,4 +1,18 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: Lord Zedd
+# 	Namings and stuff
+# revision: 3		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
 
 chgd_hud_global_biped = (
@@ -8,8 +22,8 @@ chgd_hud_global_biped = (
     )
 
 
-chgd_hud_global_hud_attribute = Struct("hud_attributes",
-    Bool32("resolution_flags",
+chgd_hud_global_hud_attribute = Struct("hud_attribute", 
+    Bool32("resolution_flags", 
         "wide_full",
         "wide_half",
         ("standard_full", 1 << 3),
@@ -22,8 +36,7 @@ chgd_hud_global_hud_attribute = Struct("hud_attributes",
     Float("warp_direction"),
     UInt32("resolution_width"),
     UInt32("resolution_height"),
-    Float("motion_sensor_offset_x"),
-    Float("motion_sensor_offset_y"),
+    QStruct("motion_sensor_offset", INCLUDE=xy_float),
     Float("motion_sensor_radius"),
     Float("motion_sensor_scale"),
     Float("horizontal_scale"),
@@ -33,21 +46,21 @@ chgd_hud_global_hud_attribute = Struct("hud_attributes",
     Float("notification_offset_y"),
     Float("state_left_right_offset_y"),
     Float("state_center_offset_y"),
-    Float("unknown"),
-    Float("unknown_1"),
-    Float("unknown_2"),
+    Float("unknown_0", VISIBLE=False),
+    Float("unknown_1", VISIBLE=False),
+    Float("unknown_2", VISIBLE=False),
     Float("state_scale"),
     Float("notification_scale"),
     Float("notification_line_spacing"),
-    SInt16("unknown_3"),
-    SInt16("unknown_4"),
+    SInt16("unknown_3", VISIBLE=False),
+    SInt16("unknown_4", VISIBLE=False),
     ENDIAN=">", SIZE=96
     )
 
 
-chgd_hud_global_hud_sound = Struct("hud_sounds",
-    dependency("spartan_sound"),
-    Bool32("latched_to",
+chgd_hud_global_hud_sound = Struct("hud_sound", 
+    h3_dependency("spartan_sound"),
+    Bool32("latched_to", 
         "shield_recharging",
         "shield_damaged",
         "shield_low",
@@ -62,18 +75,18 @@ chgd_hud_global_hud_sound = Struct("hud_sounds",
         "missile_locked",
         ),
     Float("scale"),
-    dependency("elite_sound"),
+    h3_dependency("elite_sound"),
     ENDIAN=">", SIZE=40
     )
 
 
-chgd_hud_global_multiplayer_medal = Struct("multiplayer_medals",
-    string_id_meta("medal"),
+chgd_hud_global_multiplayer_medal = Struct("multiplayer_medal", 
+    h3_string_id("medal"),
     ENDIAN=">", SIZE=4
     )
 
 
-chgd_hud_global = Struct("hud_globals",
+chgd_hud_global = Struct("hud_global", 
     SEnum32("biped", *chgd_hud_global_biped),
     color_argb_uint32("_0_hud_disabled"),
     color_argb_uint32("_1_hud_primary"),
@@ -103,102 +116,104 @@ chgd_hud_global = Struct("hud_globals",
     color_argb_uint32("_25"),
     color_argb_uint32("_26"),
     color_argb_uint32("_27"),
-    reflexive("hud_attributes", chgd_hud_global_hud_attribute),
-    reflexive("hud_sounds", chgd_hud_global_hud_sound),
-    dependency("unknown"),
-    dependency("frag_grenade_swap_sound"),
-    dependency("plasma_grenade_swap_sound"),
-    dependency("spike_grenade_swap_sound"),
-    dependency("firebomb_grenade_swap_sound"),
-    dependency("damage_microtexture"),
-    dependency("damage_noise"),
-    dependency("directional_arrow"),
-    dependency("waypoints"),
-    dependency("scoreboard_hud"),
-    dependency("metagame_scoreboard_hud"),
-    dependency("theater_hud"),
-    dependency("forge_hud"),
-    dependency("hud_strings"),
-    dependency("medals"),
-    reflexive("multiplayer_medals", chgd_hud_global_multiplayer_medal),
-    dependency("medal_hud_animation"),
-    dependency("cortana_channel"),
-    dependency("unknown_1"),
-    dependency("unknown_2"),
-    dependency("jammer_response"),
-    dependency("jammer_shield_hit"),
+    h3_reflexive("hud_attributes", chgd_hud_global_hud_attribute),
+    h3_reflexive("hud_sounds", chgd_hud_global_hud_sound),
+    h3_dependency("unknown_0"),
+    h3_dependency("frag_grenade_swap_sound"),
+    h3_dependency("plasma_grenade_swap_sound"),
+    h3_dependency("spike_grenade_swap_sound"),
+    h3_dependency("firebomb_grenade_swap_sound"),
+    h3_dependency("damage_microtexture"),
+    h3_dependency("damage_noise"),
+    h3_dependency("directional_arrow"),
+    h3_dependency("waypoints"),
+    h3_dependency("scoreboard_hud"),
+    h3_dependency("metagame_scoreboard_hud"),
+    h3_dependency("theater_hud"),
+    h3_dependency("forge_hud"),
+    h3_dependency("hud_strings"),
+    h3_dependency("medals"),
+    h3_reflexive("multiplayer_medals", chgd_hud_global_multiplayer_medal),
+    h3_dependency("medal_hud_animation"),
+    h3_dependency("cortana_channel"),
+    h3_dependency("unknown_1"),
+    h3_dependency("unknown_2"),
+    h3_dependency("jammer_response"),
+    h3_dependency("jammer_shield_hit"),
     Float("grenade_scematics_spacing"),
     Float("equipment_scematic_offset_y"),
     Float("dual_equipment_scematic_offset_y"),
-    Float("unknown_3"),
-    Float("unknown_4"),
+    Float("unknown_3", VISIBLE=False),
+    Float("unknown_4", VISIBLE=False),
     Float("scoreboard_leader_offset_y"),
-    Pad(4),
+    BytesRaw("unknown_5", SIZE=4, VISIBLE=False),
     Float("waypoint_scale"),
     ENDIAN=">", SIZE=520
     )
 
 
-chgd_hud_shader = Struct("hud_shaders",
-    dependency("vertex_shader"),
-    dependency("pixel_shader"),
+chgd_hud_shader = Struct("hud_shader", 
+    h3_dependency("vertex_shader"),
+    h3_dependency("pixel_shader"),
     ENDIAN=">", SIZE=32
     )
 
 
-chgd_unknown = Struct("unknown",
-    Pad(64),
+chgd_unknown_0 = Struct("unknown_0", 
+    BytesRaw("unknown", SIZE=64, VISIBLE=False),
+    VISIBLE=False,
     ENDIAN=">", SIZE=64
     )
 
 
-chgd_unknown_1_unknown_1 = Struct("unknown_1",
-    Pad(100),
-    dependency("sound"),
-    Pad(96),
-    dependency("sound_1"),
+chgd_unknown_1_unknown_1 = Struct("unknown_1", 
+    BytesRaw("unknown_0", SIZE=100, VISIBLE=False),
+    h3_dependency("sound_0"),
+    BytesRaw("unknown_1", SIZE=96, VISIBLE=False),
+    h3_dependency("sound_1"),
+    VISIBLE=False,
     ENDIAN=">", SIZE=228
     )
 
 
-chgd_unknown_1 = Struct("unknown_1",
-    Pad(4),
-    reflexive("unknown_1", chgd_unknown_1_unknown_1),
+chgd_unknown_1 = Struct("unknown_1", 
+    BytesRaw("unknown_0", SIZE=4, VISIBLE=False),
+    h3_reflexive("unknown_1", chgd_unknown_1_unknown_1),
+    VISIBLE=False,
     ENDIAN=">", SIZE=16
     )
 
 
-chgd_player_training_data = Struct("player_training_data",
-    string_id_meta("display_string"),
+chgd_player_training_data = Struct("player_training_data", 
+    h3_string_id("display_string"),
     SInt16("max_display_time"),
     SInt16("display_count"),
     SInt16("disappear_delay"),
     SInt16("redisplay_delay"),
     Float("display_delay"),
-    Bool16("flags",
+    Bool16("flags", 
         "not_in_multiplayer",
         ),
-    SInt16("unknown"),
+    SInt16("unknown", VISIBLE=False),
     ENDIAN=">", SIZE=20
     )
 
 
-chgd_meta_def = BlockDef("chgd",
-    reflexive("hud_globals", chgd_hud_global),
-    reflexive("hud_shaders", chgd_hud_shader),
-    reflexive("unknown", chgd_unknown),
-    reflexive("unknown_1", chgd_unknown_1),
-    reflexive("player_training_data", chgd_player_training_data),
-    dependency("start_menu_emblems"),
-    dependency("campaign_medals"),
-    dependency("campaign_medal_hud_animation"),
+chgd_body = Struct("tagdata", 
+    h3_reflexive("hud_globals", chgd_hud_global),
+    h3_reflexive("hud_shaders", chgd_hud_shader),
+    h3_reflexive("unknown_0", chgd_unknown_0),
+    h3_reflexive("unknown_1", chgd_unknown_1),
+    h3_reflexive("player_training_data", chgd_player_training_data),
+    h3_dependency("start_menu_emblems"),
+    h3_dependency("campaign_medals"),
+    h3_dependency("campaign_medal_hud_animation"),
     Float("campaign_medal_scale"),
     Float("campaign_medal_spacing"),
-    Float("campaign_medal_offset_x"),
-    Float("campaign_medal_offset_y"),
+    QStruct("campaign_medal_offset", INCLUDE=xy_float),
     Float("metagame_scoreboard_top_y"),
     Float("metagame_scoreboard_spacing"),
-    dependency("unit_damage_grid"),
+    h3_dependency("unit_damage_grid"),
     Float("micro_texture_tile_amount"),
     Float("medium_sensor_blip_scale"),
     Float("small_sensor_blip_scale"),
@@ -206,9 +221,20 @@ chgd_meta_def = BlockDef("chgd",
     Float("sensor_blip_glow_amount"),
     Float("sensor_blip_glow_radius"),
     Float("sensor_blip_glow_opacity"),
-    dependency("motion_sensor_blip"),
-    dependency("birthday_party_effect"),
-    dependency("campaign_flood_mask"),
-    dependency("campaign_flood_mask_tile"),
-    TYPE=Struct, ENDIAN=">", SIZE=240
+    h3_dependency("motion_sensor_blip"),
+    h3_dependency("birthday_party_effect"),
+    h3_dependency("campaign_flood_mask"),
+    h3_dependency("campaign_flood_mask_tile"),
+    ENDIAN=">", SIZE=240
+    )
+
+
+def get():
+    return chgd_def
+
+chgd_def = TagDef("chgd",
+    h3_blam_header('chgd'),
+    chgd_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["chgd"], endian=">", tag_cls=H3Tag
     )

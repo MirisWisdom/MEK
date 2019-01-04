@@ -4,6 +4,7 @@ from struct import Struct as PyStruct
 from tkinter.filedialog import askopenfilename
 
 from .halo_map import *
+from reclaimer.hek.defs.snd_ import snd__meta_stub_blockdef
 from reclaimer.hek.defs.sbsp import sbsp_meta_header_def
 from reclaimer.os_hek.defs.gelc    import gelc_def
 from reclaimer.os_v4_hek.defs.coll import fast_coll_def
@@ -15,41 +16,63 @@ from .byteswapping import raw_block_def, byteswap_animation,\
      byteswap_coll_bsp, byteswap_sbsp_meta, byteswap_scnr_script_syntax_data,\
      byteswap_pcm16_samples
 from reclaimer import data_extraction
+from reclaimer.constants import tag_class_fcc_to_ext
 
 
 __all__ = ("Halo1Map", "Halo1RsrcMap")
 
 
 class Halo1Map(HaloMap):
+    '''Generation 1 map'''
     ce_rsrc_sound_indexes_by_path = None
     ce_tag_indexs_by_paths = None
-    tag_headers = None
     sound_rsrc_id = None
     defs = None
+
+    tag_defs_module = "reclaimer.os_v4_hek.defs"
+    tag_classes_to_load = tuple(sorted(tag_class_fcc_to_ext.keys()))
+
+    handler_class = OsV4HaloHandler
 
     force_checksum = False
 
     inject_rawdata = Halo1RsrcMap.inject_rawdata
 
+    bsp_magics  = ()
+    bsp_sizes   = ()
+    bsp_headers = ()
+    bsp_header_offsets = ()
+    bsp_pointer_converters = ()
+
     def __init__(self, maps=None):
         HaloMap.__init__(self, maps)
         self.ce_rsrc_sound_indexes_by_path = {}
-        self.ce_tag_indexs_by_paths  = {}
+        self.ce_tag_indexs_by_paths = {}
+
+        self.bsp_magics = {}
+        self.bsp_sizes  = {}
+        self.bsp_header_offsets = {}
+        self.bsp_headers = {}
+        self.bsp_pointer_converters = {}
+
         self.setup_tag_headers()
 
-    def setup_tag_headers(self):
-        if Halo1Map.tag_headers is not None:
-            return
+    def setup_defs(self):
+        this_class = type(self)
+        if this_class.defs is None:
+            this_class.defs = defs = {}
+            print("    Loading definitions in %s" % self.tag_defs_module)
+            this_class.handler = self.handler_class(
+                build_reflexive_cache=False, build_raw_data_cache=False)
 
-        tag_headers = Halo1Map.tag_headers = {}
-        for def_id in sorted(self.defs):
-            if def_id in tag_headers or len(def_id) != 4:
-                continue
-            h_desc, h_block = self.defs[def_id].descriptor[0], [None]
-            h_desc['TYPE'].parser(h_desc, parent=h_block, attr_index=0)
-            tag_headers[def_id] = bytes(
-                h_block[0].serialize(buffer=BytearrayBuffer(),
-                                     calc_pointers=False))
+            this_class.defs = dict(this_class.handler.defs)
+            this_class.defs["coll"] = fast_coll_def
+            this_class.defs["gelc"] = gelc_def
+            this_class.defs["sbsp"] = fast_sbsp_def
+            this_class.defs = FrozenDict(this_class.defs)
+
+        # make a shallow copy for this instance to manipulate
+        self.defs = dict(self.defs)
 
     def ensure_sound_maps_valid(self):
         sounds = self.maps.get("sounds")
@@ -76,7 +99,7 @@ class Halo1Map(HaloMap):
 
             i = 0
             for tag_header in self.tag_index.tag_index:
-                inv_snd_map[tag_header.tag.tag_path] = i
+                inv_snd_map[tag_header.path] = i
                 i += 1
 
     def get_dependencies(self, meta, tag_id, tag_cls):
@@ -92,7 +115,7 @@ class Halo1Map(HaloMap):
             if   sounds is None: return ()
             elif rsrc_id >= len(sounds.tag_index.tag_index): return ()
 
-            tag_path = sounds.tag_index.tag_index[rsrc_id].tag.tag_path
+            tag_path = sounds.tag_index.tag_index[rsrc_id].path
             inv_snd_map = getattr(self, 'ce_tag_indexs_by_paths', {})
             tag_id = inv_snd_map.get(tag_path, 0xFFFF)
             if tag_id >= len(self.tag_index.tag_index): return ()
@@ -113,21 +136,41 @@ class Halo1Map(HaloMap):
             dependencies.append(node)
         return dependencies
 
-    def setup_defs(self):
-        if Halo1Map.defs is None:
-            print("    Loading Halo 1 OSv4 tag definitions...")
-            Halo1Map.handler = OsV4HaloHandler(build_reflexive_cache=False,
-                                               build_raw_data_cache=False)
+    def setup_sbsp_pointer_converters(self):
+        # get the scenario meta
+        if self.scnr_meta is None:
+            print("Cannot setup sbsp pointer converters without scenario tag.")
+            return
 
-            Halo1Map.defs = dict(Halo1Map.handler.defs)
-            Halo1Map.defs["sbsp"] = fast_sbsp_def
-            Halo1Map.defs["coll"] = fast_coll_def
-            Halo1Map.defs["gelc"] = gelc_def
-            Halo1Map.defs = FrozenDict(Halo1Map.defs)
-            print("        Finished")
+        try:
+            for b in self.scnr_meta.structure_bsps.STEPTREE:
+                bsp_id = b.structure_bsp.id & 0xFFff
+                self.bsp_header_offsets[bsp_id] = b.bsp_pointer
+                self.bsp_magics[bsp_id]         = b.bsp_magic
+                self.bsp_sizes[bsp_id]          = b.bsp_size
 
-        # make a shallow copy for this instance to manipulate
-        self.defs = dict(self.defs)
+                self.bsp_pointer_converters[bsp_id] = MapPointerConverter(
+                    (b.bsp_magic, b.bsp_pointer, b.bsp_size)
+                    )
+
+            # read the sbsp headers
+            for tag_id, offset in self.bsp_header_offsets.items():
+                if self.engine == "halo1anni":
+                    with FieldType.force_big:
+                        header = sbsp_meta_header_def.build(
+                            rawdata=self.map_data, offset=offset)
+                else:
+                    header = sbsp_meta_header_def.build(
+                        rawdata=self.map_data, offset=offset)
+
+                if header.sig != header.get_desc("DEFAULT", "sig"):
+                    print("Sbsp header is invalid for '%s'" %
+                          tag_index_array[tag_id].path)
+                self.bsp_headers[tag_id] = header
+                self.tag_index.tag_index[tag_id].meta_offset = header.meta_pointer
+
+        except Exception:
+            print(format_exc())
 
     def load_map(self, map_path, **kwargs):
         autoload_resources = kwargs.get("autoload_resources", True)
@@ -135,46 +178,58 @@ class Halo1Map(HaloMap):
 
         tag_index = self.tag_index
         tag_index_array = tag_index.tag_index
+        self.tag_index_manager = TagIndexManager(tag_index_array)
 
         # record the original halo 1 tag_paths so we know if they change
-        self.orig_tag_paths = tuple(b.tag.tag_path for b in tag_index_array)
+        self.orig_tag_paths = tuple(b.path for b in tag_index_array)
 
         # make all contents of the map parasble
         self.basic_deprotection()
 
-        # get the scenario meta
+        # add the tag data section
+        self.map_pointer_converter.add_page_info(
+            self.index_magic, self.map_header.tag_index_header_offset,
+            self.map_header.tag_data_size
+            )
+
+        # cache the scenario meta
         try:
-            self.scnr_meta = self.get_meta(tag_index.scenario_tag_id & 0xFFff)
-            if self.scnr_meta is not None:
-                bsp_sizes   = self.bsp_sizes
-                bsp_magics  = self.bsp_magics
-                bsp_offsets = self.bsp_header_offsets
-                for b in self.scnr_meta.structure_bsps.STEPTREE:
-                    bsp = b.structure_bsp
-                    bsp_offsets[bsp.id & 0xFFff] = b.bsp_pointer
-                    bsp_magics[bsp.id & 0xFFff]  = b.bsp_magic
-                    bsp_sizes[bsp.id & 0xFFff]   = b.bsp_size
-
-                # read the sbsp headers
-                for tag_id, offset in bsp_offsets.items():
-                    if self.engine == "halo1anni":
-                        with FieldType.force_big:
-                            header = sbsp_meta_header_def.build(
-                                rawdata=self.map_data, offset=offset)
-                    else:
-                        header = sbsp_meta_header_def.build(
-                            rawdata=self.map_data, offset=offset)
-
-                    if header.sig != header.get_desc("DEFAULT", "sig"):
-                        print("Sbsp header is invalid for '%s'" %
-                              tag_index_array[tag_id].tag.tag_path)
-                    self.bsp_headers[tag_id] = header
-            else:
+            self.scnr_meta = self.get_meta(self.tag_index.scenario_tag_id)
+            if self.scnr_meta is None:
                 print("Could not read scenario tag")
-
         except Exception:
             print(format_exc())
             print("Could not read scenario tag")
+
+        self.setup_sbsp_pointer_converters()
+
+        last_bsp_end = 0
+        # calculate the start of the rawdata section
+        for tag_id in self.bsp_headers:
+            bsp_end = self.bsp_header_offsets[tag_id] + self.bsp_sizes[tag_id]
+            if last_bsp_end < bsp_end:
+                last_bsp_end = bsp_end
+
+        # add the rawdata section
+        self.map_pointer_converter.add_page_info(
+            last_bsp_end, last_bsp_end,
+            tag_index.model_data_offset - last_bsp_end,
+            )
+
+        # add the model data section
+        if tag_index.SIZE == 40:
+            # PC tag index
+            self.map_pointer_converter.add_page_info(
+                0, tag_index.model_data_offset,
+                tag_index.model_data_size,
+                )
+        else:
+            # XBOX tag index
+            self.map_pointer_converter.add_page_info(
+                0, tag_index.model_data_offset,
+                (self.map_header.tag_index_header_offset -
+                 tag_index.model_data_offset),
+                )
 
         # get the globals meta
         try:
@@ -201,7 +256,7 @@ class Halo1Map(HaloMap):
         if extractor is None:
             return "No extractor for this type of tag."
         kw['halo_map'] = self
-        return extractor(meta, tag_index_ref.tag.tag_path, **kw)
+        return extractor(meta, tag_index_ref.path, **kw)
 
     def get_meta(self, tag_id, reextract=False, ignore_rsrc_sounds=False):
         '''
@@ -218,10 +273,9 @@ class Halo1Map(HaloMap):
 
         # if we are given a 32bit tag id, mask it off
         tag_id &= 0xFFFF
-        if tag_id >= len(tag_index_array):
+        tag_index_ref = self.tag_index_manager.get_tag_index_ref(tag_id)
+        if tag_index_ref is None:
             return
-        tag_index_ref = tag_index_array[tag_id]
-
 
         tag_cls = None
         if tag_id == tag_index.scenario_tag_id & 0xFFFF:
@@ -234,6 +288,9 @@ class Halo1Map(HaloMap):
             return
 
         self.ensure_sound_maps_valid()
+        pointer_converter = self.bsp_pointer_converters.get(
+            tag_id, self.map_pointer_converter)
+        offset = tag_index_ref.meta_offset
 
         if tag_cls is None:
             # couldn't determine the tag class
@@ -241,13 +298,13 @@ class Halo1Map(HaloMap):
         elif self.is_indexed(tag_id) and (tag_cls != "snd!" or
                                           not ignore_rsrc_sounds):
             # tag exists in a resource cache
-            tag_id = tag_index_ref.meta_offset
+            tag_id = offset
 
             rsrc_map = None
             if tag_cls == "snd!" and "sounds" in self.maps:
                 rsrc_map = self.maps["sounds"]
                 sound_mapping = self.ce_rsrc_sound_indexes_by_path
-                tag_path = tag_index_ref.tag.tag_path
+                tag_path = tag_index_ref.path
                 if sound_mapping is None or tag_path not in sound_mapping:
                     return
 
@@ -268,7 +325,25 @@ class Halo1Map(HaloMap):
             if rsrc_map is None:
                 return
 
-            return rsrc_map.get_meta(tag_id)
+            meta = rsrc_map.get_meta(tag_id)
+            if tag_cls == "snd!":
+                # since we're reading the resource tag from the perspective of
+                # the map referencing it, we have more accurate information
+                # about which other sound it could be referencing. This is only
+                # a concern when dealing with open sauce resource maps, as they
+                # could have additional promotion sounds we cant statically map
+                try:
+                    # read the meta data from the map
+                    with FieldType.force_little:
+                        snd_stub = snd__meta_stub_blockdef.build(
+                            rawdata=map_data,
+                            offset=pointer_converter.v_ptr_to_f_ptr(offset),
+                            tag_index_manager=self.tag_index_manager)
+                    meta.promotion_sound = snd_stub.promotion_sound
+                except Exception:
+                    print(format_exc())
+
+            return meta
         elif not reextract:
             if tag_id == tag_index.scenario_tag_id & 0xFFff and self.scnr_meta:
                 return self.scnr_meta
@@ -277,33 +352,32 @@ class Halo1Map(HaloMap):
 
         desc = self.get_meta_descriptor(tag_cls)
         block = [None]
-        offset = tag_index_ref.meta_offset - magic
-        if tag_cls == "sbsp":
-            # bsps use their own magic because they are stored in
-            # their own section of the map, directly after the header
-            magic  = (self.bsp_magics[tag_id] -
-                      self.bsp_header_offsets[tag_id])
-            offset = self.bsp_headers[tag_id].meta_pointer - magic
-
         try:
             # read the meta data from the map
-            FieldType.force_little()
-            desc['TYPE'].parser(
-                desc, parent=block, attr_index=0, magic=magic,
-                tag_index=tag_index_array, rawdata=map_data, offset=offset)
-            FieldType.force_normal()
+            with FieldType.force_little:
+                desc['TYPE'].parser(
+                    desc, parent=block, attr_index=0, rawdata=map_data,
+                    map_pointer_converter=pointer_converter,
+                    offset=pointer_converter.v_ptr_to_f_ptr(offset),
+                    tag_index_manager=self.tag_index_manager)
         except Exception:
             print(format_exc())
-            FieldType.force_normal()
             return
+
+        meta = block[0]
+        if tag_cls == "bitm" and get_is_xbox_map(engine):
+            for bitmap in meta.bitmaps.STEPTREE:
+                # make sure to set this for all xbox bitmaps
+                # so they can be interpreted properly
+                bitmap.base_address = 1073751810
 
         self.record_map_cache_read(tag_id, 0)  # cant get size quickly enough
         if self.map_cache_over_limit():
             self.clear_map_cache()
 
-        self.inject_rawdata(block[0], tag_cls, tag_index_ref)
+        self.inject_rawdata(meta, tag_cls, tag_index_ref)
 
-        return block[0]
+        return meta
 
     def meta_to_tag_data(self, meta, tag_cls, tag_index_ref, **kwargs):
         magic      = self.map_magic
@@ -321,7 +395,7 @@ class Halo1Map(HaloMap):
         if tag_cls == "actv":
             # multiply grenade velocity by 30
             meta.grenades.grenade_velocity *= 30
-            
+
         elif tag_cls in ("antr", "magy"):
             # byteswap animation data
             for anim in meta.animations.STEPTREE:
@@ -484,7 +558,10 @@ class Halo1Map(HaloMap):
                     tris_block.STEPTREE  = raw_block_def.build()
 
                     # read the offsets of the vertices and indices from the map
-                    if model_magic is None:
+                    if engine == "stubbspc":
+                        verts_off = verts_start + info.vertices_reflexive_offset
+                        tris_off  = tris_start  + info.indices_reflexive_offset
+                    elif model_magic is None:
                         verts_off = verts_start + info.vertices_offset
                         tris_off  = tris_start  + info.indices_offset
                     else:
@@ -525,15 +602,9 @@ class Halo1Map(HaloMap):
                     tris_block.size  = len(tris_block.STEPTREE.data) // 6
 
                     # null out the model_meta_info
-                    info.index_type.data  = info.index_count  = 0
-                    info.vertex_type.data = info.vertex_count = 0
-                    info.indices_offset = info.vertices_offset  = 0
-                    if model_magic is None:
-                        info.indices_magic_offset  = 0
-                        info.vertices_magic_offset = 0
-                    else:
-                        info.indices_reflexive_offset  = 0
-                        info.vertices_reflexive_offset = 0
+                    for i in range(len(info)):
+                        if isinstance(info[i], int):
+                            info[i] = 0
 
         elif tag_cls == "pphy":
             # set the meta-only values to 0
@@ -634,7 +705,7 @@ class Halo1Map(HaloMap):
                             nmag = max(sqrt(ni**2 + nj**2 + nk**2), 0.00000000001)
                             bmag = max(sqrt(bi**2 + bj**2 + bk**2), 0.00000000001)
                             tmag = max(sqrt(ti**2 + tj**2 + tk**2), 0.00000000001)
-                            
+
                             # write the uncompressed data
                             uncomp_vert_nbt_packer(
                                 uncomp_buffer, out_off,

@@ -1,7 +1,25 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: Veegie
+# 	Completed plugin
+# revision: 3		author: Lord Zedd
+# 	Updated and standardized and restored shit veegie deleted
+# revision: 4		author: Lord Zedd
+# 	Now with comments.
+# revision: 5		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
 
-jpt_category = (
+jpt__category = (
     "none",
     "falling",
     "bullet",
@@ -17,30 +35,13 @@ jpt_category = (
     "shotgun",
     )
 
-jpt_player_response_fade_function = (
-    "linear",
-    "late",
-    "very_late",
-    "early",
-    "very_early",
-    "cosine",
-    "zero",
-    "one",
-    )
-
-jpt_player_response_priority = (
+jpt__player_response_priority = (
     "low",
     "medium",
     "high",
     )
 
-jpt_player_response_response_type = (
-    "shielded",
-    "unshielded",
-    "all",
-    )
-
-jpt_player_response_type = (
+jpt__player_response_type = (
     "none",
     "lighten",
     "darken",
@@ -50,64 +51,45 @@ jpt_player_response_type = (
     "tint",
     )
 
-jpt_side_effect = (
+jpt__side_effect = (
     "none",
     "harmless",
     "lethal_to_the_unsuspecting",
     "emp",
     )
 
-jpt_wobble_function = (
-    "one",
-    "zero",
-    "cosine",
-    "cosine_variable_period",
-    "diagonal_wave",
-    "diagonal_wave_variable_period",
-    "slide",
-    "slide_variable_period",
-    "noise",
-    "jitter",
-    "wander",
-    "spark",
-    )
 
-
-jpt_player_response = Struct("player_responses",
-    SEnum16("response_type", *jpt_player_response_response_type),
-    SInt16("unknown"),
-    SEnum16("type", *jpt_player_response_type),
-    SEnum16("priority", *jpt_player_response_priority),
-    Float("duration"),
-    SEnum16("fade_function", *jpt_player_response_fade_function),
-    SInt16("unknown_1"),
+jpt__player_response = Struct("player_response", 
+    SEnum16("response_type", *jpt__player_response_response_type),
+    SInt16("unknown_0", VISIBLE=False),
+    SEnum16("type", *jpt__player_response_type),
+    SEnum16("priority", *jpt__player_response_priority),
+    Float("duration_0"),
+    SEnum16("fade_function", *jpt__player_response_fade_function),
+    SInt16("unknown_1", VISIBLE=False),
     Float("maximum_intensity"),
-    Float("color_alpha"),
-    Float("color_red"),
-    Float("color_green"),
-    Float("color_blue"),
+    color_argb_float("color"),
     Float("low_frequency_vibration_duration"),
-    rawdata_ref("low_frequency_vibration_function"),
+    h3_rawdata_ref("low_frequency_vibration_function"),
     Float("high_frequency_vibration_duration"),
-    rawdata_ref("high_frequency_vibration_function"),
-    string_id_meta("effect_name"),
+    h3_rawdata_ref("high_frequency_vibration_function"),
+    h3_string_id("effect_name"),
     Float("duration_1"),
-    rawdata_ref("effect_scale_function"),
+    h3_rawdata_ref("effect_scale_function"),
     ENDIAN=">", SIZE=112
     )
 
 
-jpt__meta_def = BlockDef("jpt!",
-    Float("radius_min"),
-    Float("radius_max"),
+jpt__body = Struct("tagdata", 
+    QStruct("radius", INCLUDE=from_to),
     Float("cutoff_scale"),
-    Bool32("flags",
-        "don_t_scale_damage_by_distance",
+    Bool32("flags_0", 
+        "dont_scale_damage_by_distance",
         "area_damage_players_only",
         ),
-    SEnum16("side_effect", *jpt_side_effect),
-    SEnum16("category", *jpt_category),
-    Bool32("flags_1",
+    SEnum16("side_effect", *jpt__side_effect),
+    SEnum16("category", *jpt__category),
+    Bool32("flags_1", 
         "does_not_hurt_owner",
         "can_cause_headshots",
         "pings_resistant_units",
@@ -126,8 +108,7 @@ jpt__meta_def = BlockDef("jpt!",
         ),
     Float("area_of_effect_core_radius"),
     Float("damage_lower_bound"),
-    Float("damage_upper_bound_min"),
-    Float("damage_upper_bound_max"),
+    QStruct("damage_upper_bound", INCLUDE=from_to),
     float_rad("damage_inner_cone_angle"),
     float_rad("damage_outer_cone_angle"),
     Float("active_camoflage_damage"),
@@ -138,40 +119,49 @@ jpt__meta_def = BlockDef("jpt!",
     Float("rider_direct_damage_scale"),
     Float("rider_max_transfer_damage_scale"),
     Float("rider_min_transfer_damage_scale"),
-    string_id_meta("general_damage"),
-    string_id_meta("specific_damage"),
-    string_id_meta("special_damage"),
+    h3_string_id("general_damage"),
+    h3_string_id("specific_damage"),
+    h3_string_id("special_damage"),
     Float("ai_stun_radius"),
-    Float("ai_stun_bounds_min"),
-    Float("ai_stun_bounds_max"),
+    QStruct("ai_stun_bounds", INCLUDE=from_to),
     Float("shake_radius"),
     Float("emp_radius"),
-    Float("unknown"),
-    Float("unknown_1"),
-    reflexive("player_responses", jpt_player_response),
-    dependency("damage_response"),
-    Float("duration"),
-    SEnum16("fade_function", *jpt_player_response_fade_function),
-    SInt16("unknown_2"),
+    Float("unknown_0", VISIBLE=False),
+    Float("unknown_1", VISIBLE=False),
+    h3_reflexive("player_responses", jpt__player_response),
+    h3_dependency("damage_response"),
+    Float("duration_0"),
+    SEnum16("fade_function", *jpt__player_response_fade_function),
+    SInt16("unknown_2", VISIBLE=False),
     float_rad("rotation"),
     Float("pushback"),
-    Float("jitter_min"),
-    Float("jitter_max"),
+    QStruct("jitter", INCLUDE=from_to),
     Float("duration_1"),
-    SEnum16("falloff_function", *jpt_player_response_fade_function),
-    SInt16("unknown_3"),
+    SEnum16("falloff_function", *jpt__player_response_fade_function),
+    SInt16("unknown_3", VISIBLE=False),
     Float("random_translation"),
     float_rad("random_rotation"),
-    SEnum16("wobble_function", *jpt_wobble_function),
-    SInt16("unknown_4"),
+    SEnum16("wobble_function", *jpt__wobble_function),
+    SInt16("unknown_4", VISIBLE=False),
     Float("wobble_function_period"),
     Float("wobble_weight"),
-    dependency("sound"),
+    h3_dependency("sound"),
     Float("forward_velocity"),
     Float("forward_radius"),
     Float("forward_exponent"),
     Float("outward_velocity"),
     Float("outward_radius"),
     Float("outward_exponent"),
-    TYPE=Struct, ENDIAN=">", SIZE=240
+    ENDIAN=">", SIZE=240
+    )
+
+
+def get():
+    return jpt__def
+
+jpt__def = TagDef("jpt!",
+    h3_blam_header('jpt!'),
+    jpt__body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["jpt!"], endian=">", tag_cls=H3Tag
     )

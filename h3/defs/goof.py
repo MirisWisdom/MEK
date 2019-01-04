@@ -1,4 +1,20 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: DeadCanadian
+# 	named a few things and set the types of a few
+# revision: 3		author: Lord Zedd
+# 	I don't always add revisions, but when I do it's because I spend hours making these giant enums.
+# revision: 4		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
 
 goof_game_engine_setting_setting_category = (
@@ -12,7 +28,7 @@ goof_game_engine_setting_setting_category = (
     "global_base_traits_movement",
     "global_base_traits_sensors",
     "global_base_traits_appearance",
-    "unknown",
+    "unknown_0",
     "global_respawn_traits_main",
     "global_respawn_traits_health",
     "global_respawn_traits_weapons",
@@ -222,27 +238,38 @@ goof_game_engine_setting_setting_category = (
     )
 
 
-goof_game_engine_setting_option = Struct("options",
-    dependency("explicit_submenu"),
-    dependency("template_based_submenu"),
+goof_game_engine_setting_option = Struct("option", 
+    h3_dependency("explicit_submenu"),
+    h3_dependency("template_based_submenu"),
     SEnum32("submenu_setting_category", *goof_game_engine_setting_setting_category),
-    string_id_meta("submenu_name"),
-    string_id_meta("submenu_description"),
-    dependency("value_pairs"),
+    h3_string_id("submenu_name"),
+    h3_string_id("submenu_description"),
+    h3_dependency("value_pairs"),
     ENDIAN=">", SIZE=60
     )
 
 
-goof_game_engine_setting = Struct("game_engine_settings",
-    string_id_meta("name"),
+goof_game_engine_setting = Struct("game_engine_setting", 
+    h3_string_id("name"),
     SEnum32("setting_category", *goof_game_engine_setting_setting_category),
-    reflexive("options", goof_game_engine_setting_option),
+    h3_reflexive("options", goof_game_engine_setting_option),
     ENDIAN=">", SIZE=20
     )
 
 
-goof_meta_def = BlockDef("goof",
-    SInt32("unknown"),
-    reflexive("game_engine_settings", goof_game_engine_setting),
-    TYPE=Struct, ENDIAN=">", SIZE=16
+goof_body = Struct("tagdata", 
+    SInt32("unknown", VISIBLE=False),
+    h3_reflexive("game_engine_settings", goof_game_engine_setting),
+    ENDIAN=">", SIZE=16
+    )
+
+
+def get():
+    return goof_def
+
+goof_def = TagDef("goof",
+    h3_blam_header('goof'),
+    goof_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["goof"], endian=">", tag_cls=H3Tag
     )

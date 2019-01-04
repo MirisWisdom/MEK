@@ -1,13 +1,16 @@
 #Written by gbMichelle with help from the adjutant and assembly plugin files
-from reclaimer.hek.defs.bitm import *
-from reclaimer.common_descs import *
-from supyr_struct.defs.block_def import BlockDef
+from ..common_descs import *
+from .objs.tag import *
+from reclaimer.hek.defs.bitm import sequence
+from supyr_struct.defs.tag_def import TagDef
+
 
 sequence_related = Struct("sequence thing",
     ascii_str32("sequence name"),
     UInt16("idx"),
     SIZE=40,
     )
+
 
 bitmap = Struct("bitmap",
     UEnum32('bitm id', ('bitm', 'bitm'), DEFAULT='bitm', EDITABLE=False),
@@ -18,13 +21,13 @@ bitmap = Struct("bitmap",
         "delete from cache file",
         "bitmap create attempted",
         "unknown",
-        "is tiled",
+        "tiled",
         ),
     SEnum16("type",
         "texture 2d",
         "texture 3d",
         "cubemap",
-        "white",
+        "multipage 2d",
         EDITABLE=False
         ),
     SEnum16("format",
@@ -50,24 +53,25 @@ bitmap = Struct("bitmap",
         ("argbfp32", 19),
         ("rgbfp32", 20),
         ("rgbfp16", 21),
-        ("u8v8", 22),
+        ("v8u8", 22),
         "unused23",
         "unused24",
-        "unused25",
+        "unused25",  # ui\halox\main_menu.bkd.bitmap is set to this
+        #              and is palettized with dimensions 231 x 1 x 1
         "unused26",
         "unused27",
         "unused28",
         "unused29",
         "unused30",
-        ("dxt5a", 31),
+        "unused31",
         "unused32",
         ("dxn", 33),
         ("ctx1", 34),
-        ("dxt3a_alpha", 35),
-        ("dxt3a_mono", 36),
-        ("dxt5a_alpha", 37),
-        ("dxt5a_mono", 38),
-        ("dxn_mono_alpha", 39),
+        ("dxt3a", 35),
+        ("dxt3y", 36),
+        ("dxt5a", 37),
+        ("dxt5y", 38),
+        ("dxt5ay", 39),
         "unused40",
         "unused41",
         "unused42",
@@ -90,27 +94,20 @@ bitmap = Struct("bitmap",
     UInt16("registration point y"),
     UInt8("mipmaps"),
     UInt8("unknown0"),
-    UInt8("interleaved index"),
-    UInt8("unknown1"),
+    SInt8("interleaved asset index"),
+    SInt8("interleaved index"),
 
-    UInt32("pixels offset"),
-    UInt32("pixels meta size"),
-    UInt32("bitmap id unknown1"),
-    UInt32("bitmap data pointer"),
-    UInt32("bitmap id unknown2"),
-    UInt32("base address"),
+    SInt32("pixels offset"),     # only valid in tag form and more than 1 bitmap
+    SInt32("pixels data size"),  # only valid in tag form and more than 1 bitmap
+    SInt32("unknown1"),  # always 0?
+    SInt32("mipmap data off"),  # size of main image if mipmaps > 0, else 0
+    SInt32("unknown2"),  # always -1?
+    SInt32("unknown3"),  # always 0?
     SIZE=48,
     )
-    
-raw_information = Struct("raw_information",
-    UInt16("asset salt", GUI_NAME="[zone] asset salt"),
-    UInt16("asset index", GUI_NAME="[zone] asset index"),
-    UInt32("unknown"),
-    SIZE=8
-    )
 
-    
-bitm_meta_def = BlockDef("bitm",
+
+bitm_body = Struct("tagdata",
     SInt16("unknown1"),
     SInt16("unknown2"),
     SInt16("unknown3"),
@@ -139,13 +136,22 @@ bitm_meta_def = BlockDef("bitm",
     rawdata_ref("processed pixel data"),
     reflexive("sequences", sequence, 256, DYN_NAME_PATH='.sequence_name'),
     reflexive("bitmaps", bitmap, 2048),
-    
+
     rawdata_ref("unknown6"),
     Pad(12),
-    reflexive("raw info normal", raw_information,
-              GUI_NAME="raw information [normal]"),
-    reflexive("raw info interleaved", raw_information,
-              GUI_NAME="raw information [interleaved]"),
-    
-    ENDIAN=">", TYPE=Struct, SIZE=164
+    reflexive("zone assets normal", zone_asset_struct),
+    reflexive("zone assets interleaved", zone_asset_struct),
+
+    ENDIAN=">", SIZE=164, WIDGET=Halo3BitmapTagFrame,
+    )
+
+
+def get():
+    return bitm_def
+
+bitm_def = TagDef("bitm",
+    h3_blam_header('bitm'),
+    bitm_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["bitm"], endian=">", tag_cls=H3Tag
     )

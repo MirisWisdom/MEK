@@ -5,7 +5,9 @@ from os.path import dirname, splitext, isfile
 from struct import unpack
 from tkinter.filedialog import asksaveasfilename
 from traceback import format_exc
+from string import ascii_letters
 
+from reclaimer.util import is_protected_tag, fourcc
 from supyr_struct.defs.constants import *
 from supyr_struct.defs.util import *
 from supyr_struct.buffer import BytearrayBuffer, BytesBuffer, PeekableMmap
@@ -16,125 +18,18 @@ from ..halo_map import get_map_version, get_map_header,\
      get_tag_index, get_index_magic, get_map_magic, get_is_compressed_map,\
      decompress_map, map_header_demo_def, tag_index_pc_def
 
-from reclaimer.util import is_protected_tag, fourcc
+from .map_pointer_converter import MapPointerConverter
+from .string_id_manager import StringIdManager
+from .tag_index_manager import TagIndexManager
+from .tag_index_converters import h2_alpha_to_h1_tag_index,\
+     h2_to_h1_tag_index, h3_to_h1_tag_index
+from .rawdata_manager import RawdataManager
+
+
+VALID_MODULE_NAME_CHARS = ascii_letters + '_' + '0123456789'
 
 
 backslash_fix = re.compile(r"\\{2,}")
-
-
-def h2_alpha_to_h1_tag_index(map_header, tag_index):
-    new_index = tag_index_pc_def.build()
-    old_index_array = tag_index.tag_index
-    new_index_array = new_index.tag_index
-
-    # copy information from the h2 index into the h1 index
-    new_index.scenario_tag_id = tag_index.scenario_tag_id
-    new_index.tag_index_offset = tag_index.tag_index_offset
-    new_index.tag_count = tag_index.tag_count
-
-    for i in range(len(old_index_array)):
-        old_index_entry = old_index_array[i]
-        new_index_array.append()
-        new_index_entry = new_index_array[-1]
-
-        new_index_entry.class_1 = old_index_entry.class_1
-        new_index_entry.class_2 = old_index_entry.class_2
-        new_index_entry.class_3 = old_index_entry.class_3
-
-        new_index_entry.id  = old_index_entry.id
-        new_index_entry.pad = old_index_entry.flags
-        new_index_entry.path_offset = old_index_entry.path_offset
-        new_index_entry.meta_offset = old_index_entry.meta_offset
-        new_index_entry.tag.tag_path = old_index_entry.tag.tag_path
-
-    return new_index
-
-
-def h2_to_h1_tag_index(map_header, tag_index):
-    new_index = tag_index_pc_def.build()
-    old_index_array = tag_index.tag_index
-    new_index_array = new_index.tag_index
-
-    # copy information from the h2 index into the h1 index
-    new_index.scenario_tag_id = tag_index.scenario_tag_id
-    new_index.tag_index_offset = tag_index.tag_index_offset
-    new_index.tag_count = tag_index.tag_count
-
-    tag_types = {}
-    for typ in tag_index.tag_types:
-        tag_types[typ.class_1.data] = [typ.class_1, typ.class_2, typ.class_3]
-
-    for i in range(len(old_index_array)):
-        old_index_entry = old_index_array[i]
-        new_index_array.append()
-        new_index_entry = new_index_array[-1]
-        if old_index_entry.tag_class.data not in tag_types:
-            new_index_entry.tag.tag_path = "reserved"
-            new_index_entry.class_1.data = new_index_entry.class_2.data =\
-                                           new_index_entry.class_3.data =\
-                                           0xFFFFFFFF
-            new_index_entry.id = 0xFFFFFFFF
-            continue
-        else:
-            types = tag_types[old_index_entry.tag_class.data]
-            new_index_entry.class_1 = types[0]
-            new_index_entry.class_2 = types[1]
-            new_index_entry.class_3 = types[2]
-
-            new_index_entry.tag.tag_path = map_header.strings.\
-                                           tag_name_table[i].tag_name
-
-        new_index_entry.id = old_index_entry.id
-        new_index_entry.meta_offset = old_index_entry.offset
-        if new_index_entry.meta_offset == 0:
-            # might flag sbsp and ltmp tags as indexed
-            new_index_entry.indexed = 1
-
-    return new_index
-
-
-def h3_to_h1_tag_index(map_header, tag_index):
-    new_index = tag_index_pc_def.build()
-    old_index_array = tag_index.tag_index
-    new_index_array = new_index.tag_index
-
-    # copy information from the h2 index into the h1 index
-    #new_index.scenario_tag_id = tag_index.scenario_tag_id
-    new_index.tag_index_offset = tag_index.tag_index_offset
-    new_index.tag_count = tag_index.tag_count
-
-    tag_types = {}
-    for i in range(len(tag_index.tag_types)):
-        typ = tag_index.tag_types[i]
-        tag_types[i] = [typ.class_1, typ.class_2, typ.class_3]
-
-    for i in range(len(old_index_array)):
-        old_index_entry = old_index_array[i]
-        new_index_array.append()
-        new_index_entry = new_index_array[-1]
-        if old_index_entry.tag_type_index not in tag_types:
-            new_index_entry.tag.tag_path = "reserved"
-            new_index_entry.class_1.data = new_index_entry.class_2.data =\
-                                           new_index_entry.class_3.data =\
-                                           0xFFFFFFFF
-            new_index_entry.id = 0xFFFFFFFF
-            continue
-        else:
-            types = tag_types[old_index_entry.tag_type_index]
-            new_index_entry.class_1 = types[0]
-            new_index_entry.class_2 = types[1]
-            new_index_entry.class_3 = types[2]
-
-            new_index_entry.tag.tag_path = map_header.strings.\
-                                           tag_name_table[i].tag_name
-
-        new_index_entry.id = old_index_entry.table_index
-        new_index_entry.meta_offset = old_index_entry.offset
-        if new_index_entry.meta_offset == 0:
-            # might flag sbsp and ltmp tags as indexed
-            new_index_entry.indexed = 1
-
-    return new_index
 
 
 class HaloMap:
@@ -152,6 +47,10 @@ class HaloMap:
 
     # the original tag_path of each tag in the map before any deprotection
     orig_tag_paths = None
+
+    string_id_manager = None
+    tag_index_manager = None
+    map_pointer_converter = None
 
     # the parsed meta of the root tags in the map
     scnr_meta = None
@@ -171,19 +70,14 @@ class HaloMap:
     #                  subtract this from a pointer to convert it to an offset.
     #                      map_magic = index_magic - index_header_offset
 
-    bsp_magics  = ()
-    bsp_sizes   = ()
-    bsp_headers = ()
-    bsp_header_offsets = ()
-
     defs = None
     maps = None
+    tag_headers = None
+
+    tag_defs_module = ""
+    tag_classes_to_load = ()
 
     def __init__(self, maps=None, map_data_cache_limit=None):
-        self.bsp_magics = {}
-        self.bsp_sizes  = {}
-        self.bsp_header_offsets = {}
-        self.bsp_headers = {}
         self.orig_tag_paths = ()
         self.setup_defs()
 
@@ -192,6 +86,41 @@ class HaloMap:
             self.map_data_cache_limit = HaloMap.map_data_cache_limit
 
         self.maps = {} if maps is None else maps
+
+    def setup_tag_headers(self):
+        if type(self).tag_headers is not None:
+            return
+
+        tag_headers = type(self).tag_headers = {}
+        for def_id in sorted(self.defs):
+            if def_id in tag_headers or len(def_id) != 4:
+                continue
+            h_desc, h_block = self.defs[def_id].descriptor[0], [None]
+            h_desc['TYPE'].parser(h_desc, parent=h_block, attr_index=0)
+            tag_headers[def_id] = bytes(
+                h_block[0].serialize(buffer=BytearrayBuffer(),
+                                     calc_pointers=False))
+
+    def setup_defs(self):
+        assert type(self) is not HaloMap
+        if type(self).defs:
+            return
+
+        print("    Loading definitions in '%s'" % self.tag_defs_module)
+
+        type(self).defs = defs = {}
+        for fcc in type(self).tag_classes_to_load:
+            fcc2 = "".join(c if c in VALID_MODULE_NAME_CHARS
+                           else "_" for c in fcc)
+            fcc2 += "_" * ((4 - (len(fcc2) % 4)) % 4)
+            try:
+                # try to import the module, but ignore it if it doesnt exist
+                exec("from %s.%s import get" % (self.tag_defs_module, fcc2))
+                exec("defs['%s'] = get()" % fcc)
+            except ImportError:
+                continue
+            except Exception:
+                print(format_exc())
 
     def __del__(self):
         self.unload_map(False)
@@ -206,7 +135,7 @@ class HaloMap:
         i = 0
         found_counts = {}
         for b in self.tag_index.tag_index:
-            tag_path = backslash_fix.sub(r'\\', b.tag.tag_path)
+            tag_path = backslash_fix.sub(r'\\', b.path)
 
             tag_cls  = b.class_1.data
             name_id  = (tag_path, tag_cls)
@@ -219,7 +148,7 @@ class HaloMap:
             else:
                 found_counts[name_id] = 0
 
-            b.tag.tag_path = tag_path
+            b.path = tag_path
 
     def get_meta_descriptor(self, tag_cls):
         tagdef = self.defs.get(tag_cls)
@@ -257,9 +186,6 @@ class HaloMap:
         raise NotImplementedError()
 
     def inject_rawdata(self, meta, tag_cls, tag_index_ref):
-        raise NotImplementedError()
-
-    def setup_defs(self):
         raise NotImplementedError()
 
     def get_meta(self, tag_id, reextract=False):
@@ -322,7 +248,7 @@ class HaloMap:
 
         self.maps[map_header.map_name] = self
         if will_be_active:
-            self.maps["active"] = self
+            self.maps["<active>"] = self
 
         self.filepath    = map_path
         self.engine      = engine
@@ -330,14 +256,15 @@ class HaloMap:
         self.index_magic = get_index_magic(map_header)
         self.map_magic   = get_map_magic(map_header)
         self.tag_index   = tag_index
+        self.map_pointer_converter = MapPointerConverter()
 
     def unload_map(self, keep_resources_loaded=True):
-        keep_resources_loaded &= self.is_resource 
+        keep_resources_loaded &= self.is_resource
         try: map_name = self.map_header.map_name
         except Exception: map_name = None
 
-        if self.maps.get('active') is self:
-            self.maps.pop('active')
+        if self.maps.get('<active>') is self:
+            self.maps.pop('<active>')
         if self.maps.get(map_name) is self:
             self.maps.pop(map_name, None)
 

@@ -1,97 +1,23 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: DarkShallFall
+# 	Values, Attachments. Effects, Projectile, jpt!, Impact sound, Pickup Sound, Activation Sound, HUD, and other small things
+# revision: 3		author: DeadCanadian
+# 	fixed the death properties
+# revision: 4		author: Lord Zedd
+# 	Portin'
+# revision: 5		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
-
-eqip_ai_propertie_leap_jump_speed = (
-    "none",
-    "down",
-    "step",
-    "crouch",
-    "stand",
-    "storey",
-    "tower",
-    "infinite",
-    )
-
-eqip_ai_propertie_size = (
-    "default",
-    "tiny",
-    "small",
-    "medium",
-    "large",
-    "huge",
-    "immobile",
-    )
-
-eqip_attachment_change_color = (
-    "none",
-    "primary",
-    "secondary",
-    "tertiary",
-    "quaternary",
-    )
-
-eqip_lightmap_shadow_mode_size = (
-    "default",
-    "never",
-    "always",
-    "unknown",
-    )
-
-eqip_multiplayer_object_propertie_object_type = (
-    "ordinary",
-    "weapon",
-    "grenade",
-    "projectile",
-    "powerup",
-    "equipment",
-    "light_land_vehicle",
-    "heavy_land_vehicle",
-    "flying_vehicle",
-    "teleporter_2way",
-    "teleporter_sender",
-    "teleporter_receiver",
-    "player_spawn_location",
-    "player_respawn_zone",
-    "hold_spawn_objective",
-    "capture_spawn_objective",
-    "hold_destination_objective",
-    "capture_destination_objective",
-    "hill_objective",
-    "infection_haven_objective",
-    "territory_objective",
-    "vip_boundary_objective",
-    "vip_destination_objective",
-    "juggernaut_destination_objective",
-    )
-
-eqip_multiplayer_object_propertie_shape = (
-    "none",
-    "sphere",
-    "cylinder",
-    "box",
-    )
-
-eqip_multiplayer_object_propertie_spawn_timer_mode = (
-    "on_death",
-    "on_disturbance",
-    )
-
-eqip_object_type = (
-    "biped",
-    "vehicle",
-    "weapon",
-    "equipment",
-    "terminal",
-    "projectile",
-    "scenery",
-    "machine",
-    "control",
-    "sound_scenery",
-    "crate",
-    "creature",
-    "giant",
-    "effect_scenery",
-    )
 
 eqip_powerup_powerup_trait_set = (
     "red",
@@ -99,117 +25,102 @@ eqip_powerup_powerup_trait_set = (
     "yellow",
     )
 
-eqip_sweetener_size = (
-    "small",
-    "medium",
-    "large",
-    )
 
-eqip_water_density = (
-    "default",
-    "least",
-    "some",
-    "equal",
-    "more",
-    "more_still",
-    "lots_more",
-    )
-
-
-eqip_early_mover_propertie = Struct("early_mover_properties",
-    string_id_meta("name"),
+eqip_early_mover_propertie = Struct("early_mover_propertie", 
+    h3_string_id("name"),
     Pad(36),
     ENDIAN=">", SIZE=40
     )
 
 
-eqip_ai_propertie = Struct("ai_properties",
-    Bool32("flags",
+eqip_ai_propertie = Struct("ai_propertie", 
+    Bool32("flags", 
         "destroyable_cover",
         "pathfinding_ignore_when_dead",
         "dynamic_cover",
         ),
-    string_id_meta("ai_type_name"),
-    Pad(4),
-    SEnum16("size", *eqip_ai_propertie_size),
-    SEnum16("leap_jump_speed", *eqip_ai_propertie_leap_jump_speed),
+    h3_string_id("ai_type_name"),
+    BytesRaw("unknown", SIZE=4, VISIBLE=False),
+    SEnum16("size", *bloc_ai_propertie_size),
+    SEnum16("leap_jump_speed", *bloc_ai_propertie_leap_jump_speed),
     ENDIAN=">", SIZE=16
     )
 
 
-eqip_function = Struct("functions",
-    Bool32("flags",
+eqip_function = Struct("function", 
+    Bool32("flags", 
         "invert",
         "mapping_does_not_controls_active",
         "always_active",
         "random_time_offset",
         ),
-    string_id_meta("import_name"),
-    string_id_meta("export_name"),
-    string_id_meta("turn_off_with"),
+    h3_string_id("import_name"),
+    h3_string_id("export_name"),
+    h3_string_id("turn_off_with"),
     Float("minimum_value"),
-    rawdata_ref("default_function"),
-    string_id_meta("scale_by"),
+    h3_rawdata_ref("default_function"),
+    h3_string_id("scale_by"),
     ENDIAN=">", SIZE=44
     )
 
 
-eqip_attachment = Struct("attachments",
-    dependency("attachment"),
-    string_id_meta("marker"),
-    SEnum16("change_color", *eqip_attachment_change_color),
-    SInt16("unknown"),
-    string_id_meta("primary_scale"),
-    string_id_meta("secondary_scale"),
+eqip_attachment = Struct("attachment", 
+    h3_dependency("attachment"),
+    h3_string_id("marker"),
+    SEnum16("change_color", *bloc_attachment_change_color),
+    SInt16("unknown", VISIBLE=False),
+    h3_string_id("primary_scale"),
+    h3_string_id("secondary_scale"),
     ENDIAN=">", SIZE=32
     )
 
 
-eqip_widget = Struct("widgets",
-    dependency("type"),
+eqip_widget = Struct("widget", 
+    h3_dependency("type"),
     ENDIAN=">", SIZE=16
     )
 
 
-eqip_change_color_initial_permutation = Struct("initial_permutations",
+eqip_change_color_initial_permutation = Struct("initial_permutation", 
     Pad(4),
     color_rgb_float("color_lower_bound"),
     color_rgb_float("color_upper_bound"),
-    string_id_meta("variant_name"),
+    h3_string_id("variant_name"),
     ENDIAN=">", SIZE=32
     )
 
 
-eqip_change_color_function = Struct("functions",
-    Bool32("scale_flags",
+eqip_change_color_function = Struct("function", 
+    Bool32("scale_flags", 
         "blend_in_hsv",
         "more_colors",
         ),
     color_rgb_float("color_lower_bound"),
     color_rgb_float("color_upper_bound"),
-    string_id_meta("darken_by"),
-    string_id_meta("scale_by"),
+    h3_string_id("darken_by"),
+    h3_string_id("scale_by"),
     ENDIAN=">", SIZE=32
     )
 
 
-eqip_change_color = Struct("change_colors",
-    reflexive("initial_permutations", eqip_change_color_initial_permutation),
-    reflexive("functions", eqip_change_color_function),
+eqip_change_color = Struct("change_color", 
+    h3_reflexive("initial_permutations", eqip_change_color_initial_permutation),
+    h3_reflexive("functions", eqip_change_color_function),
     ENDIAN=">", SIZE=24
     )
 
 
-eqip_predicted_resource = Struct("predicted_resources",
+eqip_predicted_resource = Struct("predicted_resource", 
     SInt16("type"),
     SInt16("resource_index"),
-    UInt32("tag_index"),
+    dependency_uint32("tag_index", VISIBLE=False),
+    VISIBLE=False,
     ENDIAN=">", SIZE=8
     )
 
 
-eqip_multiplayer_object_propertie = Struct("multiplayer_object_properties",
-    Bool16("engine_flags",
+eqip_multiplayer_object_propertie = Struct("multiplayer_object_propertie", 
+    Bool16("engine_flags", 
         "capture_the_flag",
         "slayer",
         "oddball",
@@ -220,127 +131,128 @@ eqip_multiplayer_object_propertie = Struct("multiplayer_object_properties",
         "vip",
         "infection",
         ),
-    SEnum8("object_type", *eqip_multiplayer_object_propertie_object_type),
-    Bool8("teleporter_flags",
+    SEnum8("object_type", *bloc_multiplayer_object_propertie_object_type),
+    Bool8("teleporter_flags", 
         "disallows_players",
         "allows_land_vehicles",
         "allows_heavy_vehicles",
         "allows_flying_vehicles",
         "allows_projectiles",
         ),
-    Bool16("flags",
+    Bool16("flags", 
         "editor_only",
         ),
-    SEnum8("shape", *eqip_multiplayer_object_propertie_shape),
-    SEnum8("spawn_timer_mode", *eqip_multiplayer_object_propertie_spawn_timer_mode),
+    SEnum8("shape", *bloc_multiplayer_object_propertie_shape),
+    SEnum8("spawn_timer_mode", *bloc_multiplayer_object_propertie_spawn_timer_mode),
     SInt16("spawn_time"),
     SInt16("abandon_time"),
     Float("radius_width"),
     Float("length"),
     Float("top"),
     Float("bottom"),
-    Float("unknown"),
-    Float("unknown_1"),
-    Float("unknown_2"),
-    SInt32("unknown_3"),
-    SInt32("unknown_4"),
-    dependency("child_object"),
+    Float("unknown_0", VISIBLE=False),
+    Float("unknown_1", VISIBLE=False),
+    Float("unknown_2", VISIBLE=False),
+    SInt32("unknown_3", VISIBLE=False),
+    SInt32("unknown_4", VISIBLE=False),
+    h3_dependency("child_object"),
     SInt32("unknown_5"),
-    dependency("shape_shader"),
-    dependency("unknown_shader"),
-    dependency("unknown_6"),
-    dependency("unknown_7"),
-    dependency("unknown_8"),
-    dependency("unknown_9"),
-    dependency("unknown_10"),
-    dependency("unknown_11"),
+    h3_dependency("shape_shader"),
+    h3_dependency("unknown_shader"),
+    h3_dependency("unknown_6"),
+    h3_dependency("unknown_7"),
+    h3_dependency("unknown_8"),
+    h3_dependency("unknown_9"),
+    h3_dependency("unknown_10"),
+    h3_dependency("unknown_11"),
     ENDIAN=">", SIZE=196
     )
 
 
-eqip_predicted_bitmap = Struct("predicted_bitmaps",
-    dependency("bitmap"),
+eqip_predicted_bitmap = Struct("predicted_bitmap", 
+    h3_dependency("bitmap", VISIBLE=False),
+    VISIBLE=False,
     ENDIAN=">", SIZE=16
     )
 
 
-eqip_health_pack = Struct("health_pack",
-    Float("unknown"),
-    Float("unknown_1"),
+eqip_health_pack = Struct("health_pack", 
+    Float("unknown_0", VISIBLE=False),
+    Float("unknown_1", VISIBLE=False),
     Float("shields_given"),
-    dependency("unknown_2"),
-    dependency("unknown_3"),
-    dependency("unknown_4"),
+    h3_dependency("unknown_2"),
+    h3_dependency("unknown_3"),
+    h3_dependency("unknown_4"),
     ENDIAN=">", SIZE=60
     )
 
 
-eqip_powerup = Struct("powerup",
+eqip_powerup = Struct("powerup", 
     SEnum32("powerup_trait_set", *eqip_powerup_powerup_trait_set),
     ENDIAN=">", SIZE=4
     )
 
 
-eqip_object_creation = Struct("object_creation",
-    dependency("object"),
-    dependency("unknown"),
-    Float("unknown_1"),
-    Float("unknown_2"),
-    Float("unknown_3"),
+eqip_object_creation = Struct("object_creation", 
+    h3_dependency("object"),
+    h3_dependency("unknown_0"),
+    Float("unknown_1", VISIBLE=False),
+    Float("unknown_2", VISIBLE=False),
+    Float("unknown_3", VISIBLE=False),
     Float("object_force"),
-    Float("unknown_4"),
+    Float("unknown_4", VISIBLE=False),
     ENDIAN=">", SIZE=52
     )
 
 
-eqip_destruction = Struct("destruction",
-    dependency("destroy_effect"),
-    dependency("destroy_damage_effect"),
-    Float("unknown"),
+eqip_destruction = Struct("destruction", 
+    h3_dependency("destroy_effect"),
+    h3_dependency("destroy_damage_effect"),
+    Float("unknown_0", VISIBLE=False),
     Float("self_destruction_time"),
-    Float("unknown_1"),
-    Float("unknown_2"),
+    Float("unknown_1", VISIBLE=False),
+    Float("unknown_2", VISIBLE=False),
     ENDIAN=">", SIZE=48
     )
 
 
-eqip_radar_manipulation = Struct("radar_manipulation",
-    Float("unknown"),
+eqip_radar_manipulation = Struct("radar_manipulation", 
+    Float("unknown_0", VISIBLE=False),
     Float("fake_blip_radius"),
     SInt32("fake_blip_count"),
-    Float("unknown_1"),
+    Float("unknown_1", VISIBLE=False),
     ENDIAN=">", SIZE=16
     )
 
 
-eqip_invisibility = Struct("invisibility",
-    Float("unknown"),
+eqip_invisibility = Struct("invisibility", 
+    Float("unknown_0"),
     Float("unknown_1"),
     ENDIAN=">", SIZE=8
     )
 
 
-eqip_invincibility = Struct("invincibility",
-    string_id_meta("material_name"),
+eqip_invincibility = Struct("invincibility", 
+    h3_string_id("material_name"),
     SInt16("global_material_index"),
-    SInt16("unknown"),
-    Pad(4),
-    dependency("activation_effect"),
-    dependency("active_effect"),
-    dependency("deactivation_effect"),
+    SInt16("unknown_0", VISIBLE=False),
+    BytesRaw("unknown_1", SIZE=4, VISIBLE=False),
+    h3_dependency("activation_effect"),
+    h3_dependency("active_effect"),
+    h3_dependency("deactivation_effect"),
     ENDIAN=">", SIZE=60
     )
 
 
-eqip_regenerator = Struct("regenerator",
+eqip_regenerator = Struct("regenerator", 
     Float("unknown"),
     ENDIAN=">", SIZE=4
     )
 
 
-eqip_meta_def = BlockDef("eqip",
-    SEnum16("object_type", *eqip_object_type),
-    Bool16("flags",
+eqip_body = Struct("tagdata", 
+    SEnum16("object_type", *bloc_object_type),
+    Bool16("flags_0", 
         "does_not_cast_shadow",
         "search_cardinal_direction_lightmaps",
         ("not_a_pathfinding_obstacle", 1 << 3),
@@ -356,36 +268,32 @@ eqip_meta_def = BlockDef("eqip",
         "effects_created_by_this_object_do_not_spawn_objects_in_multiplayer",
         ),
     Float("bounding_radius"),
-    Float("bounding_offset_x"),
-    Float("bounding_offset_y"),
-    Float("bounding_offset_z"),
+    QStruct("bounding_offset", INCLUDE=xyz_float),
     Float("acceleration_scale"),
-    SEnum16("lightmap_shadow_mode_size", *eqip_lightmap_shadow_mode_size),
-    SEnum8("sweetener_size", *eqip_sweetener_size),
-    SEnum8("water_density", *eqip_water_density),
-    SInt32("unknown"),
+    SEnum16("lightmap_shadow_mode_size", *bloc_lightmap_shadow_mode_size),
+    SEnum8("sweetener_size", *bloc_sweetener_size),
+    SEnum8("water_density", *bloc_water_density),
+    SInt32("unknown_0", VISIBLE=False),
     Float("dynamic_light_sphere_radius"),
-    Float("dynamic_light_sphere_offset_x"),
-    Float("dynamic_light_sphere_offset_y"),
-    Float("dynamic_light_sphere_offset_z"),
-    string_id_meta("default_model_variant"),
-    dependency("model"),
-    dependency("crate_object"),
-    dependency("collision_damage"),
-    reflexive("early_mover_properties", eqip_early_mover_propertie),
-    dependency("creation_effect"),
-    dependency("material_effects"),
-    dependency("melee_impact"),
-    reflexive("ai_properties", eqip_ai_propertie),
-    reflexive("functions", eqip_function),
+    QStruct("dynamic_light_sphere_offset", INCLUDE=xyz_float),
+    h3_string_id("default_model_variant"),
+    h3_dependency("model"),
+    h3_dependency("crate_object"),
+    h3_dependency("collision_damage"),
+    h3_reflexive("early_mover_properties", eqip_early_mover_propertie),
+    h3_dependency("creation_effect"),
+    h3_dependency("material_effects"),
+    h3_dependency("melee_impact"),
+    h3_reflexive("ai_properties", eqip_ai_propertie),
+    h3_reflexive("functions", eqip_function),
     SInt16("hud_text_message_index"),
-    SInt16("unknown_1"),
-    reflexive("attachments", eqip_attachment),
-    reflexive("widgets", eqip_widget),
-    reflexive("change_colors", eqip_change_color),
-    reflexive("predicted_resources", eqip_predicted_resource),
-    reflexive("multiplayer_object_properties", eqip_multiplayer_object_propertie),
-    Bool32("flags_1",
+    SInt16("unknown_1", VISIBLE=False),
+    h3_reflexive("attachments", eqip_attachment),
+    h3_reflexive("widgets", eqip_widget),
+    h3_reflexive("change_colors", eqip_change_color),
+    h3_reflexive("predicted_resources", eqip_predicted_resource),
+    h3_reflexive("multiplayer_object_properties", eqip_multiplayer_object_propertie),
+    Bool32("flags_1", 
         "always_maintains_z_up",
         "destroyed_by_explosions",
         "unaffected_by_gravity",
@@ -394,21 +302,20 @@ eqip_meta_def = BlockDef("eqip",
     SInt16("sort_order"),
     Float("old_multiplayer_on_ground_scale"),
     Float("old_campaign_on_ground_scale"),
-    string_id_meta("pickup_message"),
-    string_id_meta("swap_message"),
-    string_id_meta("pickup_or_dual_wield_message"),
-    string_id_meta("swap_or_dual_wield_message"),
-    string_id_meta("picked_up_message"),
-    string_id_meta("switch_to_message"),
-    string_id_meta("switch_to_from_ai_message"),
-    string_id_meta("all_weapons_empty_message"),
-    dependency("collision_sound"),
-    reflexive("predicted_bitmaps", eqip_predicted_bitmap),
-    dependency("detonation_damage_effect"),
-    Float("detonation_delay_min"),
-    Float("detonation_delay_max"),
-    dependency("detonating_effect"),
-    dependency("detonation_effect"),
+    h3_string_id("pickup_message"),
+    h3_string_id("swap_message"),
+    h3_string_id("pickup_or_dual_wield_message"),
+    h3_string_id("swap_or_dual_wield_message"),
+    h3_string_id("picked_up_message"),
+    h3_string_id("switch_to_message"),
+    h3_string_id("switch_to_from_ai_message"),
+    h3_string_id("all_weapons_empty_message"),
+    h3_dependency("collision_sound"),
+    h3_reflexive("predicted_bitmaps", eqip_predicted_bitmap),
+    h3_dependency("detonation_damage_effect"),
+    QStruct("detonation_delay", INCLUDE=from_to),
+    h3_dependency("detonating_effect"),
+    h3_dependency("detonation_effect"),
     Float("campaign_ground_scale"),
     Float("multiplayer_ground_scale"),
     Float("small_hold_scale"),
@@ -422,26 +329,36 @@ eqip_meta_def = BlockDef("eqip",
     Float("grounded_friction_length"),
     Float("grounded_friction_unknown"),
     Float("use_duration"),
-    Float("unknown_2"),
+    Float("unknown_2", VISIBLE=False),
     SInt16("number_of_uses"),
-    Bool16("flags_2",
-        ),
-    Float("unknown_3"),
-    Float("unknown_4"),
-    Float("unknown_5"),
-    reflexive("health_pack", eqip_health_pack),
-    reflexive("powerup", eqip_powerup),
-    reflexive("object_creation", eqip_object_creation),
-    reflexive("destruction", eqip_destruction),
-    reflexive("radar_manipulation", eqip_radar_manipulation),
-    Pad(12),
-    reflexive("invisibility", eqip_invisibility),
-    reflexive("invincibility", eqip_invincibility),
-    reflexive("regenerator", eqip_regenerator),
-    dependency("hud_interface"),
-    dependency("pickup_sound"),
-    dependency("activation_effect"),
-    dependency("active_effect"),
-    dependency("deactivation_effect"),
-    TYPE=Struct, ENDIAN=">", SIZE=640
+    Bool16("flags_2", *unknown_flags_16),
+    Float("unknown_3", VISIBLE=False),
+    Float("unknown_4", VISIBLE=False),
+    Float("unknown_5", VISIBLE=False),
+    h3_reflexive("health_pack", eqip_health_pack),
+    h3_reflexive("powerup", eqip_powerup),
+    h3_reflexive("object_creation", eqip_object_creation),
+    h3_reflexive("destruction", eqip_destruction),
+    h3_reflexive("radar_manipulation", eqip_radar_manipulation),
+    BytesRaw("null", SIZE=12, VISIBLE=False),
+    h3_reflexive("invisibility", eqip_invisibility),
+    h3_reflexive("invincibility", eqip_invincibility),
+    h3_reflexive("regenerator", eqip_regenerator),
+    h3_dependency("hud_interface"),
+    h3_dependency("pickup_sound"),
+    h3_dependency("activation_effect"),
+    h3_dependency("active_effect"),
+    h3_dependency("deactivation_effect"),
+    ENDIAN=">", SIZE=640
+    )
+
+
+def get():
+    return eqip_def
+
+eqip_def = TagDef("eqip",
+    h3_blam_header('eqip'),
+    eqip_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["eqip"], endian=">", tag_cls=H3Tag
     )

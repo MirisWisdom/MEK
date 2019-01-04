@@ -1,4 +1,20 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: DeadCanadian
+# 	started naming
+# revision: 3		author: Lord Zedd
+# 	I don't always add revisions, but when I do it's because I spend hours making these giant enums.
+# revision: 4		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
 
 sily_parameter = (
@@ -209,7 +225,7 @@ sily_parameter = (
     "int_ctf_touch_return_time",
     "int_ctf_flag_at_home",
     "int_ctf_home_waypoint",
-    "int_ctf_unknown",
+    "int_ctf_unknown_0",
     "int_ctf_unknown_1",
     "int_ctf_game_mode",
     "int_ctf_respawn_on_capture",
@@ -625,32 +641,37 @@ sily_parameter = (
     "int_global_traits_template_forced_color",
     )
 
-sily_text_value_pair_expected_value_type = (
-    "integer_index",
-    "stringid_reference",
-    "incremental",
-    )
 
-
-sily_text_value_pair = Struct("text_value_pairs",
-    Bool8("flags",
+sily_text_value_pair = Struct("text_value_pair", 
+    Bool8("flags", 
         "default_setting",
         "unchanged_setting",
         ),
     SEnum8("expected_value_type", *sily_text_value_pair_expected_value_type),
-    SInt16("unknown"),
+    SInt16("unknown", VISIBLE=False),
     SInt32("integer_value"),
-    string_id_meta("stringid_value"),
-    string_id_meta("name"),
-    string_id_meta("description"),
+    h3_string_id("stringid_value"),
+    h3_string_id("name"),
+    h3_string_id("description"),
     ENDIAN=">", SIZE=20
     )
 
 
-sily_meta_def = BlockDef("sily",
+sily_body = Struct("tagdata", 
     SEnum32("parameter", *sily_parameter),
-    string_id_meta("name"),
-    string_id_meta("description"),
-    reflexive("text_value_pairs", sily_text_value_pair),
-    TYPE=Struct, ENDIAN=">", SIZE=24
+    h3_string_id("name"),
+    h3_string_id("description"),
+    h3_reflexive("text_value_pairs", sily_text_value_pair),
+    ENDIAN=">", SIZE=24
+    )
+
+
+def get():
+    return sily_def
+
+sily_def = TagDef("sily",
+    h3_blam_header('sily'),
+    sily_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["sily"], endian=">", tag_cls=H3Tag
     )

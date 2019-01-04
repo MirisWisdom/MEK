@@ -1,4 +1,18 @@
-from reclaimer.common_descs import *
+############# Credits and version info #############
+# Definition generated from Assembly XML tag def
+#	 Date generated: 2018/12/03  04:56
+#
+# revision: 1		author: Assembly
+# 	Generated plugin from scratch.
+# revision: 2		author: Lord Zedd
+# 	Done
+# revision: 3		author: Moses_of_Egypt
+# 	Cleaned up and converted to SuPyr definition
+#
+####################################################
+
+from ..common_descs import *
+from .objs.tag import *
 from supyr_struct.defs.tag_def import TagDef
 
 styl_combat_status_decay_options = (
@@ -8,8 +22,8 @@ styl_combat_status_decay_options = (
     )
 
 
-styl_special_movement = Struct("special_movement",
-    Bool32("special_movement_1",
+styl_special_movement = Struct("special_movement", 
+    Bool32("special_movement_1", 
         "jump",
         "climb",
         "vault",
@@ -22,20 +36,20 @@ styl_special_movement = Struct("special_movement",
     )
 
 
-styl_behavior_list = Struct("behavior_list",
-    StrLatin1("behavior_name", SIZE=32),
+styl_behavior_list = Struct("behavior_list", 
+    ascii_str32("behavior_name"),
     ENDIAN=">", SIZE=32
     )
 
 
-styl_meta_def = BlockDef("styl",
-    StrLatin1("name", SIZE=32),
+styl_body = Struct("tagdata", 
+    ascii_str32("name"),
     SEnum16("combat_status_decay_options", *styl_combat_status_decay_options),
-    SInt16("unknown"),
-    Bool32("style_control",
+    SInt16("unknown", VISIBLE=False),
+    Bool32("style_control", 
         "new_behaviors_default_to_on",
         ),
-    Bool32("behaviors1",
+    Bool32("behaviors1", 
         "general",
         "root",
         "null",
@@ -59,7 +73,7 @@ styl_meta_def = BlockDef("styl",
         "broken_berserk_impulse",
         "broken_flee_impulse",
         "broken_scatter_impulse",
-        "engage",
+        "engage_0",
         "equipment",
         "engage_1",
         "fight",
@@ -69,7 +83,7 @@ styl_meta_def = BlockDef("styl",
         "grenade_impulse",
         "anti_vehicle_grenade",
         ),
-    Bool32("behaviors2",
+    Bool32("behaviors2", 
         "stalk",
         "flank",
         "berserk_wander_impulse",
@@ -83,7 +97,7 @@ styl_meta_def = BlockDef("styl",
         "shield_depleted_berserk",
         "last_man_berserk",
         "stuck_with_grenade_berserk",
-        "presearch",
+        "presearch_0",
         "presearch_1",
         "presearch_uncover",
         "destroy_cover",
@@ -93,7 +107,7 @@ styl_meta_def = BlockDef("styl",
         "leader",
         "search_sync",
         "engage_sync",
-        "search",
+        "search_0",
         "search_1",
         "uncover",
         "investigate",
@@ -103,7 +117,7 @@ styl_meta_def = BlockDef("styl",
         "sense_target",
         "postsearch",
         ),
-    Bool32("behaviors3",
+    Bool32("behaviors3", 
         "coverme_investigate",
         "self_defense",
         "self_preservation",
@@ -121,7 +135,7 @@ styl_meta_def = BlockDef("styl",
         "scary_target_cover",
         "group_emerge",
         "shield_depleted_cover",
-        "retreat",
+        "retreat_0",
         "retreat_1",
         "retreat_grenade",
         "flee",
@@ -137,7 +151,7 @@ styl_meta_def = BlockDef("styl",
         "overheated_weapon_retreat",
         "ambush",
         ),
-    Bool32("behaviors4",
+    Bool32("behaviors4", 
         "ambush",
         "coordinated_ambush",
         "proximity_ambush",
@@ -167,17 +181,17 @@ styl_meta_def = BlockDef("styl",
         "vehicle_turtle",
         "vehicle_engage_patrol_impulse",
         "vehicle_engage_wander_impulse",
-        "postcombat",
+        "postcombat_0",
         "postcombat_1",
         "post_postcombat",
         ),
-    Bool32("behaviors5",
+    Bool32("behaviors5", 
         "check_friend",
         "shoot_corpse",
         "postcombat_approach",
-        "alert",
+        "alert_0",
         "alert_1",
-        "idle",
+        "idle_0",
         "idle_1",
         "wander_behavior",
         "flight_wander",
@@ -205,7 +219,7 @@ styl_meta_def = BlockDef("styl",
         "pureforms",
         "group_morph_impulse",
         ),
-    Bool32("behaviors6",
+    Bool32("behaviors6", 
         "arrival_morph_impulse",
         "pureform_default_impulse",
         "search_morph",
@@ -239,14 +253,25 @@ styl_meta_def = BlockDef("styl",
         "activity_default",
         "special",
         ),
-    Bool32("behaviors7",
+    Bool32("behaviors7", 
         "formation",
         "grunt_scared_by_elite",
         "stunned",
         "cure_isolation",
         "deploy_turret",
         ),
-    reflexive("special_movement", styl_special_movement),
-    reflexive("behavior_list", styl_behavior_list),
-    TYPE=Struct, ENDIAN=">", SIZE=92
+    h3_reflexive("special_movement", styl_special_movement),
+    h3_reflexive("behavior_list", styl_behavior_list),
+    ENDIAN=">", SIZE=92
+    )
+
+
+def get():
+    return styl_def
+
+styl_def = TagDef("styl",
+    h3_blam_header('styl'),
+    styl_body,
+
+    ext=".%s" % h3_tag_class_fcc_to_ext["styl"], endian=">", tag_cls=H3Tag
     )

@@ -29,21 +29,21 @@ def get_map_version(header):
             version = "halo1anni"
     elif version == "halo1xbox":
         if build_date is None:
-            return
+            version = None
         elif build_date == map_build_dates["stubbs"]:
             version = "stubbs"
-        elif build_date == map_build_dates["stubbspc"]:
+        elif build_date == "":
             if header.unknown in (11, 1033):
                 # this is the only discernable difference
-                # between xbox beta and stubbs pc maps
-                version = "halo1xboxbeta"
+                # between xbox demo and stubbs pc maps
+                version = "halo1xboxdemo"
             else:
                 version = "stubbspc"
-        elif build_date == map_build_dates["shadowrun_beta"]:
-            version = "shadowrun_beta"
+        elif build_date == map_build_dates["shadowrun_proto"]:
+            version = "shadowrun_proto"
     elif hasattr(header, "yelo_header") and (
             header.yelo_header.yelo.enum_name == "yelo"):
-        return "halo1yelo"
+        version = "halo1yelo"
     elif version == "halo2":
         version = None
         if build_date == map_build_dates['halo2beta']:
@@ -54,6 +54,14 @@ def get_map_version(header):
             version = "halo2epsilon"
         elif build_date == map_build_dates['halo2vista']:
             version = "halo2vista"
+    elif version == "halo3":
+        if build_date == map_build_dates['halo3odst']:
+            version = "halo3odst"
+    elif version == "haloreach":
+        if build_date == map_build_dates['haloreachbeta']:
+            version = "haloreachbeta"
+        elif build_date == map_build_dates['halo4']:
+            version = "halo4"
 
     return version
 
@@ -161,9 +169,9 @@ def get_tag_index(map_data, header=None):
 
 def get_index_magic(header):
     version = get_map_version(header)
-    if version == "halo2vista" and header.map_type.enum_name == "mp":
-        return H2V_MP_INDEX_MAGIC
-    elif version == "halo3":
+    if version == "halo2vista":
+        return header.virtual_address
+    elif version in GEN_3_ENGINES:
         base_address = header.tag_index_header_offset
         for partition in header.partitions:
             if base_address in range(partition.load_address,
@@ -175,7 +183,7 @@ def get_index_magic(header):
 
 def get_map_magic(header):
     magic = get_index_magic(header)
-    if header.version.enum_name != "halo3":
+    if header.version.enum_name not in GEN_3_ENGINES:
         magic -= header.tag_index_header_offset
 
     return magic

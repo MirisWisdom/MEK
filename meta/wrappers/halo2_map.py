@@ -9,10 +9,17 @@ from reclaimer.h2.util import HALO2_MAP_TYPES, split_raw_pointer
 
 
 class Halo2Map(HaloMap):
+    '''Generation 2 map'''
     ugh__meta = None
+
+    tag_defs_module = "reclaimer.h2.defs"
+    tag_classes_to_load = (
+        "ant!", "bitm", "hsc*", "pphy", "snd!", "shad", "trak", "ugh!"
+        )
 
     def __init__(self, maps=None):
         HaloMap.__init__(self, maps)
+        self.setup_tag_headers()
 
     def inject_rawdata(self, meta, tag_cls, tag_index_ref):
         # get some rawdata that would be pretty annoying to do in the parser
@@ -36,8 +43,7 @@ class Halo2Map(HaloMap):
 
                 halo_map.map_data.seek(ptr)
                 mip_pixels = halo_map.map_data.read(bitmap.lod1_size)
-                if self.engine != "halo2alpha":
-                    mip_pixels = zlib.decompress(mip_pixels)
+                mip_pixels = zlib.decompress(mip_pixels)
 
                 new_pixels += mip_pixels
                 bitmap.lod1_size = len(mip_pixels)
@@ -116,27 +122,6 @@ class Halo2Map(HaloMap):
             except Exception:
                 print(format_exc())
 
-    def setup_defs(self):
-        if Halo2Map.defs:
-            return
-
-        Halo2Map.defs = defs = {}
-        for fcc in ("ant!", "bitm", "hsc*", "pphy", "snd!", "trak", "ugh!"):
-            try:
-                fcc2 = fcc
-                for char in "!#$*<>/ ":
-                    fcc2 = fcc2.replace(char, "_")
-                exec("from reclaimer.h2.defs.%s import %s_meta_def" %
-                     (fcc2, fcc2))
-                exec("defs['%s'] = %s_meta_def" % (fcc, fcc2))
-            except Exception:
-                print(format_exc())
-
-    def get_meta_descriptor(self, tag_cls):
-        tagdef = self.defs.get(tag_cls)
-        if tagdef is not None:
-            return tagdef.descriptor
-
     def load_map(self, map_path, **kwargs):
         autoload_resources = kwargs.get("autoload_resources", True)
         will_be_active = kwargs.get("will_be_active", True)
@@ -147,6 +132,16 @@ class Halo2Map(HaloMap):
         else:
             self.tag_index = h2_to_h1_tag_index(self.map_header, tag_index)
 
+        # add the tag data section
+        self.map_pointer_converter.add_page_info(
+            self.index_magic, self.map_header.tag_index_header_offset,
+            self.map_header.tag_index_data_size + self.map_header.tag_data_size
+            )
+
+        self.string_id_manager = StringIdManager(
+            self.map_header.strings.string_id_table, (),
+            )
+        self.tag_index_manager = TagIndexManager(self.tag_index.tag_index)
         map_type = self.map_header.map_type.data - 1
         if map_type > 0 and map_type < 4:
             self.is_resource = True
@@ -179,33 +174,32 @@ class Halo2Map(HaloMap):
         if extractor is None:
             return "No extractor for this type of tag."
         kw['halo_map'] = self
-        return extractor(meta, tag_index_ref.tag.tag_path, **kw)
+        return extractor(meta, tag_index_ref.path, **kw)
 
     def get_meta(self, tag_id, reextract=False):
         if tag_id is None:
+            return
+        elif self.engine == "halo2alpha":
             return
 
         scnr_id = self.orig_tag_index.scenario_tag_id & 0xFFff
         tag_index_array = self.tag_index.tag_index
         shared_map    = self.maps.get("shared")
 
-        # if we are given a 32bit tag id, mask it off
         tag_id &= 0xFFFF
-        if tag_id >= len(tag_index_array):
+        tag_index_ref = self.tag_index_manager.get_tag_index_ref(tag_id)
+        if tag_index_ref is None:
             return
 
-        if self.engine != "halo2alpha":
-            matg_id = self.orig_tag_index.globals_tag_id & 0xFFff
-            sp_shared_map = self.maps.get("single_player_shared")
+        matg_id = self.orig_tag_index.globals_tag_id & 0xFFff
+        sp_shared_map = self.maps.get("single_player_shared")
 
-            if tag_id >= 10000 and shared_map is not self:
-                if shared_map is None: return
-                return shared_map.get_meta(tag_id, reextract)
-            elif tag_id >= len(tag_index_array) and sp_shared_map is not self:
-                if sp_shared_map is None: return
-                return sp_shared_map.get_meta(tag_id, reextract)
-        else:
-            matg_id = None
+        if tag_id >= 10000 and shared_map is not self:
+            if shared_map is None: return
+            return shared_map.get_meta(tag_id, reextract)
+        elif tag_id >= len(tag_index_array) and sp_shared_map is not self:
+            if sp_shared_map is None: return
+            return sp_shared_map.get_meta(tag_id, reextract)
 
         tag_index_ref = tag_index_array[tag_id]
 
@@ -223,13 +217,16 @@ class Halo2Map(HaloMap):
         elif tag_cls == "ugh!" and self.ugh__meta: return self.ugh__meta
 
         block = [None]
-        offset = tag_index_ref.meta_offset - self.map_magic
+        offset = self.map_pointer_converter.v_ptr_to_f_ptr(
+            tag_index_ref.meta_offset)
 
         try:
             # read the meta data from the map
             desc['TYPE'].parser(
-                desc, parent=block, attr_index=0, magic=self.map_magic,
-                tag_index=tag_index_array, rawdata=self.map_data, offset=offset)
+                desc, parent=block, attr_index=0, rawdata=self.map_data,
+                map_string_id_manager=self.string_id_manager,
+                map_pointer_converter=self.map_pointer_converter,
+                tag_index_manager=self.tag_index_manager, offset=offset,)
         except Exception:
             print(format_exc())
             return

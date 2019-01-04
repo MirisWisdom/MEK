@@ -1,5 +1,5 @@
 from ..common_descs import *
-from supyr_struct.defs.block_def import BlockDef
+from supyr_struct.defs.tag_def import TagDef
 
 vertex = Struct("vertex",
     Float("spring strength coefficient"),
@@ -15,10 +15,10 @@ vertex = Struct("vertex",
     SIZE=128
     )
 
-ant__meta_def = BlockDef("ant!",
-    string_id_meta("attachment marker name"),
-    h2_meta_tag_ref("bitmaps", "bitm"),
-    h2_meta_tag_ref("physics", "pphy"),
+ant__body = Struct("tagdata",
+    h2_string_id("attachment marker name"),
+    h2_dependency("bitmaps", "bitm"),
+    h2_dependency("physics", "pphy"),
 
     Pad(80),
     Float("spring strength coefficient"),
@@ -26,6 +26,17 @@ ant__meta_def = BlockDef("ant!",
     Float("cutoff pixels"),
 
     Pad(40),
-    h2_meta_reflexive("vertices", vertex, 20),
-    ENDIAN="<", TYPE=Struct,
+    h2_reflexive("vertices", vertex, 20),
+    ENDIAN="<", SIZE=160
+    )
+
+
+def get():
+    return ant__def
+
+ant__def = TagDef("ant!",
+    h2_blam_header('ant!'),
+    ant__body,
+
+    ext=".%s" % h2_tag_class_fcc_to_ext["ant!"], endian="<"
     )
