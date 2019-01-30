@@ -200,7 +200,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.1.7'
+    version = '1.1.8'
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
@@ -1456,10 +1456,11 @@ class HekPool(tk.Tk):
                 elif cmd_type == "merge-scenery":
                     scnr_paths.add(cmd_args[2].lower())
 
+            # check the supplied command against every other command
+            # currently being executed and make sure there is nothing
+            # that must be completed before this one can be run.
             for proc_i, proc_info in tuple(self.processes.items()):
                 if not proc_info: continue
-                # make sure not trying to do any tag creation in the same
-                # folder at the same time we're trying to build a map in it
                 proc_args = proc_info['exec_args']
                 proc_type = proc_args[0]
                 proc_bsp_path = ''
@@ -1502,8 +1503,15 @@ class HekPool(tk.Tk):
                 if '' in scnr_paths: scnr_paths.remove('')
                 if '' in proc_scnr_paths: proc_scnr_paths.remove('')
 
-                if not(scnr_paths.isdisjoint(proc_scnr_paths) and
-                       (not bsp_path or bsp_path != proc_bsp_path)):
+                is_diff_bsp = not bsp_path or bsp_path != proc_bsp_path
+                is_diff_scnr = scnr_paths.isdisjoint(proc_scnr_paths)
+
+                if (cmd_type == 'lightmaps' and proc_type == 'lightmaps' and
+                    (is_diff_bsp or is_diff_scnr)):
+                    # running multiple lightmaps is fine as long
+                    # as it's not the exact same scenario and bsp
+                    continue
+                elif not (is_diff_scnr and is_diff_bsp):
                     return False
 
         elif cmd_type in ("bitmap", "import-device-defaults"):
@@ -1548,13 +1556,14 @@ class HekPool(tk.Tk):
                 elif join(proc_args[0].lower(), '') != dir_arg:
                     # different target directory. safe to run
                     pass
-                elif (proc_type in ("collision-geometry", "physics") and
-                      cmd_type  in ("collision-geometry", "physics")):
-                    # a different command. safe to run(i think)
-                    return False
                 elif proc_type != cmd_type:
                     # a different command. safe to run(i think)
                     pass
+                elif (proc_type in ("collision-geometry", "physics") and
+                      cmd_type  in ("collision-geometry", "physics")):
+                    # not safe to compile multiple physics and/or
+                    # collision models at the same time
+                    return False
                 else:
                     # same cwd, command type, and directory. NOT safe to run!
                     return False

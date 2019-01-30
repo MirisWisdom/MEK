@@ -217,7 +217,7 @@ TOOL_COMMANDS = FrozenDict({
         ("scenario-path",        ) + SCNR_MACRO,
         ("bsp-name",             ) + STR_MACRO,
         ("render-high-quality",  ) + BOOL_MACRO,
-        ("stop-threshold", "float", "0.1", (0.0, 1.0)),
+        ("stop-threshold", "float", "0.1", (float("1e-45"), 1.0)),
         ),
     "merge-scenery": (
         ("source-scenario",      ) + SCNR_MACRO,
