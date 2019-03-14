@@ -7,9 +7,8 @@ except ImportError:
 
 curr_dir = dirname(__file__)
 
-#               YYYY.MM.DD
-release_date = "2019.01.30"
-version = (1, 1, 8)  # DONT FORGET TO UPDATE THE VERSION IN app_window.py
+import hek_pool
+
 
 try:
     try:
@@ -23,7 +22,7 @@ setup(
     name='hek_pool',
     #description='',
     long_description=long_desc,
-    version='%s.%s.%s' % version,
+    version='%s.%s.%s' % hek_pool.__version__,
     url='http://bitbucket.org/moses_of_egypt/hek_pool',
     author='Devin Bobadilla',
     author_email='MosesBobadilla@gmail.com',

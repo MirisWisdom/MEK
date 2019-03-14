@@ -19,6 +19,8 @@ from traceback import format_exc
 
 from supyr_struct.defs.constants import *
 
+import hek_pool
+
 from hek_pool.constants import *
 from hek_pool.config_def import config_def, CFG_DIRS
 from hek_pool.help_text import README_TEXT,\
@@ -200,7 +202,7 @@ class HekPool(tk.Tk):
 
     '''Miscellaneous properties'''
     app_name = "Pool"  # the name of the app(used in window title)
-    version = '1.1.8'
+    version = "%s.%s.%s" % hek_pool.__version__
     log_filename = 'hek_pool.log'
     max_undos = 1000
 
