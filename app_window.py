@@ -27,6 +27,11 @@ from hek_pool.help_text import README_TEXT,\
      TOOL_COMMAND_HELP, DIRECTIVES_HELP, generate_help
 from hek_pool.util import *
 
+try:
+    from binilla.about_window import AboutWindow
+except ImportError:
+    AboutWindow = None
+
 
 platform = sys.platform.lower()
 if "linux" in platform:
@@ -205,6 +210,11 @@ class HekPool(tk.Tk):
     version = "%s.%s.%s" % hek_pool.__version__
     log_filename = 'hek_pool.log'
     max_undos = 1000
+    about_module_names = (
+        "hek_pool",
+        "supyr_struct",
+        "threadsafe_tkinter",
+        )
 
     def __init__(self, *args, **kwargs):
         for s in ('working_dir', 'config_version',
@@ -230,11 +240,14 @@ class HekPool(tk.Tk):
         self.tool_paths = []
         try:
             try:
-                self.iconbitmap(join(curr_dir, 'pool.ico'))
+                self.icon_filepath = join(curr_dir, 'pool.ico')
+                self.iconbitmap(self.icon_filepath)
             except Exception:
-                self.iconbitmap(join(curr_dir, 'icons', 'pool.ico'))
+                self.icon_filepath = join(join(curr_dir, 'icons', 'pool.ico'))
+                self.iconbitmap(self.icon_filepath)
         except Exception:
-            print(format_exc())
+            self.icon_filepath = ""
+            print("Could not load window icon.")
 
         if type(self).fixed_font is None:
             type(self).fixed_font = Font(family="Terminal", size=10)
@@ -265,6 +278,7 @@ class HekPool(tk.Tk):
         self.main_menu.add_cascade(label="Actions", menu=self.actions_menu)
         self.main_menu.add_cascade(label="Select Tool", menu=self.tools_menu)
         self.main_menu.add_cascade(label="Help", menu=self.help_menu)
+        self.main_menu.add_command(label="About", command=self.show_about_window)
 
 
         self.file_menu.add_command(label="New",
@@ -2010,3 +2024,24 @@ class HekPool(tk.Tk):
 
         tk.Tk.destroy(self)
         self._stop_processing = True
+
+    def place_window_relative(self, window, x=0, y=0):
+        # calculate x and y coordinates for this window
+        x_base, y_base = self.winfo_x(), self.winfo_y()
+        w, h = window.geometry().split('+')[0].split('x')[:2]
+        if w == '1' and w == '1':
+            w = window.winfo_reqwidth()
+            h = window.winfo_reqheight()
+        window.geometry('%sx%s+%s+%s' % (w, h, x + x_base, y + y_base))
+
+    def show_about_window(self):
+        w = getattr(self, "about_window", None)
+        if w is not None:
+            try: w.destroy()
+            except Exception: pass
+            self.about_window = None
+
+        self.about_window = AboutWindow(
+            self, module_names=self.about_module_names,
+            iconbitmap=self.icon_filepath, app_name=self.app_name)
+        self.place_window_relative(self.about_window, 30, 50)
