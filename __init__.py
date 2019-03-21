@@ -23,6 +23,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 '''
+# ##############
+#   metadata   #
+# ##############
+__author__ = "Devin Bobadilla"
+#           YYYY.MM.DD
+__date__ = "2019.03.21"
+__version__ = (1, 0, 2)
+
 try:
     from tkinter import *
 except ImportError:
@@ -30,6 +38,7 @@ except ImportError:
 from queue import Queue as _Queue
 from time import sleep as _sleep
 from threading import currentThread as _curr_thread, _DummyThread
+from types import FunctionType
 
 TKHOOK_UNHOOKING = -1
 TKHOOK_UNHOOKED = 0
@@ -57,7 +66,8 @@ class TkWrapper:
             raise AttributeError(
                 "self.tk_widget is None. Not hooked into a Tk instance.")
 
-        return (lambda *a, _f=getattr(self.tk_widget._tk, attr_name), **kw:
+        tk_attr = getattr(self.tk_widget._tk, attr_name)
+        return (lambda *a, _f=tk_attr, **kw:
                 self.call_tk_attr_threadsafe(_f, *a, **kw))
 
     def call_tk_attr_threadsafe(self, tk_attr, *a, **kw):

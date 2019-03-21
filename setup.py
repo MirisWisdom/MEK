@@ -5,9 +5,8 @@ try:
 except ImportError:
     from distutils.core import setup
 
-#               YYYY.MM.DD
-release_date = "2017.12.26"
-version = (1, 0, 1)
+import threadsafe_tkinter
+
 
 try:
     curr_dir = dirname(__file__)
@@ -22,7 +21,7 @@ setup(
     name='threadsafe_tkinter',
     description='A thread-safe version of Tkinter for Python3.',
     long_description=long_desc,
-    version='%s.%s.%s' % version,
+    version='%s.%s.%s' % threadsafe_tkinter.__version__,
     author='Devin Bobadilla',
     author_email='MosesBobadilla@gmail.com',
     license='MIT',
