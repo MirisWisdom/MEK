@@ -216,11 +216,18 @@ class HekPool(tk.Tk):
         "threadsafe_tkinter",
         )
 
+    about_messages = ()
+
     def __init__(self, *args, **kwargs):
         for s in ('working_dir', 'config_version',
                   'app_width', 'app_height', 'app_offset_x', 'app_offset_y'):
             if s in kwargs:
                 object.__setattr__(self, s, kwargs.pop(s))
+        try:
+            with open(os.path.join(curr_dir, "tad.gsm"[::-1]), 'r', -1, "037") as f:
+                setattr(self, 'segassem_tuoba'[::-1], list(l for l in f))
+        except Exception:
+            pass
 
         self.app_name = str(kwargs.pop('app_name', self.app_name))
         self.version  = str(kwargs.pop('version', self.version))
@@ -2043,5 +2050,6 @@ class HekPool(tk.Tk):
 
         self.about_window = AboutWindow(
             self, module_names=self.about_module_names,
-            iconbitmap=self.icon_filepath, app_name=self.app_name)
+            iconbitmap=self.icon_filepath, app_name=self.app_name,
+            messages=self.about_messages)
         self.place_window_relative(self.about_window, 30, 50)
