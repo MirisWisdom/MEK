@@ -1,6 +1,6 @@
 from array import array
 from ..common_descs import *
-from supyr_struct.defs.block_def import BlockDef
+from supyr_struct.defs.tag_def import TagDef
 
 def pixel_block_size(node, *a, **kwa):
     if isinstance(node, array):
@@ -22,6 +22,7 @@ sprite = QStruct("sprite",
     Float("bottom side"),
     Float("registration point x"),
     Float("registration point y"),
+    SIZE=32
     )
 
 sequence = Struct("sequence",
@@ -29,7 +30,8 @@ sequence = Struct("sequence",
     UInt16("first bitmap index"),
     UInt16("bitmap count"),
     Pad(16),
-    h2_meta_reflexive("sprites", sprite, 64),
+    h2_reflexive("sprites", sprite, 64),
+    SIZE=60
     )
 
 bitmap = Struct("bitmap",
@@ -67,7 +69,7 @@ bitmap = Struct("bitmap",
         ("dxt1", 14),
         ("dxt3", 15),
         ("dxt5", 16),
-        ("p8-bump", 17),
+        ("p8 bump", 17),
         ("p8", 18),
         ("argbfp32", 19),
         ("rgbfp32", 20),
@@ -103,13 +105,13 @@ bitmap = Struct("bitmap",
     UInt32("lod4 size", EDITABLE=False),
     UInt32("lod5 size", EDITABLE=False),
     UInt32("lod6 size", EDITABLE=False),
-    QStruct("datum",  # points back to this tag
-        INCLUDE=tag_id_struct, VISIBLE=False, EDITABLE=False
+    UInt32("datum",  # points back to this tag
+        VISIBLE=False, EDITABLE=False
         ),
-    Pad(116 - 4*15 - 2*9 - 1*2),
+    SIZE=116
     )
 
-bitm_meta_def = BlockDef("bitm",
+bitm_body = Struct("tagdata",
     SEnum16("type",
         "textures 2d",
         "textures 3d",
@@ -173,8 +175,8 @@ bitm_meta_def = BlockDef("bitm",
     UInt16("color plate width",  SIDETIP="pixels", EDITABLE=False),
     UInt16("color plate height", SIDETIP="pixels", EDITABLE=False),
 
-    h2_meta_rawdata_ref("compressed color plate data", max_size=16777216),
-    h2_meta_rawdata_ref("processed pixel data", max_size=16777216),
+    h2_rawdata_ref("compressed color plate data", max_size=16777216),
+    h2_rawdata_ref("processed pixel data", max_size=16777216),
 
     Float("blur filter size", MIN=0.0, MAX=10.0, SIDETIP="[0,10] pixels"),
     float_neg_one_to_one("alpha bias"),
@@ -194,8 +196,8 @@ bitm_meta_def = BlockDef("bitm",
        "a8l8",
        "a4r4g4b4",
        ),
-    h2_meta_reflexive("sequences", sequence, 256, DYN_NAME_PATH='.sequence_name'),
-    h2_meta_reflexive("bitmaps", bitmap, 65536),
+    h2_reflexive("sequences", sequence, 256, DYN_NAME_PATH='.sequence_name'),
+    h2_reflexive("bitmaps", bitmap, 65536),
     Struct("more sprite processing",
         SInt8("color compression quality", SIDETIP="[1, 127]"),
         SInt8("alpha compression quality", SIDETIP="[1, 127]"),
@@ -207,6 +209,17 @@ bitm_meta_def = BlockDef("bitm",
             {GUI_NAME:"4:4:4", NAME:"x4x4"},
             )
         ),
-    ENDIAN="<", TYPE=Struct, WIDGET=Halo2BitmapTagFrame,
+    ENDIAN="<", SIZE=76, WIDGET=Halo2BitmapTagFrame,
+    )
+
+
+def get():
+    return bitm_def
+
+bitm_def = TagDef("bitm",
+    h2_blam_header('bitm'),
+    bitm_body,
+
+    ext=".%s" % h2_tag_class_fcc_to_ext["bitm"], endian="<",
     subdefs={'pixel_root':pixel_root}
     )

@@ -2,27 +2,6 @@ from supyr_struct.field_type_methods import *
 from .constants import *
 
 
-# this is ultra hacky, but it seems to be the only
-# way to fix the tagid for the sounds resource map
-sound_rsrc_id_map = {
-    92: 15,  # sound\sfx\impulse\impacts\smallrock
-    93: 17,  # sound\sfx\impulse\impacts\medrocks
-    94: 19,  # sound\sfx\impulse\impacts\lrgrocks
-
-    125: 25,  # sound\sfx\impulse\impacts\metal_chips
-    126: 27,  # sound\sfx\impulse\impacts\metal_chip_med
-
-    372: 123,  # sound\sfx\impulse\shellcasings\double_shell_dirt
-    373: 125,  # sound\sfx\impulse\shellcasings\multi_shell_dirt
-    374: 127,  # sound\sfx\impulse\shellcasings\single_shell_metal
-    375: 129,  # sound\sfx\impulse\shellcasings\double_shell_metal
-    376: 131,  # sound\sfx\impulse\shellcasings\multi_shell_metal
-
-    1545: 529,  # sound\sfx\impulse\glass\glass_medium
-    1546: 531,  # sound\sfx\impulse\glass\glass_large
-    }
-
-
 def tag_ref_str_sizecalc(self, node, **kwargs):
     '''
     Used to calculate the size of a tag reference string from a given string
@@ -32,20 +11,28 @@ def tag_ref_str_sizecalc(self, node, **kwargs):
         return len(node) + 1
     return 0
 
+def get_set_zone_asset_size(node=None, parent=None, attr_index=None,
+                            rawdata=None, new_value=None, **kwargs):
+    if new_value is not None:
+        parent.size = new_value
+    elif "map_pointer_converter" in kwargs:
+        return 0
+    return parent.size
+
 def tag_ref_str_size(node=None, parent=None, attr_index=None,
-                 rawdata=None, new_value=None, **kwargs):
+                     rawdata=None, new_value=None, **kwargs):
     '''Used to retrieve or set the byte size of a Halo tag
     reference string. If the string is empty, the actual amount
     of bytes it takes up is zero, otherwise it is (1+length) bytes.
     This is to account for the delimiter.
-    
+
     When setting the size, the provided new_value is expected to
     be including the delimiter, so the reverse operation is applied.
     If the string's length is 1(only a delimiter), the bytes size
     is zero, but otherwise it is (length-1).
 
     Lengths of 1 cant exist.'''
-    
+
     if new_value is None:
         strlen = parent.path_length
         return strlen + bool(strlen)
@@ -65,27 +52,25 @@ def encode_tag_ref_str(self, node, parent=None, attr_index=None):
 
 
 def tag_ref_str_parser(self, desc, node=None, parent=None, attr_index=None,
-                   rawdata=None, root_offset=0, offset=0, **kwargs):
+                       rawdata=None, root_offset=0, offset=0, **kwargs):
     """
     """
     assert parent is not None and attr_index is not None, (
         "parent and attr_index must be provided " +
         "and not None when reading a data field.")
-    if "tag_index" in kwargs:
-        tag_index = kwargs["tag_index"]
-        tagid = parent.id.tag_table_index
-        if tagid < 0 or tagid == 0xFFFF:
+    tag_index_manager = kwargs.get("tag_index_manager")
+    if tag_index_manager:
+        tag_id = parent.id
+        if kwargs.get("indexed"):
+            # tag_index is a resource map tag_paths collection
+            parent.id = tag_index_manager.translate_tag_id(tag_id)
+
+        tag_index_ref = tag_index_manager.get_tag_index_ref(tag_id)
+        if tag_index_ref is None:
             parent[attr_index] = ""
         else:
-            if kwargs.get("indexed") and kwargs.get('tag_cls') == 'snd!':
-                # tag_index is a resource map tag_paths collection
-                parent.id[0] = tagid = sound_rsrc_id_map.get(tagid, tagid)
+            parent[attr_index] = tag_index_ref.path
 
-            try:
-                parent[attr_index] = tag_index[tagid].tag.tag_path
-            except (AttributeError, IndexError):
-                # unable to get the tag path
-                parent[attr_index] = ""
     elif rawdata:
         # read and store the node
         rawdata.seek(root_offset + offset)
@@ -100,6 +85,60 @@ def tag_ref_str_parser(self, desc, node=None, parent=None, attr_index=None,
     return offset
 
 
+def read_string_id_string(parent=None, attr_index=None, rawdata=None, offset=0,
+                          map_string_id_manager=None, **kwargs):
+    assert parent is not None
+    if map_string_id_manager:
+        parent[attr_index] = map_string_id_manager.get_string(parent)
+    elif "map_pointer_converter" not in kwargs:
+        desc = parent.desc
+        str_len = (parent[0] & 0xFFffFFff) >> (desc[STRINGID_IDX_BITS] +
+                                               desc[STRINGID_SET_BITS])
+        if str_len:
+            rawdata.seek(offset)
+            parent[attr_index] = rawdata.read(str_len).strip(b'\x00').decode(
+                encoding="latin-1")
+        else:
+            parent[attr_index] = ""
+
+        offset += str_len + 1  # add 1 for the null terminator
+    else:
+        parent[attr_index] = ""
+
+    return offset
+
+
+def write_string_id_string(parent=None, attr_index=None,
+                           writebuffer=None, offset=0, **kwargs):
+    assert parent is not None
+    if "map_pointer_converter" in kwargs:
+        return offset
+
+    raw_string = parent.string.encode(encoding="latin-1") + b'\x00'
+    writebuffer.seek(offset)
+    writebuffer.write(raw_string)
+    return offset + len(raw_string)
+
+
+def get_set_string_id_size(parent=None, attr_index=None,
+                           new_value=None, **kwargs):
+    desc = parent.desc
+    string_id = parent[0]
+    idx_set_bit_ct = desc[STRINGID_IDX_BITS] + desc[STRINGID_SET_BITS]
+    len_bit_ct = desc[STRINGID_LEN_BITS]
+    if new_value is None:
+        return (string_id & 0xFFffFFff) >> idx_set_bit_ct
+    elif new_value > (1 << len_bit_ct):
+        raise ValueError("String ID's cannot be longer than %s characters." %
+                         ((1 << len_bit_ct) - 1))
+    elif new_value > 0:
+        new_value -= 1  # subtract the null delimiter
+    else:
+        assert new_value == 0
+    parent[0] = (string_id & ((1 << idx_set_bit_ct) - 1)) + (
+        new_value << idx_set_bit_ct)
+
+
 def reflexive_parser(self, desc, node=None, parent=None, attr_index=None,
                      rawdata=None, root_offset=0, offset=0, **kwargs):
     """
@@ -108,7 +147,7 @@ def reflexive_parser(self, desc, node=None, parent=None, attr_index=None,
         __lsi__ = list.__setitem__
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent)
 
         # If there is rawdata to build the structure from
@@ -144,22 +183,22 @@ def reflexive_parser(self, desc, node=None, parent=None, attr_index=None,
 
         s_desc = desc.get('STEPTREE')
         if s_desc:
-            magic = kwargs.get('magic')
-            if magic is None:
-                pass
-            elif (node[1] - magic < 0 or node[1] - magic +
-                  node[0]*s_desc['SUB_STRUCT'].get('SIZE', 0) > len(rawdata)):
-                # the reflexive is corrupt for some reason
-                #    (ex: bad hek+ extraction)
-                node.size = node.pointer = 0
+            pointer_converter = kwargs.get('map_pointer_converter')
+            if pointer_converter is not None:
+                file_ptr = pointer_converter.v_ptr_to_f_ptr(node[1])
+                if (file_ptr < 0 or file_ptr +
+                    node[0]*s_desc['SUB_STRUCT'].get('SIZE', 0) > len(rawdata)):
+                    # the reflexive is corrupt for some reason
+                    #    (ex: bad hek+ extraction)
+                    node[0] = node[1] = 0
 
             if not node[0]:
                 # reflexive is empty. no need to provide rawdata
                 s_desc['TYPE'].parser(s_desc, None, node, 'STEPTREE', None)
-            elif magic is not None:
+            elif pointer_converter is not None:
                 # parsing tag from a map
                 s_desc['TYPE'].parser(s_desc, None, node, 'STEPTREE', rawdata,
-                                      root_offset, node[1] - magic, **kwargs)
+                                      root_offset, file_ptr, **kwargs)
             elif 'steptree_parents' not in kwargs:
                 offset = s_desc['TYPE'].parser(s_desc, None, node, 'STEPTREE',
                                                rawdata, root_offset, offset,
@@ -192,7 +231,7 @@ def rawdata_ref_parser(self, desc, node=None, parent=None, attr_index=None,
     try:
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent, init_attrs=rawdata is None)
 
         # If there is rawdata to build the structure from
@@ -209,26 +248,29 @@ def rawdata_ref_parser(self, desc, node=None, parent=None, attr_index=None,
 
         s_desc = desc.get('STEPTREE')
         if s_desc:
+            pointer_converter = kwargs.get("map_pointer_converter")
             if kwargs.get("parsing_resource"):
                 # parsing JUST metadata from a resource cache
-                if 'steptree_parents' not in kwargs and 'magic' in kwargs:
+                node_size = node[0]
+                if 'steptree_parents' not in kwargs and pointer_converter is not None:
                     # need to skip over the rawdata
-                    offset += node[0] + node[2] - kwargs['magic']
-            elif 'magic' in kwargs:
-                # use magic offset if it is valid
-                if node[3]:
-                    nonmagic_offset = node[3] - kwargs["magic"]
-                else:
-                    nonmagic_offset = node[2]
+                    offset += node_size + node[2]
 
-                if not node[0] or (nonmagic_offset + node[0] > len(rawdata) or
-                                   nonmagic_offset <= 0):
+                s_desc['TYPE'].parser(s_desc, None, node, 'STEPTREE', None)
+                node[0] = node_size
+            elif pointer_converter is not None:
+                file_ptr = pointer_converter.v_ptr_to_f_ptr(node[3])
+                if not node[3] or file_ptr < 0:
+                    file_ptr = node[2]
+
+                if not node[0] or (file_ptr + node[0] > len(rawdata) or
+                                   file_ptr <= 0):
                     # data is stored in a resource map, or the size is invalid
                     s_desc['TYPE'].parser(s_desc, None, node, 'STEPTREE', None)
                 else:
                     s_desc['TYPE'].parser(
                         s_desc, None, node, 'STEPTREE', rawdata,
-                        root_offset, nonmagic_offset, **kwargs)
+                        root_offset, file_ptr, **kwargs)
             elif 'steptree_parents' not in kwargs:
                 offset = s_desc['TYPE'].parser(s_desc, None, node, 'STEPTREE',
                                                rawdata, root_offset, offset,
@@ -254,3 +296,19 @@ def rawdata_ref_parser(self, desc, node=None, parent=None, attr_index=None,
                                parent=parent, attr_index=attr_index,
                                offset=orig_offset, **kwargs)
         raise e
+
+
+def tag_ref_str_serializer(self, node, parent=None, attr_index=None,
+                           writebuffer=None, root_offset=0, offset=0, **kwargs):
+    if "map_pointer_converter" in kwargs:
+        # don't serialize the string
+        return offset
+
+    node_bytes = self.encoder(node, parent, attr_index)
+    writebuffer.seek(root_offset + offset)
+    writebuffer.write(node_bytes)
+    size = parent.get_size(attr_index, root_offset=root_offset,
+                           offset=offset, **kwargs)
+    if size - len(node_bytes):
+        writebuffer.write(b'\x00'*(size - len(node_bytes)))
+    return offset + size

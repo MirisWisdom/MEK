@@ -10,7 +10,7 @@ h2_alpha_map_header = Struct("map header",
     UInt32("decomp len"),
     UInt32("unknown"),
     UInt32("tag index header offset"),
-    UInt32("tag index meta len"),
+    UInt32("tag data size"),
     Pad(8),
     ascii_str32("map name"),
     ascii_str32("build date", EDITABLE=False),
@@ -39,20 +39,17 @@ h2_alpha_map_header = Struct("map header",
     SIZE=2048
     )
 
-tag_data = Container("tag",
-    CStrLatin1("tag path", POINTER=tag_path_pointer),
-    )
-
 tag_header = Struct("tag header",
     UEnum32("class 1", GUI_NAME="primary tag class", INCLUDE=valid_h2_tags),
     UEnum32("class 2", GUI_NAME="secondary tag class", INCLUDE=valid_h2_tags),
     UEnum32("class 3", GUI_NAME="tertiary tag class", INCLUDE=valid_h2_tags),
-    tag_id_struct,
+    UInt32("id"),
     UInt32("path offset"),
     UInt32("meta offset"),
     Bool32("flags", *("flag_%s" % i for i in range(32))),  # this is a guess
     UInt32("pad"),
-    STEPTREE=tag_data, SIZE=32
+    STEPTREE=CStrLatin1("path", POINTER=tag_path_pointer),
+    SIZE=32
     )
 
 tag_index_array = TagIndex("tag index",
@@ -61,7 +58,7 @@ tag_index_array = TagIndex("tag index",
 
 h2_alpha_tag_index = Struct("tag index",
     UInt32("tag index offset"),
-    QStruct("scenario tag id", INCLUDE=tag_id_struct),
+    UInt32("scenario tag id"),
     UInt32("unknown"),
     UInt32("tag count"),
     UInt32("tag sig", EDITABLE=False, DEFAULT='tags'),

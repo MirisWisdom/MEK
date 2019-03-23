@@ -22,13 +22,14 @@ permutation = Struct('permutation',
     dyn_senum16('superhigh geometry block',
         DYN_NAME_PATH="tagdata.geometries.geometries_array[DYN_I].NAME"),
     Pad(2),
+
+    #reflexive("local markers", local_marker, 32, DYN_NAME_PATH=".name"),
     SIZE=88
     )
 
 part = Struct('part',
     Bool32('flags',
         'stripped',
-        'ZONER',
         ),
     dyn_senum16('shader index',
         DYN_NAME_PATH="tagdata.shaders.shaders_array[DYN_I].shader.filepath"),
@@ -51,17 +52,19 @@ part = Struct('part',
 
     #Pad(36),
     Struct("model meta info",
-        UEnum32("index type",  # name is a guess.  always 1?
+        UEnum16("index type",  # name is a guess.  always 1?
             ("uncompressed", 1),
             ),
+        Pad(2),
         UInt32("index count"),
         UInt32("indices offset"),
         UInt32("indices reflexive offset"),
 
-        UEnum32("vertex type",  # name is a guess
+        UEnum16("vertex type",  # name is a guess
             ("uncompressed", 4),
             ("compressed",   5),
             ),
+        Pad(2),
         UInt32("vertex count"),
         Pad(4),  # always 0?
         UInt32("vertices offset"),

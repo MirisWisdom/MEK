@@ -8,6 +8,7 @@ from os.path import abspath, basename, exists, isfile, join, normpath, splitext
 from binilla.handler import Handler
 from supyr_struct.buffer import BytearrayBuffer
 from supyr_struct.defs.util import sanitize_path
+from reclaimer.data_extraction import h1_data_extractors
 from reclaimer.field_types import *
 from reclaimer.hek.defs.objs.tag import HekTag
 from traceback import format_exc
@@ -19,6 +20,7 @@ def bytes_to_hex(taghash):
     return '0x' + '0'*(len(taghash)*2-len(hsh)) + hsh
 
 
+# TODO: DELETE THIS WHEN IT IS CONFIRMED THAT NOTHING REFERENCES IT
 def fps_60_related(desc):
     unit_scale = desc.get("UNIT_SCALE")
     if hasattr(unit_scale, "fps_60_scale") and unit_scale.fps_60_scale:
@@ -41,6 +43,7 @@ NO_LOC_REFS = NodepathRef(False)
 
 class HaloHandler(Handler):
     frozen_imp_paths = all_def_names
+    tag_header_engine_id = "blam"
     default_defs_path = "reclaimer.hek.defs"
     tag_fcc_match_set = frozenset()
     tag_filepath_match_set = frozenset()
@@ -54,6 +57,8 @@ class HaloHandler(Handler):
     tag_ref_cache   = None
     reflexive_cache = None
     raw_data_cache  = None
+
+    tag_data_extractors = h1_data_extractors
 
     def __init__(self, *args, **kwargs):
         if not kwargs.pop("build_tag_ref_cache", True):
@@ -176,8 +181,8 @@ class HaloHandler(Handler):
                 f.seek(36)
                 def_id = str(f.read(4), 'latin-1')
                 f.seek(60)
-                engine_id = f.read(4)
-            if def_id in self.defs and engine_id == b'blam':
+                engine_id = f.read(4).decode(encoding='latin-1')
+            if def_id in self.defs and engine_id == self.tag_header_engine_id:
                 return def_id
         except Exception:
             return None

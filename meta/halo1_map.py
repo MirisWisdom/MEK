@@ -19,10 +19,9 @@ simply do:    abs_pointer = magic_pointer - magic
 def tag_path_pointer(parent=None, new_value=None, **kwargs):
     if parent is None:
         raise KeyError()
-    t_head = parent.parent
     if new_value is None:
-        return t_head.path_offset - kwargs.get('magic', 0)
-    t_head.path_offset = new_value + kwargs.get('magic', 0)
+        return parent.path_offset - kwargs.get('magic', 0)
+    parent.path_offset = new_value + kwargs.get('magic', 0)
 
 
 def tag_index_array_pointer(parent=None, new_value=None, **kwargs):
@@ -119,7 +118,7 @@ map_header_demo = Struct("map header",
         ),
     Pad(700),
     UEnum32('head', ('head', 'Ehed'), EDITABLE=False, DEFAULT='Ehed'),
-    UInt32("tag index meta len"),
+    UInt32("tag data size"),
     ascii_str32("build date", EDITABLE=False),
     Pad(672),
     UEnum32("version",
@@ -127,6 +126,7 @@ map_header_demo = Struct("map header",
         ("halo1pcdemo", 6),
         ("halo1pc", 7),
         ("halo2", 8),
+        ("halo3beta", 9),
         ("halo3", 11),
         ("halo1ce", 609),
         ),
@@ -148,13 +148,14 @@ map_header = Struct("map header",
         ("halo1pcdemo", 6),
         ("halo1pc", 7),
         ("halo2", 8),
+        ("halo3beta", 9),
         ("halo3", 11),
         ("halo1ce", 609),
         ),
     UInt32("decomp len"),
     UInt32("unknown"),
     UInt32("tag index header offset"),
-    UInt32("tag index meta len"),
+    UInt32("tag data size"),
     Pad(8),
     ascii_str32("map name"),
     ascii_str32("build date", EDITABLE=False),
@@ -172,15 +173,11 @@ map_header = Struct("map header",
     SIZE=2048
     )
 
-tag_data = Container("tag",
-    CStrLatin1("tag path", POINTER=tag_path_pointer),
-    )
-
 tag_header = Struct("tag header",
     UEnum32("class 1", GUI_NAME="primary tag class", INCLUDE=valid_tags_os),
     UEnum32("class 2", GUI_NAME="secondary tag class", INCLUDE=valid_tags_os),
     UEnum32("class 3", GUI_NAME="tertiary tag class", INCLUDE=valid_tags_os),
-    tag_id_struct,
+    UInt32("id"),
     UInt32("path offset"),
     UInt32("meta offset"),
     UInt32("indexed"),
@@ -188,7 +185,8 @@ tag_header = Struct("tag header",
     # the bitmaps, sounds, or loc cache that the meta data is located in.
     # NOTE: indexed is NOT a bitfield, if it is non-zero it is True
     UInt32("pad"),
-    STEPTREE=tag_data, SIZE=32
+    STEPTREE=CStrLatin1("path", POINTER=tag_path_pointer),
+    SIZE=32
     )
 
 tag_index_array = TagIndex("tag index",
@@ -197,7 +195,7 @@ tag_index_array = TagIndex("tag index",
 
 tag_index_xbox = Struct("tag index",
     UInt32("tag index offset"),
-    QStruct("scenario tag id", INCLUDE=tag_id_struct),
+    UInt32("scenario tag id"),
     UInt32("map id"),  # normally unused, but the scenario tag's header
     #                    can be used for spoofing the maps checksum
     UInt32("tag count"),
@@ -213,12 +211,34 @@ tag_index_xbox = Struct("tag index",
     STEPTREE=tag_index_array
     )
 
-tag_index_pc = tipc = dict(tag_index_xbox)
-tipc['ENTRIES'] += 1; tipc['SIZE'] += 4
-tipc[7] = LUInt32("vertex data size")
-tipc[9] = tipc[8]; tipc[8] = LUInt32("model data size")
+tag_index_pc = Struct("tag index",
+    UInt32("tag index offset"),
+    UInt32("scenario tag id"),
+    UInt32("map id"),  # normally unused, but the scenario tag's header
+    #                    can be used for spoofing the maps checksum
+    UInt32("tag count"),
+
+    UInt32("vertex parts count"),
+    UInt32("model data offset"),
+
+    UInt32("index parts count"),
+    UInt32("vertex data size"),
+    UInt32("model data size"),
+    UInt32("tag sig", EDITABLE=False, DEFAULT='tags'),
+
+    SIZE=40,
+    STEPTREE=tag_index_array
+    )
+
+#tag_index_pc = tipc = dict(tag_index_xbox)
+#tipc['ENTRIES'] += 1; tipc['SIZE'] += 4
+#tipc[7] = UInt32("vertex data size")
+#tipc[9] = tipc[8]; tipc[8] = UInt32("model data size")
 
 map_header_def = BlockDef(map_header)
+map_header_anni_def = BlockDef(map_header, endian=">")
 map_header_demo_def = BlockDef(map_header_demo)
+
 tag_index_xbox_def = BlockDef(tag_index_xbox)
 tag_index_pc_def = BlockDef(tag_index_pc)
+tag_index_anni_def = BlockDef(tag_index_pc, endian=">")

@@ -25,23 +25,25 @@ def get_map_version(header):
         # use the same version integer of 7
         if build_date == map_build_dates["halo2alpha"]:
             version = "halo2alpha"
+        elif build_date == map_build_dates["halo1anni"]:
+            version = "halo1anni"
     elif version == "halo1xbox":
         if build_date is None:
-            return
+            version = None
         elif build_date == map_build_dates["stubbs"]:
             version = "stubbs"
-        elif build_date == map_build_dates["stubbspc"]:
+        elif build_date == "":
             if header.unknown in (11, 1033):
                 # this is the only discernable difference
-                # between xbox beta and stubbs pc maps
-                version = "halo1xboxbeta"
+                # between xbox demo and stubbs pc maps
+                version = "halo1xboxdemo"
             else:
                 version = "stubbspc"
-        elif build_date == map_build_dates["shadowrun_beta"]:
-            version = "shadowrun_beta"
+        elif build_date == map_build_dates["shadowrun_proto"]:
+            version = "shadowrun_proto"
     elif hasattr(header, "yelo_header") and (
             header.yelo_header.yelo.enum_name == "yelo"):
-        return "halo1yelo"
+        version = "halo1yelo"
     elif version == "halo2":
         version = None
         if build_date == map_build_dates['halo2beta']:
@@ -52,6 +54,14 @@ def get_map_version(header):
             version = "halo2epsilon"
         elif build_date == map_build_dates['halo2vista']:
             version = "halo2vista"
+    elif version == "halo3":
+        if build_date == map_build_dates['halo3odst']:
+            version = "halo3odst"
+    elif version == "haloreach":
+        if build_date == map_build_dates['haloreachbeta']:
+            version = "haloreachbeta"
+        elif build_date == map_build_dates['halo4']:
+            version = "halo4"
 
     return version
 
@@ -90,11 +100,13 @@ def get_map_header(map_file, header_only=False):
             header_def = map_header_def
             build_date = header_data[64: 96].decode("latin-1")
             if build_date == map_build_dates['halo2alpha']:
-                h2_alpha_map_header_def
+                header_def = h2_alpha_map_header_def
 
     elif sig_b == "head":
         if ver_b == 11:
             header_def = h3_map_header_def
+        elif ver_b == 7:
+            header_def = map_header_anni_def
 
     elif header_data[704:708] == b'dehE' and header_data[1520:1524] == b'tofG':
         header_def = map_header_demo_def
@@ -121,7 +133,7 @@ def get_tag_index(map_data, header=None):
         header = get_map_header(map_data)
 
     map_data = decompress_map(map_data, header)
-    magic = 0
+    base_address = header.tag_index_header_offset
 
     tag_index_def = tag_index_pc_def
     version = get_map_version(header)
@@ -131,33 +143,47 @@ def get_tag_index(map_data, header=None):
         tag_index_def = tag_index_xbox_def
     elif version == "halo2alpha":
         tag_index_def = h2_alpha_tag_index_def
+    elif version == "halo1anni":
+        tag_index_def = tag_index_anni_def
     elif header.version.enum_name == "halo2":
         tag_index_def = h2_tag_index_def
     elif header.version.enum_name == "halo3":
         tag_index_def = h3_tag_index_def
-        magic = HALO3_INDEX_MAGIC
 
-    if header.tag_index_header_offset - magic <= 0:
-        tag_index = tag_index_def.build()
-    else:
-        tag_index = tag_index_def.build(
-            rawdata=map_data, magic=get_map_magic(header),
-            offset=header.tag_index_header_offset - magic)
+        for partition in header.partitions:
+            if base_address in range(partition.load_address,
+                                     partition.load_address + partition.size):
+                base_address -= partition.load_address - partition.file_offset
+                break
+
+    if hasattr(header, "sections") and header.sections.tag.size == 0:
+        # shared resource map. no tag index, so make a blank one
+        return tag_index_def.build(map_header=header)
+
+    tag_index = tag_index_def.build(
+        rawdata=map_data, magic=get_map_magic(header),
+        offset=base_address, map_header=header)
 
     return tag_index
 
 
 def get_index_magic(header):
     version = get_map_version(header)
-    if version == "halo2vista" and header.map_type.enum_name == "mp":
-        return H2V_MP_INDEX_MAGIC
+    if version == "halo2vista":
+        return header.virtual_address
+    elif version in GEN_3_ENGINES:
+        base_address = header.tag_index_header_offset
+        for partition in header.partitions:
+            if base_address in range(partition.load_address,
+                                     partition.load_address + partition.size):
+                return partition.load_address - partition.file_offset
 
     return map_magics.get(version, 0)
 
 
 def get_map_magic(header):
     magic = get_index_magic(header)
-    if header.version.enum_name != "halo3":
+    if header.version.enum_name not in GEN_3_ENGINES:
         magic -= header.tag_index_header_offset
 
     return magic

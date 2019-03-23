@@ -1,90 +1,117 @@
-from supyr_struct.defs.constants import *
-from binilla.constants import *
-from supyr_struct.defs.util import fcc
 from struct import unpack
+
+from supyr_struct.defs.constants import *
+from supyr_struct.defs.util import fcc
+from binilla.constants import *
 
 # some reflexives are so massive that it's significantly faster to treat them
 # as raw data and just byteswap them using precalculated offsets and sizes
 RAW_REFLEXIVE_INFO = "RAW_REFLEXIVE_INFO"
+STRINGID_IDX_BITS = "STRINGID_IDX_BITS"
+STRINGID_SET_BITS = "STRINGID_SET_BITS"
+STRINGID_LEN_BITS = "STRINGID_LEN_BITS"
 COLOR_CHANNELS = "COLOR_CHANNELS"
 
 def inject_halo_constants():
     # add the new descriptor keywords to the sets
-    add_desc_keywords(RAW_REFLEXIVE_INFO, COLOR_CHANNELS)
+    add_desc_keywords(RAW_REFLEXIVE_INFO, COLOR_CHANNELS,
+                      STRINGID_IDX_BITS, STRINGID_SET_BITS, STRINGID_LEN_BITS)
 
 
-PCDEMO_INDEX_MAGIC         = 0x4BF10000
-PC_INDEX_MAGIC             = 0x40440000
-CE_INDEX_MAGIC             = 0x40440000
-XBOX_INDEX_MAGIC           = 0x803A6000
-STUBBS_INDEX_MAGIC         = 0x8038B000
-SHADOWRUN_BETA_INDEX_MAGIC = 0x8069E000
-H2_ALPHA_INDEX_MAGIC       = 0x80061000
-H2_XBOX_INDEX_MAGIC        = 0x80061000  # this at least appears to be the
-                                         # case in the singleplayer maps
-H2V_MP_INDEX_MAGIC         = 0x01400000  # only applies to multiplayer maps.
-#                                          pointers below this index magic
-#                                          actually point to resource maps.
+PCDEMO_INDEX_MAGIC          = 0x4BF10000
+PC_INDEX_MAGIC              = 0x40440000
+CE_INDEX_MAGIC              = 0x40440000
+ANNIVERSARY_INDEX_MAGIC     = 0x004B8000
+XBOX_INDEX_MAGIC            = 0x803A6000
+STUBBS_INDEX_MAGIC          = 0x8038B000
+SHADOWRUN_PROTO_INDEX_MAGIC = 0x8069E000
+H2_XBOX_INDEX_MAGIC         = 0x80061000
 
 
 map_build_dates = {
-    "stubbs":         "400",
-    "stubbspc":       "",
-    "shadowrun_beta": "01.12.07.0132",
-    "halo1xbox":      "01.10.12.2276",
-    "halo1xboxbeta":  "",
-    "halo1pcdemo":    "01.00.00.0576",
-    "halo1pc":        "01.00.00.0564",
-    "halo2alpha":     "02.01.07.4998",
-    "halo2beta":      "02.06.28.07902",
-    "halo2epsilon":   "02.08.28.09214",
-    "halo2xbox":      "02.09.27.09809",
-    "halo2vista":     "11081.07.04.30.0934.main",
-    "halo3":          "11855.07.08.20.2317.halo3_ship",
-    "halo1ce":        "01.00.00.0609",
-    "halo1yelo":      "01.00.00.0609",
+    "stubbs":          "400",
+    "stubbspc":        "",
+    "shadowrun_proto": "01.12.07.0132",
+    "halo1xboxdemo":   "",
+    "halo1xbox":       "01.10.12.2276",
+    "halo1pcdemo":     "01.00.00.0576",
+    "halo1anni":       "01.00.01.0563",
+    "halo1ce":         "01.00.00.0609",
+    "halo1yelo":       "01.00.00.0609",
+    "halo1pc":         "01.00.00.0564",
+    "halo2alpha":      "02.01.07.4998",
+    "halo2beta":       "02.06.28.07902",
+    "halo2epsilon":    "02.08.28.09214",
+    "halo2xbox":       "02.09.27.09809",
+    "halo2vista":      "11081.07.04.30.0934.main",
+    "halo3beta":       "",  # SET THIS
+    "halo3":           "11855.07.08.20.2317.halo3_ship",
+    "halo3odst":       "13895.09.04.27.2201.atlas_relea",
+    "haloreachbeta":   "11860.10.07.24.0147.omaha_relea",
+    "haloreach":       "",  # SET THIS
+    "halo4":           "20810.12.09.22.1647.main",
+    "halo4nettest":    "",  # SET THIS
+    "halo5":           "",  # SET THIS
     }
 
 map_versions = {
-    "stubbs":         5,
-    "stubbspc":       5,
-    "shadowrun_beta": 5,
-    "halo1xbox":      5,
-    "halo1xboxbeta":  5,
-    "halo1pcdemo":    6,
-    "halo1pc":        7,
-    "halo1ce":        609,
-    "halo1yelo":      609,
-    "halo2alpha":     7,
-    "halo2beta":      8,
-    "halo2epsilon":   8,
-    "halo2xbox":      8,
-    "halo2vista":     8,
-    "halo3":          11,
+    "stubbs":          5,
+    "stubbspc":        5,
+    "shadowrun_proto": 5,
+    "halo1xboxdemo":   5,
+    "halo1xbox":       5,
+    "halo1pcdemo":     6,
+    "halo1pc":         7,
+    "halo1anni":       7,
+    "halo1ce":         609,
+    "halo1yelo":       609,
+    "halo2alpha":      7,
+    "halo2beta":       8,
+    "halo2epsilon":    8,
+    "halo2xbox":       8,
+    "halo2vista":      8,
+    "halo3beta":       9,
+    "halo3":           11,
+    "halo3odst":       11,
+    "haloreachbeta":   12,
+    "haloreach":       12,
+    "halo4":           12,
+    #"halo4nettest":    ????,
+    #"halo5":           ????,
     }
+
+GEN_1_HALO_ENGINES = ("halo1xboxdemo", "halo1xbox",
+                      "halo1ce", "halo1yelo",
+                      "halo1pcdemo", "halo1pc", "halo1anni", )
+
+GEN_1_ENGINES = GEN_1_HALO_ENGINES + (
+    "stubbs", "stubbspc", "shadowrun_proto", )
+
+GEN_2_ENGINES = ("halo2alpha", "halo2beta", "halo2epsilon",
+                 "halo2xbox", "halo2vista", )
+
+GEN_3_ENGINES = ("halo3", "halo3odst", "halo3beta",
+                 "haloreachbeta", "haloreach",
+                 "halo4", "halo4nettest", "halo5", )
 
 # magic is actually the virtual address the map is loaded at. Halo 3 and
 # beyond instead partition the map into sections with a virtual address for
 # each section, meaning there is a "magic" for different parts of each map.
 map_magics = {
-    "stubbs":         STUBBS_INDEX_MAGIC,
-    "stubbspc":       PC_INDEX_MAGIC,
-    "shadowrun_beta": SHADOWRUN_BETA_INDEX_MAGIC,
-    "halo1xbox":      XBOX_INDEX_MAGIC,
-    "halo1xboxbeta":  XBOX_INDEX_MAGIC,
-    "halo1pcdemo":    PCDEMO_INDEX_MAGIC,
-    "halo1pc":        PC_INDEX_MAGIC,
-    "halo1ce":        CE_INDEX_MAGIC,
-    "halo1yelo":      CE_INDEX_MAGIC,
-    "halo2alpha":     H2_ALPHA_INDEX_MAGIC,
-    "halo2beta":      0,
-    "halo2epsilon":   0,
-    "halo2xbox":      0,  # Halo 2 and beyond dont use magic
-    "halo2vista":     0,
-    "halo3":          0,
-    "halo4":          0,
-    "halo5":          0,
-    "halo_reach":     0,
+    "stubbs":          STUBBS_INDEX_MAGIC,
+    "stubbspc":        PC_INDEX_MAGIC,
+    "shadowrun_proto": SHADOWRUN_PROTO_INDEX_MAGIC,
+    "halo1xboxdemo":   XBOX_INDEX_MAGIC,
+    "halo1xbox":       XBOX_INDEX_MAGIC,
+    "halo1pcdemo":     PCDEMO_INDEX_MAGIC,
+    "halo1pc":         PC_INDEX_MAGIC,
+    "halo1anni":       ANNIVERSARY_INDEX_MAGIC,
+    "halo1ce":         CE_INDEX_MAGIC,
+    "halo1yelo":       CE_INDEX_MAGIC,
+    "halo2alpha":      H2_XBOX_INDEX_MAGIC,
+    "halo2beta":       H2_XBOX_INDEX_MAGIC,
+    "halo2epsilon":    H2_XBOX_INDEX_MAGIC,
+    "halo2xbox":       H2_XBOX_INDEX_MAGIC,
     }
 
 # bitmap types
@@ -107,6 +134,19 @@ FORMAT_DXT1 = 14
 FORMAT_DXT3 = 15
 FORMAT_DXT5 = 16
 FORMAT_P8_BUMP = 17
+FORMAT_P8 = 18
+FORMAT_A32R32G32B32F = 19
+FORMAT_R32G32B32F = 20
+FORMAT_R16G16B16F = 21
+FORMAT_V8U8 = 22
+FORMAT_G8B8 = 23
+FORMAT_DXN = 33
+FORMAT_CTX1 = 34
+FORMAT_DXT3A = 35
+FORMAT_DXT3Y = 36
+FORMAT_DXT5A = 37
+FORMAT_DXT5Y = 38
+FORMAT_DXT5AY = 39
 
 DXT_FORMATS = (FORMAT_DXT1, FORMAT_DXT3, FORMAT_DXT5)
 
@@ -115,15 +155,27 @@ PALLETIZED_FORMATS = (FORMAT_P8_BUMP, )
 # These name maps must match the constants found in arbytmap
 TYPE_NAME_MAP = ("2D", "3D", "CUBE", "WHITE")
 
+# this map corrosponds to the bitmap formats
+# found in the "format" enum in the bitmap tag
+# NOTE: These names must be unique, as they are used to map arbytmap
+# formats to halo bitmap format enum values. P8 needs to be its own
+# format which is just a variant of A8R8G8B8 so we know its P8.
 FORMAT_NAME_MAP = (
     "A8", "L8", "AL8", "A8L8",
     "UNUSED1", "UNUSED2",
     "R5G6B5",  "UNUSED3", "A1R5G5B5", "A4R4G4B4",
     "X8R8G8B8", "A8R8G8B8",
     "UNUSED4", "UNUSED5",
-    "DXT1", "DXT3", "DXT5", "P8-BUMP")
+    "DXT1", "DXT3", "DXT5", "P8-BUMP", "P8",
+    "A32R32G32B32F", "R32G32B32F", "R16G16B16F",
+    "V8U8", "G8B8", "UNUSED6", "UNUSED7", "UNUSED8",
+    "UNUSED9", "UNUSED10", "UNUSED11", "UNUSED12", "UNUSED13",
+    "UNUSED14", "DXN", "CTX1", "DXT3A", "DXT3Y", "DXT5A", "DXT5Y", "DXT5AY")
 
-I_FORMAT_NAME_MAP = {FORMAT_NAME_MAP[i]: i for i in range(len(FORMAT_NAME_MAP))}
+I_FORMAT_NAME_MAP = {}
+for i in range(len(FORMAT_NAME_MAP)):
+    if i not in I_FORMAT_NAME_MAP:
+        I_FORMAT_NAME_MAP[FORMAT_NAME_MAP[i]] = i
 
 #each bitmap's number of bytes must be a multiple of 512
 BITMAP_PADDING = 512

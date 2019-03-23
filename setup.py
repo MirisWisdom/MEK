@@ -7,9 +7,7 @@ except ImportError:
 
 curr_dir = dirname(__file__)
 
-#               YYYY.MM.DD
-release_date = "2018.10.27"
-version = (2, 1, 6)
+import reclaimer
 
 try:
     try:
@@ -26,7 +24,7 @@ setup(
     description='A libray of SupyrStruct structures and objects for \
 games built with the Blam engine',
     long_description=long_desc,
-    version='%s.%s.%s' % version,
+    version='%s.%s.%s' % reclaimer.__version__,
     url='https://bitbucket.org/Moses_of_Egypt/reclaimer',
     author='Devin Bobadilla',
     author_email='MosesBobadilla@gmail.com',
@@ -34,15 +32,20 @@ games built with the Blam engine',
     packages=[
         'reclaimer',
         'reclaimer.animation',
+        'reclaimer.bitmaps',
         'reclaimer.h2',
         'reclaimer.h2.defs',
         'reclaimer.h2.defs.objs',
         'reclaimer.h3',
+        'reclaimer.h3.defs',
+        'reclaimer.h3.defs.objs',
         'reclaimer.hek',
         'reclaimer.hek.defs',
         'reclaimer.hek.defs.objs',
         'reclaimer.meta',
+        'reclaimer.meta.gen3_resources',
         'reclaimer.meta.objs',
+        'reclaimer.meta.wrappers',
         'reclaimer.model',
         'reclaimer.misc',
         'reclaimer.misc.defs',
@@ -61,10 +64,9 @@ games built with the Blam engine',
         'reclaimer.stubbs.defs.objs',
         ],
     package_data={
-        '': ['*.txt', '*.md', '*.rst'],
-        'reclaimer': [
-            'hek/defs/objs/p8.act',
-            ]
+        '': ['*.txt', '*.md', '*.rst',
+             '**/p8_palette_halo',   '**/p8_palette_halo_diff_map',
+             '**/p8_palette_stubbs', '**/p8_palette_stubbs_diff_map'],
         },
     platforms=["POSIX", "Windows"],
     keywords="reclaimer, halo",

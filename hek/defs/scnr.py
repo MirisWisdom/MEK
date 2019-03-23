@@ -66,8 +66,10 @@ r_a_stream_header = Struct("r a stream header",
     QStruct("body", INCLUDE=fl_float_xyz),
     QStruct("head", INCLUDE=fl_float_xyz),
     QStruct("change", INCLUDE=fl_float_xyz),
-    FlUInt32("unknown1"),
-    FlUInt32("unknown2", DEFAULT=0xFFFFFFFF),
+    FlUInt16("unknown1"),
+    FlUInt16("unknown2"),
+    FlUInt16("unknown3", DEFAULT=0xFFFF),
+    FlUInt16("unknown4", DEFAULT=0xFFFF),
     SIZE=60
     )
 
@@ -213,8 +215,12 @@ comment = Struct("comment",
 
 object_name = Struct("object name",
     ascii_str32("name"),
-    FlUInt16("unknown1", VISIBLE=False),
-    FlUInt16("unknown2", VISIBLE=False),
+    FlSEnum16("object type",
+        *((object_types[i], i - 1) for i in
+          range(len(object_types))),
+        VISIBLE=False, DEFAULT=-1
+        ),
+    FlSInt16("reflexive index", VISIBLE=False),
     SIZE=36
     )
 
@@ -384,7 +390,8 @@ player_starting_location2[3] = dyn_senum16("bsp index",
         )
 
 trigger_volume = Struct("trigger volume",
-    FlUInt32("unknown", DEFAULT=1, EDITABLE=False),
+    FlUInt16("unknown", DEFAULT=1, EDITABLE=False),
+    Pad(2),
     ascii_str32("name"),
     # find out what if these fields actually what i'm calling them
     QStruct("normal",   INCLUDE=ijk_float),
@@ -514,7 +521,7 @@ halo_script = Struct("script",
     SEnum16("type", *script_types),
     SEnum16("return type", *script_object_types, EDITABLE=False),
     UInt32("root expression index", EDITABLE=False),
-    Void("decompiled script", WIDGET=HaloScriptTextFrame),
+    Computed("decompiled script", WIDGET=HaloScriptTextFrame),
     SIZE=92,
     )
 
@@ -523,7 +530,7 @@ halo_global = Struct("global",
     SEnum16("type", *script_object_types, EDITABLE=False),
     Pad(6),
     UInt32("initialization expression index", EDITABLE=False),
-    Void("decompiled script", WIDGET=HaloScriptTextFrame),
+    Computed("decompiled script", WIDGET=HaloScriptTextFrame),
     SIZE=92,
     )
 
@@ -876,9 +883,9 @@ ai_conversation = Struct("ai conversation",
     )
 
 structure_bsp = Struct("structure bsp",
-    FlUInt32("bsp pointer", VISIBLE=False),
-    FlUInt32("bsp size", VISIBLE=False),
-    FlUInt32("bsp magic", VISIBLE=False),
+    UInt32("bsp pointer", VISIBLE=False),
+    UInt32("bsp size", VISIBLE=False),
+    UInt32("bsp magic", VISIBLE=False),
     Pad(4),
     dependency("structure bsp", "sbsp"),
     SIZE=32
