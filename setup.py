@@ -31,7 +31,7 @@ setup(
         'hek_pool',
         ],
     package_data={
-        '': ['*.txt', '*.md', '*.rst', '*.pyw', '*.ico', '*.png'],
+        '': ['*.txt', '*.md', '*.rst', '*.pyw', '*.ico', '*.png', 'msg.dat'],
         'hek_pool': ['cmd_lists/*.txt', 'ogg_v1.1.2_dll_fix.zip'],
         },
     platforms=["POSIX", "Windows"],
