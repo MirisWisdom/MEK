@@ -1,18 +1,13 @@
-'''
-Supyr Struct
-
-need homepage here
-
-need an example of usage here
-
-need special thanks here
-'''
 from supyr_struct import field_type_methods, blocks, tag, buffer
 
 # ##############
 #   metadata   #
 # ##############
-__author__ = "MosesBobadilla, <mosesbobadilla@gmail.com>"
+__author__ = "Devin Bobadilla"
+#           YYYY.MM.DD
+__date__ = "2019.03.21"
+__version__ = (1, 2, 0)
+
 
 
 # give tag a reference to blocks
@@ -66,7 +61,7 @@ __all__ = [
     'BBitStruct', 'LBitStruct', 'Union', 'Switch', 'StreamAdapter',
     # special FieldTypes
     'BPointer32', 'LPointer32', 'BPointer64', 'LPointer64',
-    'Void', 'Pad',
+    'Void', 'Pad', 'Computed', 'WritableComputed',
     # integers and floats
     'BUIntBig', 'BSIntBig', 'BS1IntBig',
     'LUIntBig', 'LSIntBig', 'LS1IntBig',

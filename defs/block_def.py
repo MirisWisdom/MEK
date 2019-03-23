@@ -15,6 +15,10 @@ blocks = None
 field_types = None
 
 
+# TODO: Make BlockDef raise an error if the FieldType of
+# the root descriptor isn't a Block
+
+
 class BlockDef():
     '''
     BlockDefs are objects which contain a dict tree of structure
@@ -165,10 +169,11 @@ class BlockDef():
         if not isinstance(self.endian, str):
             raise TypeError("Invalid type for 'endian'. Expected %s, got %s." %
                             (str, type(self.endian)))
+
         if self.endian not in ('<', '', '>'):
             raise ValueError(
-                "Invalid endianness character provided.Valid characters are " +
-                "'<' for little, '>' for big, and '' for none.")
+                "Invalid endianness character provided. Valid characters " +
+                "are '<' for little, '>' for big, and '' for none.")
 
         # whether or not a descriptor should be built from the
         # keyword arguments and optional positional arguments.
@@ -206,7 +211,7 @@ class BlockDef():
         kwargs.pop("filepath", None)  # rawdata and filepath cant both exist
 
         # create the Block instance to parse the rawdata into
-        new_block = desc.get(BLOCK_CLS, f_type.node_cls)(desc, init_attrs=False)
+        new_block = desc.get(NODE_CLS, f_type.node_cls)(desc, init_attrs=False)
 
         if kwargs.pop("allow_corrupt", False):
             try:
@@ -653,7 +658,7 @@ class BlockDef():
                     int_count += 1
             src_dict[ENTRIES] = int_count
 
-    def str_to_name(self, string, **kwargs):
+    def str_to_name(self, string, reserved_names=reserved_desc_names, **kwargs):
         try:
 
             if not isinstance(string, str):
@@ -670,7 +675,7 @@ class BlockDef():
                                 string)
                 self._bad = True
                 return None
-            elif sanitized_str in reserved_desc_names and\
+            elif sanitized_str in reserved_names and\
                  not kwargs.get('allow_reserved', False):
                 self._e_str += ("ERROR: CANNOT USE THE RESERVED KEYWORD " +
                                 "'%s' AS AN ATTRIBUTE NAME.\n\n" % string)

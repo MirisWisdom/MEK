@@ -37,6 +37,9 @@ CASES = "CASES"  # Contains all the different possible descriptors that can
 #                  under. If the descriptor doesnt exist under that key,
 #                  a VoidBlock with a void_desc is built instead.
 #                  Must be a dict.
+COMPUTE_READ = "COMPUTE_READ"
+COMPUTE_WRITE = "COMPUTE_WRITE"
+COMPUTE_SIZECALC = "COMPUTE_SIZECALC"
 VALUE = "VALUE"  # The value of a specific enumerator/boolean option.
 #                  If not specified, one will be deduced. The position 'i'
 #                  is the integer key of the option in the descriptor plus
@@ -65,12 +68,12 @@ DEFAULT = "DEFAULT"  # Used to specify a default node value to use when
 #                      a field is being parsed without an input buffer.
 #                      Must be an instance of descriptor['TYPE'].node_cls, or
 #                      in other words the node_cls attribute of the TYPE entry.
-BLOCK_CLS = "BLOCK_CLS"  # Specifies the Block class to be constructed
-#                          when this descriptor is used to build a Block.
-#                          If not provided, defaults to the node_cls attribute
-#                          of the TYPE entry:
-#                              descriptor['TYPE'].node_cls
-#                          Must be a Block class.
+NODE_CLS = "NODE_CLS"  # Specifies the Block class to be constructed
+#                        when this descriptor is used to build a Block.
+#                        If not provided, defaults to the node_cls attribute
+#                        of the TYPE entry:
+#                            descriptor['TYPE'].node_cls
+#                        Must be a Block class.
 ENDIAN = "ENDIAN"  # Specifies which endianness instance of a FieldType to use.
 #                    This is only used by BlockDefs during their sanitization
 #                    process. If not given, the FieldType that already exists
@@ -152,10 +155,10 @@ ADDED = "ADDED"  # A freeform entry that is neither expected to exist,
 desc_keywords = set(
     # required keywords
     (NAME, TYPE, SIZE, SUB_STRUCT,
-     CASE, CASES, VALUE, DECODER,
+     CASE, CASES, COMPUTE_SIZECALC, COMPUTE_READ, COMPUTE_WRITE, VALUE, DECODER,
 
      # optional keywords
-     ALIGN, INCLUDE, DEFAULT, BLOCK_CLS, ENDIAN, OFFSET,
+     ALIGN, INCLUDE, DEFAULT, NODE_CLS, ENDIAN, OFFSET,
      POINTER, ENCODER, STEPTREE, STEPTREE_ROOT, DECIMAL_EXP,
 
      # keywords used by supyrs implementation
@@ -167,8 +170,8 @@ desc_keywords = set(
 # If they are counted, an ENTRIES item will be added whose value is the count.
 # Most of these dont key to a dict, but are included anyway for completeness.
 uncountable_desc_keys = set(
-    (NAME, TYPE, SIZE, CASE, CASES, VALUE, ALIGN,
-     INCLUDE, BLOCK_CLS, ENDIAN, OFFSET, POINTER,
+    (NAME, TYPE, SIZE, CASE, CASES, COMPUTE_SIZECALC, COMPUTE_READ, COMPUTE_WRITE,
+     VALUE, ALIGN, INCLUDE, NODE_CLS, ENDIAN, OFFSET, POINTER,
      DECODER, ENCODER, STEPTREE_ROOT, DECIMAL_EXP, ENTRIES,
      CASE_MAP, NAME_MAP, VALUE_MAP, ATTR_OFFS, ADDED)
     )
@@ -225,6 +228,15 @@ reserved_desc_names.update(
      'get_desc', 'get_meta', 'set_meta',
      'collect_pointers', 'set_pointers',
      'parse', 'serialize', 'pprint'))
+
+# bools and enums aren't lists or listblocks, so the
+# keywords they aren't allowed to use stops here.
+reserved_bool_enum_names = set(reserved_desc_names)
+
+# update with methods found in list
+reserved_desc_names.update(
+    ('append', 'clear', 'copy', 'count', 'extend',
+     'index', 'insert', 'pop', 'remove', 'reverse', 'sort'))
 
 # update with methods found in ListBlock
 reserved_desc_names.update(

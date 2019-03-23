@@ -295,6 +295,8 @@ class ListBlock(list, Block):
             # handle accessing negative indexes
             if index < 0:
                 index += len(self)
+
+            assert not self.assert_is_valid_field_value(index, new_value)
             list.__setitem__(self, index, new_value)
             # if the object being placed in the Block is itself
             # a Block, set its parent attribute to this Block.
@@ -323,9 +325,9 @@ class ListBlock(list, Block):
 
         elif isinstance(index, slice):
             start, stop, step = index.indices(len(self))
-            if start < stop:
+            if start > stop:
                 start, stop = stop, start
-            if step > 0:
+            if step < 0:
                 step = -step
 
             assert hasattr(new_value, '__iter__'), (
@@ -333,11 +335,13 @@ class ListBlock(list, Block):
 
             slice_size = (stop - start)//step
 
-            if step != -1 and slice_size > len(new_value):
+            if step != 1 and slice_size > len(new_value):
                 raise ValueError("attempt to assign sequence of size " +
                                  "%s to extended slice of size %s" %
                                  (len(new_value), slice_size))
 
+            assert not self.assert_are_valid_field_values(
+                range(start, stop, step), new_value)
             list.__setitem__(self, index, new_value)
             for node in new_value:
                 # if the object being placed in the Block is itself
@@ -349,7 +353,7 @@ class ListBlock(list, Block):
             desc = object.__getattribute__(self, 'desc')
 
             # update the size of each attribute set to this Block
-            for i in range(start, stop):
+            for i in range(start, stop, step):
                 if 'SIZE' in desc[i]:
                     try:
                         set_size(None, i)
@@ -426,7 +430,7 @@ class ListBlock(list, Block):
         The descriptor may specify size in terms of already parsed fields.
         '''
         self_desc = object.__getattribute__(self, 'desc')
-
+        parent = self
         if isinstance(attr_index, int):
             node = self[attr_index]
             # try to get the size directly from the node or the parent
@@ -448,6 +452,7 @@ class ListBlock(list, Block):
         else:
             desc = self_desc
             node = self
+            parent = self.parent
 
         # determine how to get the size
         if 'SIZE' in desc:
@@ -461,12 +466,8 @@ class ListBlock(list, Block):
                 return self.get_neighbor(size, node)
             elif hasattr(size, '__call__'):
                 # find the pointed to size data by calling the function
-                try:
-                    return size(attr_index=attr_index, parent=node.parent,
-                                node=node, **context)
-                except AttributeError:
-                    return size(attr_index=attr_index, parent=self,
-                                node=node, **context)
+                return size(attr_index=attr_index, parent=parent,
+                            node=node, **context)
 
             self_name = self_desc.get('NAME', UNNAMED)
             if isinstance(attr_index, (int, str)):
@@ -475,7 +476,8 @@ class ListBlock(list, Block):
                              "\nExpected int, str, or function. Got %s.") %
                             (self_name, type(size)))
         # use the size calculation routine of the field
-        return desc['TYPE'].sizecalc(node, **context)
+        return desc['TYPE'].sizecalc(node, parent=parent,
+                                     attr_index=attr_index, **context)
 
     def set_size(self, new_value=None, attr_index=None, **context):
         '''

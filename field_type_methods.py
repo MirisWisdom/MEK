@@ -32,7 +32,7 @@ be working with the same parameter and return data types.
 '''
 
 from decimal import Decimal
-from math import ceil
+from math import ceil, log
 from struct import pack, pack_into, unpack
 from sys import byteorder
 from time import mktime, ctime, strptime
@@ -75,11 +75,12 @@ __all__ = [
     # Specialized routines
 
     # Parsers
-    'default_parser', 'f_s_data_parser',
+    'default_parser', 'f_s_data_parser', 'computed_parser',
     'switch_parser', 'while_array_parser',
     'void_parser', 'pad_parser', 'union_parser',
     'stream_adapter_parser', 'quickstruct_parser',
     # Serializers
+    'computed_serializer',
     'void_serializer', 'pad_serializer', 'union_serializer',
     'stream_adapter_serializer', 'quickstruct_serializer',
     # Decoders
@@ -91,7 +92,7 @@ __all__ = [
     # size calculators
     'delim_utf_sizecalc', 'utf_sizecalc', 'array_sizecalc',
     'big_sint_sizecalc', 'big_uint_sizecalc', 'str_hex_sizecalc',
-    'bit_sint_sizecalc', 'bit_uint_sizecalc',
+    'bit_sint_sizecalc', 'bit_uint_sizecalc', 'computed_sizecalc',
 
     # Sanitizer functions
     'bool_sanitizer', 'enum_sanitizer', 'switch_sanitizer',
@@ -298,11 +299,26 @@ def default_parser(self, desc, node=None, parent=None, attr_index=None,
             parent[attr_index] = desc.get(DEFAULT, self.default())
         elif isinstance(None, self.data_cls):
             # Block node_cls without a 'data_cls'
-            parent[attr_index] = desc.get(BLOCK_CLS, self.node_cls)(desc)
+            parent[attr_index] = desc.get(NODE_CLS, self.node_cls)(desc)
         else:
             # Block node_cls with a 'data_cls'
             # the node is likely either an EnumBlock or BoolBlock
             parent[attr_index] = self.node_cls(desc, init_attrs=True)
+
+    return offset
+
+
+def computed_parser(self, desc, node=None, parent=None, attr_index=None,
+                    rawdata=None, root_offset=0, offset=0, **kwargs):
+    assert parent is not None and attr_index is not None, (
+        "parent and attr_index must be provided " +
+        "and not None when reading a computed field.")
+    if desc.get(COMPUTE_READ):
+        new_offset = desc[COMPUTE_READ](
+            desc=desc, node=node, parent=parent, attr_index=attr_index,
+            rawdata=rawdata, root_offset=root_offset, offset=offset, **kwargs)
+        if new_offset is not None:
+            return new_offset
 
     return offset
 
@@ -314,7 +330,7 @@ def container_parser(self, desc, node=None, parent=None, attr_index=None,
     try:
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                                  (desc, parent=parent)
 
         is_steptree_root = (desc.get('STEPTREE_ROOT') or
@@ -377,7 +393,7 @@ def array_parser(self, desc, node=None, parent=None, attr_index=None,
     try:
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent)
 
         is_steptree_root = (desc.get('STEPTREE_ROOT') or
@@ -442,7 +458,7 @@ def while_array_parser(self, desc, node=None, parent=None, attr_index=None,
     try:
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent)
 
         is_steptree_root = (desc.get('STEPTREE_ROOT') or
@@ -582,7 +598,7 @@ def struct_parser(self, desc, node=None, parent=None, attr_index=None,
     try:
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent, init_attrs=rawdata is None)
 
         is_steptree_root = 'steptree_parents' not in kwargs
@@ -652,7 +668,7 @@ def quickstruct_parser(self, desc, node=None, parent=None, attr_index=None,
         __lsi__ = list.__setitem__
         orig_offset = offset
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent)
 
         # If there is rawdata to build the structure from
@@ -739,7 +755,7 @@ def stream_adapter_parser(self, desc, node=None, parent=None, attr_index=None,
         orig_offset = offset
         if node is None:
             parent[attr_index] = node = (
-                desc.get(BLOCK_CLS, self.node_cls)(desc, parent=parent))
+                desc.get(NODE_CLS, self.node_cls)(desc, parent=parent))
 
         sub_desc = desc['SUB_STRUCT']
 
@@ -787,7 +803,7 @@ def union_parser(self, desc, node=None, parent=None, attr_index=None,
         orig_offset = offset
         if node is None:
             parent[attr_index] = node = (
-                desc.get(BLOCK_CLS, self.node_cls)(desc, parent=parent))
+                desc.get(NODE_CLS, self.node_cls)(desc, parent=parent))
 
         size = desc['SIZE']
 
@@ -871,7 +887,7 @@ def f_s_data_parser(self, desc, node=None, parent=None, attr_index=None,
         # this is a 'data' Block, so it needs a descriptor and the
         # DEFAULT is expected to be some kind of literal data(like
         # 'asdf', 42, or 5234.4) rather than a subclass of Block
-        parent[attr_index] = desc.get(BLOCK_CLS, self.node_cls)\
+        parent[attr_index] = desc.get(NODE_CLS, self.node_cls)\
             (desc, initdata=desc.get(DEFAULT), init_attrs=True)
     else:
         # this is not a Block
@@ -899,7 +915,7 @@ def data_parser(self, desc, node=None, parent=None, attr_index=None,
         # this is a 'data' Block, so it needs a descriptor and the
         # DEFAULT is expected to be some kind of literal data(like
         # 'asdf', 42, or 5234.4) rather than a subclass of Block
-        parent[attr_index] = desc.get(BLOCK_CLS, self.node_cls)(
+        parent[attr_index] = desc.get(NODE_CLS, self.node_cls)(
             desc, initdata=desc.get(DEFAULT), init_attrs=True)
     else:
         # this is not a Block
@@ -954,7 +970,7 @@ def cstring_parser(self, desc, node=None, parent=None, attr_index=None,
         # this is a 'data' Block, so it needs a descriptor and the
         # DEFAULT is expected to be some kind of literal data(like
         # 'asdf' or 42, or 5234.4) rather than a subclass of Block
-        parent[attr_index] = desc.get(BLOCK_CLS, self.node_cls)(
+        parent[attr_index] = desc.get(NODE_CLS, self.node_cls)(
             desc, initdata=desc.get(DEFAULT), init_attrs=True)
     return offset
 
@@ -998,7 +1014,7 @@ def py_array_parser(self, desc, node=None, parent=None, attr_index=None,
         # this is a 'data' Block, so it needs a descriptor and the
         # DEFAULT is expected to be some kind of literal data(like
         # 'asdf' or 42, or 5234.4) rather than a subclass of Block
-        parent[attr_index] = desc.get(BLOCK_CLS, self.node_cls)(
+        parent[attr_index] = desc.get(NODE_CLS, self.node_cls)(
             desc, initdata=desc.get(DEFAULT), init_attrs=True)
     elif DEFAULT in desc:
         parent[attr_index] = self.node_cls(self.enc, desc[DEFAULT])
@@ -1035,7 +1051,7 @@ def bytes_parser(self, desc, node=None, parent=None, attr_index=None,
         # this is a 'data' Block, so it needs a descriptor and the
         # DEFAULT is expected to be some kind of literal data(like
         # 'asdf' or 42, or 5234.4) rather than a subclass of Block
-        parent[attr_index] = desc.get(BLOCK_CLS, self.node_cls)(
+        parent[attr_index] = desc.get(NODE_CLS, self.node_cls)(
             desc, initdata=desc.get(DEFAULT), init_attrs=True)
     elif DEFAULT in desc:
         parent[attr_index] = self.node_cls(desc[DEFAULT])
@@ -1052,7 +1068,7 @@ def bit_struct_parser(self, desc, node=None, parent=None, attr_index=None,
     """
     try:
         if node is None:
-            parent[attr_index] = node = desc.get(BLOCK_CLS, self.node_cls)\
+            parent[attr_index] = node = desc.get(NODE_CLS, self.node_cls)\
                 (desc, parent=parent, init_attrs=rawdata is None)
 
         """If there is file data to build the structure from"""
@@ -1090,6 +1106,24 @@ def bit_struct_parser(self, desc, node=None, parent=None, attr_index=None,
 # ####################################################
 '''############  Serializer functions  ############'''
 # ####################################################
+
+
+def computed_serializer(self, node, parent=None, attr_index=None,
+                        writebuffer=None, root_offset=0, offset=0, **kwargs):
+    p_desc = parent.desc
+    if p_desc['TYPE'].is_array:
+        desc = p_desc['SUB_STRUCT']
+    else:
+        desc = p_desc[attr_index]
+
+    if desc.get(COMPUTE_WRITE):
+        new_offset = desc[COMPUTE_WRITE](
+            desc=desc, node=node, parent=parent, attr_index=attr_index,
+            writebuffer=writebuffer, root_offset=root_offset, offset=offset, **kwargs)
+        if new_offset is not None:
+            return new_offset
+
+    return offset
 
 
 def container_serializer(self, node, parent=None, attr_index=None,
@@ -1716,8 +1750,8 @@ def decode_24bit_numeric(self, rawdata, desc=None,
         rawint = unpack('>I', b'\x00' + rawdata)[0]
 
     # if the int can be signed and IS signed then take care of that
-    if rawint & 0x800000 and self.enc[1] == 'i':
-        return rawint - 0x10000000  # 0x10000000 == 0x800000 * 2
+    if rawint & 0x800000 and self.enc[1] == 't':
+        return rawint - 0x1000000  # 0x1000000 == 0x800000 * 2
     return rawint
 
 
@@ -1867,13 +1901,13 @@ def encode_24bit_numeric(self, node, parent=None, attr_index=None):
 
     Returns a bytes object encoded represention of the "node" argument.
     '''
-    if self.enc[1] == 'i':
+    if self.enc[1] == 't':
         # int can be signed
         assert node >= -0x800000 and node <= 0x7fffff, (
             '%s is too large to pack as a 24bit signed int.' % node)
         if node < 0:
             # int IS signed
-            node += 0x10000000
+            node += 0x1000000
     else:
         assert node >= 0 and node <= 0xffffff, (
             '%s is too large to pack as a 24bit unsigned int.' % node)
@@ -2001,7 +2035,7 @@ def encode_bit_int(self, node, parent=None, attr_index=None):
 def void_parser(self, desc, node=None, parent=None, attr_index=None,
                 rawdata=None, root_offset=0, offset=0, **kwargs):
     if node is None:
-        parent[attr_index] = (desc.get(BLOCK_CLS, self.node_cls)
+        parent[attr_index] = (desc.get(NODE_CLS, self.node_cls)
                               (desc, parent=parent))
     return offset
 
@@ -2015,7 +2049,7 @@ def pad_parser(self, desc, node=None, parent=None, attr_index=None,
                rawdata=None, root_offset=0, offset=0, **kwargs):
     ''''''
     if node is None:
-        parent[attr_index] = node = (desc.get(BLOCK_CLS, self.node_cls)
+        parent[attr_index] = node = (desc.get(NODE_CLS, self.node_cls)
                                      (desc, parent=parent))
         return offset + node.get_size(offset=offset, root_offset=root_offset,
                                        rawdata=rawdata, **kwargs)
@@ -2121,6 +2155,16 @@ def array_sizecalc(self, node, **kwargs):
     return len(node)*node.itemsize
 
 
+def computed_sizecalc(self, node, parent=None, attr_index=None, **kwargs):
+    '''
+    If a sizecalc routine wasnt provided for this FieldType and one can't
+    be decided upon as a default, then the size can't be calculated.
+    Returns 0 when called.
+    '''
+    return parent.get_desc(COMPUTE_SIZECALC, attr_index)(
+        node, parent=parent, attr_index=attr_index, **kwargs)
+
+
 def big_sint_sizecalc(self, node, **kwargs):
     '''
     Returns the number of bytes required to represent a twos signed integer.
@@ -2197,8 +2241,10 @@ def bool_enum_sanitize_main(blockdef, src_dict, **kwargs):
 
     for i in range(src_dict[ENTRIES]):
         name = blockdef.sanitize_name(
-            src_dict, i, allow_reserved=not is_bool,  p_f_type=p_f_type,
-            p_name=src_dict.get(NAME), key_name=i)
+            src_dict, i, allow_reserved=not is_bool,
+            p_f_type=p_f_type, p_name=src_dict.get(NAME),
+            reserved_names=reserved_bool_enum_names, key_name=i)
+
         if name in nameset:
             blockdef._e_str += (
                 ("ERROR: DUPLICATE NAME FOUND IN '%s'.\nNAME OF OFFENDING " +
@@ -2226,7 +2272,7 @@ def sanitize_option_values(blockdef, src_dict, f_type, **kwargs):
         if isinstance(opt, dict):
             if opt.get(TYPE) is field_types.Pad:
                 # subtract 1 from the pad size because the pad itself is 1
-                pad_size += opt.get(SIZE, 1)-1
+                pad_size += opt.get(SIZE, 1) - 1
                 removed += 1
                 del src_dict[i]
                 def_val += 1
@@ -2245,7 +2291,7 @@ def sanitize_option_values(blockdef, src_dict, f_type, **kwargs):
                 blockdef._e_str += (
                     "ERROR: EXPECTED TUPLE OR LIST OF LENGTH 1 or 2 " +
                     "FOR\nOPTION NUMBER %s IN FIELD %s OF NAME '%s', " +
-                    "GOT LENGTH OF %s.\n" % (i, p_f_type, p_name, len(opt)))
+                    "GOT LENGTH OF %s.\n") % (i, p_f_type, p_name, len(opt))
                 blockdef._bad = True
                 continue
         else:
@@ -2261,7 +2307,16 @@ def sanitize_option_values(blockdef, src_dict, f_type, **kwargs):
 
         if VALUE in opt:
             if isinstance(opt[VALUE], int):
-                def_val = opt[VALUE] + pad_size
+                if is_bool:
+                    if opt[VALUE] <= 0:
+                        blockdef._e_str += (
+                            "ERROR: VALUE OF BOOLEAN WAS <= 0 FOR OPTION NUMBER" +
+                            "%s IN FIELD %s OF NAME '%s'") % (i, p_f_type, p_name)
+                        blockdef._bad = True
+                        continue
+                    def_val = int(log(opt[VALUE], 2))
+                else:
+                    def_val = opt[VALUE]
                 pad_size = 0
         elif is_bool:
             opt[VALUE] = 2**(def_val + pad_size)
@@ -2555,12 +2610,12 @@ def standard_sanitizer(blockdef, src_dict, **kwargs):
 
     # if the node cant hold a STEPTREE, but the descriptor
     # requires that it have a STEPTREE attribute, try to
-    # set the BLOCK_CLS to one that can hold a STEPTREE.
+    # set the NODE_CLS to one that can hold a STEPTREE.
     # Only do this though, if there isnt already a default set.
     if (not hasattr(p_f_type.node_cls, STEPTREE) and
-        STEPTREE in src_dict and BLOCK_CLS not in src_dict):
+        STEPTREE in src_dict and NODE_CLS not in src_dict):
         try:
-            src_dict[BLOCK_CLS] = p_f_type.node_cls.PARENTABLE
+            src_dict[NODE_CLS] = p_f_type.node_cls.PARENTABLE
         except AttributeError:
             blockdef._bad = True
             blockdef._e_str += (

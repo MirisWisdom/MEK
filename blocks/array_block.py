@@ -84,6 +84,8 @@ class ArrayBlock(ListBlock):
             # handle accessing negative indexes
             if index < 0:
                 index += len(self)
+
+            assert not self.assert_is_valid_field_value(index, new_value)
             list.__setitem__(self, index, new_value)
 
             # if the object being placed in the Block is itself
@@ -97,9 +99,9 @@ class ArrayBlock(ListBlock):
             # the descriptor since its list indexes
             # aren't attributes, but instanced objects
             start, stop, step = index.indices(len(self))
-            if start < stop:
+            if start > stop:
                 start, stop = stop, start
-            if step > 0:
+            if step < 0:
                 step = -step
 
             assert hasattr(new_value, '__iter__'), \
@@ -107,11 +109,13 @@ class ArrayBlock(ListBlock):
 
             slice_size = (stop - start)//step
 
-            if step != -1 and slice_size > len(new_value):
+            if step != 1 and slice_size > len(new_value):
                 raise ValueError("attempt to assign sequence of size " +
                                  "%s to extended slice of size %s" %
                                  (len(new_value), slice_size))
 
+            assert not self.assert_are_valid_field_values(
+                range(start, stop, step), new_value)
             list.__setitem__(self, index, new_value)
             try:
                 self.set_size()
@@ -370,7 +374,7 @@ class ArrayBlock(ListBlock):
         The descriptor may specify size in terms of already parsed fields.
         '''
         self_desc = object.__getattribute__(self, 'desc')
-
+        parent = self
         if isinstance(attr_index, int):
             node = self[attr_index]
             # try to get the size directly from the node or the parent
@@ -392,6 +396,7 @@ class ArrayBlock(ListBlock):
         else:
             desc = self_desc
             node = self
+            parent = self.parent
 
         # determine how to get the size
         if 'SIZE' in desc:
@@ -405,12 +410,8 @@ class ArrayBlock(ListBlock):
                 return self.get_neighbor(size, node)
             elif hasattr(size, '__call__'):
                 # find the pointed to size data by calling the function
-                try:
-                    return size(attr_index=attr_index, parent=node.parent,
-                                node=node, **context)
-                except AttributeError:
-                    return size(attr_index=attr_index, parent=self,
-                                node=node, **context)
+                return size(attr_index=attr_index, parent=parent,
+                            node=node, **context)
 
             self_name = self_desc.get('NAME', UNNAMED)
             if isinstance(attr_index, (int, str)):
@@ -419,7 +420,8 @@ class ArrayBlock(ListBlock):
                              "\nExpected int, str, or function. Got %s.") %
                             (self_name, type(size)))
         # use the size calculation routine of the field
-        return desc['TYPE'].sizecalc(node, **context)
+        return desc['TYPE'].sizecalc(node, parent=parent,
+                                     attr_index=attr_index, **context)
 
     def set_size(self, new_value=None, attr_index=None, **context):
         '''
@@ -457,7 +459,7 @@ class ArrayBlock(ListBlock):
         The descriptor may specify size in terms of already parsed fields.
         '''
         self_desc = object.__getattribute__(self, 'desc')
-
+        parent = self
         if isinstance(attr_index, int):
             node = self[attr_index]
             # try to get the size directly from the node or the parent
@@ -499,6 +501,7 @@ class ArrayBlock(ListBlock):
             node = self
             desc = self_desc
             size = desc.get('SIZE')
+            parent = None
 
         f_type = desc['TYPE']
 
@@ -512,11 +515,8 @@ class ArrayBlock(ListBlock):
         # if a new size wasnt provided then it needs to be calculated
         if new_value is not None:
             newsize = new_value
-        elif hasattr(node, 'parent'):
-            newsize = f_type.sizecalc(parent=node.parent, node=node,
-                                      attr_index=attr_index, **context)
         else:
-            newsize = f_type.sizecalc(parent=self, node=node,
+            newsize = f_type.sizecalc(node, parent=parent,
                                       attr_index=attr_index, **context)
 
         if isinstance(size, int):
@@ -535,12 +535,8 @@ class ArrayBlock(ListBlock):
             return
         elif hasattr(size, '__call__'):
             # set size by calling the provided function
-            if hasattr(node, 'parent'):
-                size(attr_index=attr_index, new_value=newsize,
-                     parent=node.parent, node=node, **context)
-            else:
-                size(attr_index=attr_index, new_value=newsize,
-                     parent=self, node=node, **context)
+            size(attr_index=attr_index, new_value=newsize,
+                 parent=parent, node=node, **context)
             return
 
         self_name = self_desc['NAME']
