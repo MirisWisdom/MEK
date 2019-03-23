@@ -55,7 +55,7 @@ class TagScannerWindow(tk.Toplevel, BinillaWidget):
         kwargs.update(bd=0, highlightthickness=0, bg=self.default_bg_color)
         tk.Toplevel.__init__(self, app_root, *args, **kwargs)
 
-        self.title("[%s] Tag directory scanner" %
+        self.title("[%s] Tags directory error locator" %
                    app_root.handler_names[app_root._curr_handler_index])
         self.minsize(width=400, height=300)
         self.update()
@@ -469,6 +469,20 @@ class TagScannerWindow(tk.Toplevel, BinillaWidget):
                         err += "            surfaces = %s\n" % bad_surfaces
                     err += "\n"
                 err = err[:-1]
+
+        elif cls == "effe":
+            i = 0
+            events = tag.data.tagdata.events.STEPTREE
+            for i in range(len(events)):
+                # tool exceptions if any parts reference a damage effect
+                # tag type, but have an empty filepath for the reference
+                parts = events[i].parts.STEPTREE
+                for j in range(len(parts)):
+                    part = parts[j]
+                    if (part.type.tag_class.enum_name == "damage_effect" and
+                        not part.type.filepath):
+                        err += ("     Missing filepath in damage_effect "
+                                "reference in part %s of event %s\n." % (j, i))
 
         if err:
             errors[cls] = "%s\n%s:\n%s\n" % (

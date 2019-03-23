@@ -2,6 +2,7 @@ import tkinter as tk
 import reclaimer
 
 from array import array
+from math import log, ceil
 from os.path import dirname, exists, splitext, join
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 from traceback import format_exc
@@ -16,10 +17,13 @@ from binilla.field_widgets import *
 from binilla.widgets import *
 
 from reclaimer.h2.constants import *
+from reclaimer.h3.util import get_virtual_dimension, get_h3_pixel_bytes_size
+from reclaimer.hmt import parse_hmt_message
+from reclaimer.meter_image import meter_image_def
 
 try:
     import arbytmap
-    from reclaimer.hek.defs.objs.bitm import P8_PALETTE
+    from reclaimer.bitmaps.p8_palette import HALO_P8_PALETTE, STUBBS_P8_PALETTE
 except ImportError:
     pass
 
@@ -35,8 +39,68 @@ def extract_color(chan_char, node):
 def inject_color(chan_char, new_val, parent, attr_index):
     off = channel_offset_map[chan_char]
     node = parent[attr_index]
-    node = (node & (0xFFFFFFFF - (0xFF << off))) + ((new_val & 0xFF) << off)
-    parent[attr_index] = node
+    chan_mask = 0xFFFFFFFF - (0xFF << off)
+    parent[attr_index] = (node & chan_mask) | ((new_val & 0xFF) << off)
+
+
+class SimpleImageFrame(ContainerFrame):
+    tag = None
+    image_frame = None
+    display_frame_cls = None
+
+    def __init__(self, *args, **kwargs):
+        ContainerFrame.__init__(self, *args, **kwargs)
+        try:
+            self.tag = self.tag_window.tag
+        except AttributeError:
+            pass
+        self.populate()
+
+    def populate(self):
+        ContainerFrame.populate(self)
+        if self.image_frame is None or self.image_frame() is None:
+            self.image_frame = weakref.ref(self.display_frame_cls(self))
+        self.reload()
+
+    def pose_fields(self):
+        orient = self.desc.get('ORIENT', 'v')[:1].lower()
+        side = 'left' if orient == 'h' else 'top'
+        if self.image_frame:
+            self.image_frame().pack(side=side, fill='x')
+        ContainerFrame.pose_fields(self)
+
+
+class ComputedTextFrame(TextFrame):
+    def export_node(self): pass
+    def import_node(self): pass
+    def build_replace_map(self): pass
+    def flush(self, *a, **kw): pass
+    def set_edited(self, *a, **kw): pass
+    def set_needs_flushing(self, *a, **kw): pass
+    def populate(self): self.reload()
+
+    def reload(self):
+        if self.parent is None:
+            return
+
+        try:
+            try:
+                new_text = self.get_text()
+            except Exception:
+                return
+
+            self.data_text.delete(1.0, tk.END)
+            self.data_text.insert(1.0, new_text)
+        except Exception:
+            print(format_exc())
+        finally:
+            if self.disabled:
+                self.data_text.config(state=tk.DISABLED)
+            else:
+                self.data_text.config(state=tk.NORMAL)
+
+    def get_text(self):
+        raise NotImplementedError()
 
 
 class HaloBitmapDisplayFrame(BitmapDisplayFrame):
@@ -150,10 +214,6 @@ class HaloBitmapDisplayFrame(BitmapDisplayFrame):
             outline=self.bitmap_canvas_outline_color)
 
     def change_textures(self, textures):
-        if not (hasattr(self, "sprite_menu") and
-                hasattr(self, "sequence_menu")):
-            return
-
         BitmapDisplayFrame.change_textures(self, textures)
         tag = self.bitmap_tag
         if tag is None: return
@@ -161,11 +221,169 @@ class HaloBitmapDisplayFrame(BitmapDisplayFrame):
         data = tag.data.tagdata
         options = {i+1: str(i) for i in range(len(data.sequences.STEPTREE))}
         options[0] = "None"
+
+        if not (hasattr(self, "sprite_menu") and
+                hasattr(self, "sequence_menu")):
+            return
         self.sequence_menu.set_options(options)
         self.sequence_menu.sel_index = (self.sequence_menu.max_index >= 0) - 1
 
 
+class MeterImageDisplayFrame(BitmapDisplayFrame):
+    def __init__(self, *args, **kwargs):
+        BitmapDisplayFrame.__init__(self, *args, **kwargs)
+        for w in (self.hsb, self.vsb, self.root_canvas):
+            w.pack_forget()
+
+        self.preview_label = tk.Label(self, text="Bitmap preview\t")
+        self.image_canvas = tk.Canvas(self, highlightthickness=0,
+                                      bg=self.bitmap_canvas_bg_color)
+        self.channel_menu = ScrollMenu(self, menu_width=9, can_scroll=True,
+                                       variable=self.channel_index)
+        self.save_button = tk.Button(self, width=11, text="Save as...",
+                                     command=self.save_as)
+
+        padx = self.horizontal_padx
+        pady = self.horizontal_pady
+
+        self.image_canvas.config(width=1, height=1)
+        self.preview_label.pack(side='left', padx=padx, pady=pady, fill='x')
+        self.channel_menu.pack(side='left', padx=padx, pady=pady)
+        self.save_button.pack(side='left', padx=padx, pady=pady)
+        self.image_canvas.pack(side='left', padx=padx, pady=pady,
+                               fill='x', expand=True)
+
+        self.apply_style()
+
+
+class MeterImageFrame(SimpleImageFrame):
+    display_frame_cls = MeterImageDisplayFrame
+
+    def reload(self):
+        ContainerFrame.reload(self)
+        if self.image_frame and self.node:
+            try:
+                width = min(640, max(self.node.width, 1))
+                height = min(480, max(self.node.height, 1))
+                self.image_frame().change_textures(self.get_textures())
+            except Exception:
+                print(format_exc())
+                width = height = 1
+            self.image_frame().image_canvas.config(width=width, height=height)
+
+        self.pose_fields()
+
+    def get_textures(self):
+        texture_block = []
+        if self.node:
+            # apparently some meter images tags have fucked endianness
+            # on the dimensions and position, so these NEED to be capped
+            width = min(640, max(self.node.width, 1))
+            height = min(480, max(self.node.height, 1))
+            tex_info = dict(width=width, height=height,
+                            format=arbytmap.FORMAT_A8R8G8B8)
+            pixels = bytearray(width * height * 4)
+            for line in meter_image_def.build(rawdata=self.node.meter_data.data):
+                off = (line.x_pos + line.y_pos * width) * 4
+                pixels[off: off + line.width * 4] = line.line_data
+
+            # need it packed otherwise channel swapping wont occur
+            texture_block.append([[array("I", pixels)], tex_info])
+
+        return texture_block
+
+
+class FontCharacterDisplayFrame(BitmapDisplayFrame):
+    def __init__(self, *args, **kwargs):
+        BitmapDisplayFrame.__init__(self, *args, **kwargs)
+        self.labels_frame = tk.Frame(self, highlightthickness=0)
+        self.preview_frame = tk.Frame(self, highlightthickness=0)
+
+        self.font_label0 = tk.Label(self.labels_frame, text="UTF-16 character\t")
+        self.font_label1 = tk.Label(self.labels_frame, text="Bitmap preview\t")
+        self.preview_label = tk.Label(self.preview_frame, text="",
+                                      font=("sans-serif", 12))
+        for lbl in (self.font_label0, self.font_label1):
+            lbl.config(width=30, anchor='w',
+                       bg=self.default_bg_color, fg=self.text_normal_color,
+                       disabledforeground=self.text_disabled_color)
+
+        for w in (self.hsb, self.vsb, self.root_canvas):
+            w.pack_forget()
+
+        self.image_canvas = tk.Canvas(self.preview_frame, highlightthickness=0,
+                                      bg=self.bitmap_canvas_bg_color)
+        padx = self.horizontal_padx
+        pady = self.horizontal_pady
+
+        self.image_canvas.config(width=1, height=1)
+        self.labels_frame.pack(fill='both', side='left')
+        self.preview_frame.pack(fill='both', side='left')
+        for w in (self.font_label0, self.font_label1,
+                  self.preview_label, self.image_canvas):
+            w.pack(fill='x', padx=padx, pady=pady)
+
+        self.apply_style()
+
+
+class FontCharacterFrame(SimpleImageFrame):
+    display_frame_cls = FontCharacterDisplayFrame
+
+    def reload(self):
+        ContainerFrame.reload(self)
+        if self.image_frame and self.node:
+            node = self.node
+            try:
+                char_int = node.character
+                char = bytes([char_int & 0xFF, char_int >> 8]).decode("utf-16-le")
+                width = max(node.bitmap_width, node.character_width, 1)
+                height = max(node.bitmap_height, 32)
+                self.image_frame().change_textures(self.get_textures())
+            except Exception:
+                width = height = 1
+                char = ""
+            self.image_frame().preview_label.config(text=char)
+            self.image_frame().image_canvas.config(width=width, height=height)
+
+        self.pose_fields()
+
+    def get_textures(self):
+        texture_block = []
+        if self.node and self.tag:
+            width = min(640, max(self.node.bitmap_width, 1))
+            height = min(480, max(self.node.bitmap_height, 1))
+            tex_info = dict(width=width, height=height,
+                            format=arbytmap.FORMAT_L8)
+            pixels_count = width * height
+            all_pixels = self.tag.data.tagdata.pixels.data
+            pixels = all_pixels[self.node.pixels_offset:
+                                self.node.pixels_offset + pixels_count]
+            pixels += b'\x00' * (pixels_count - len(pixels))
+            texture_block.append([[pixels], tex_info])
+
+        return texture_block
+
+
 class HaloBitmapDisplayBase:
+    cubemap_padding = CUBEMAP_PADDING
+
+    @property
+    def engine(self):
+        if getattr(self.master, "engine", None):
+            return self.master.engine
+
+        return getattr(getattr(self.master, "tag_window", None), "engine", None)
+
+    def get_p8_palette(self, tag):
+        if getattr(tag, "p8_palette", None):
+            return tag.p8_palette
+        elif not self.engine:
+            return self.master.tag_window.tag.p8_palette
+        elif "stubbs" in self.engine:
+            return STUBBS_P8_PALETTE
+        else:
+            return HALO_P8_PALETTE
+
     def get_base_address(self, tag):
         if tag is None:
             return 0
@@ -181,74 +399,85 @@ class HaloBitmapDisplayBase:
         except AttributeError:
             return False
 
+    def get_bitmap_pixels(self, bitmap_index, tag):
+        bitmap = tag.data.tagdata.bitmaps.STEPTREE[bitmap_index]
+        is_xbox = self.is_xbox_bitmap(bitmap)
+        is_meta_tag = not hasattr(tag, "tags_dir")
+
+        pixel_data = tag.data.tagdata.processed_pixel_data.data
+        w, h, d = bitmap.width, bitmap.height, bitmap.depth
+        fmt = FORMAT_NAME_MAP[bitmap.format.data]
+
+        off = bitmap.pixels_offset
+        if is_meta_tag:
+            off -= self.get_base_address(tag)
+
+        # xbox bitmaps are stored all mip level faces first, then
+        # the next mip level, whereas pc is the other way. Xbox
+        # bitmaps also have padding between each mipmap and bitmap.
+        mipmap_count = bitmap.mipmaps + 1
+        bitmap_count = 6 if bitmap.type.enum_name == "cubemap" else 1
+        i_max = bitmap_count if is_xbox else mipmap_count
+        j_max = mipmap_count if is_xbox else bitmap_count
+        tex_block = []
+        for i in range(i_max):
+            if not is_xbox: mw, mh, md = arbytmap.get_mipmap_dimensions(w, h, d, i)
+
+            for j in range(j_max):
+                if is_xbox: mw, mh, md = arbytmap.get_mipmap_dimensions(w, h, d, j)
+
+                if fmt == arbytmap.FORMAT_P8_BUMP:
+                    tex_block.append(array('B', pixel_data[off: off + mw*mh]))
+                    off += len(tex_block[-1])
+                else:
+                    off = arbytmap.bitmap_io.bitmap_bytes_to_array(
+                        pixel_data, off, tex_block, fmt, mw, mh, md)
+
+            # skip the xbox alignment padding to get to the next texture
+            if is_xbox:
+                size, mod = off, self.cubemap_padding
+                off += (mod - (size % mod)) % mod
+
+        return tex_block
+
     def get_textures(self, tag):
         if tag is None: return ()
 
+        bitmaps = tag.data.tagdata.bitmaps.STEPTREE
         textures = []
-        is_meta_tag = not hasattr(tag, "tags_dir")
-
-        get_mip_dims = arbytmap.get_mipmap_dimensions
-        pixels_base  = self.get_base_address(tag)
-        pixel_data = tag.data.tagdata.processed_pixel_data.data
-        bitmaps    = tag.data.tagdata.bitmaps.STEPTREE
-
         for i in range(len(bitmaps)):
             b = bitmaps[i]
-            is_xbox = self.is_xbox_bitmap(b)
-            tex_block = []
-            w, h, d = b.width, b.height, b.depth
-            typ = TYPE_NAME_MAP[b.type.data]
-            fmt = FORMAT_NAME_MAP[b.format.data]
+            typ = TYPE_NAME_MAP[0]
+            fmt = FORMAT_NAME_MAP[0]
+            if b.type.data in range(len(TYPE_NAME_MAP)):
+                typ = TYPE_NAME_MAP[b.type.data]
+
+            if b.format.data in range(len(FORMAT_NAME_MAP)):
+                fmt = FORMAT_NAME_MAP[b.format.data]
+
             tex_info = dict(
-                width=w, height=h, depth=d, format=fmt, texture_type=typ,
+                width=b.width, height=b.height, depth=b.depth,
+                format=fmt, texture_type=typ,
+                sub_bitmap_count=6 if typ == "CUBE" else 1,
                 swizzled=b.flags.swizzled, mipmap_count=b.mipmaps,
                 reswizzler="MORTON", deswizzler="MORTON")
 
             mipmap_count = b.mipmaps + 1
-            bitmap_count = 6 if typ == "CUBE" else 1
-            if fmt == arbytmap.FORMAT_P8:
+            if fmt == arbytmap.FORMAT_P8_BUMP:
+                p8_palette = self.get_p8_palette(tag)
                 tex_info.update(
-                    palette=[P8_PALETTE.p8_palette_32bit_packed]*mipmap_count,
+                    palette=[p8_palette.p8_palette_32bit_packed]*mipmap_count,
                     palette_packed=True, indexing_size=8)
 
-            # xbox bitmaps are stored all mip level faces first, then
-            # the next mip level, whereas pc is the other way. Xbox
-            # bitmaps also have padding between each mipmap and bitmap.
-            j_max = bitmap_count if is_xbox else mipmap_count
-            k_max = mipmap_count if is_xbox else bitmap_count
-            off   = b.pixels_offset
-            if is_meta_tag:
-                off -= pixels_base
-
-            for j in range(j_max):
-                start_off = 0
-                if not is_xbox: mw, mh, md = get_mip_dims(w, h, d, j)
-
-                for k in range(k_max):
-                    if is_xbox: mw, mh, md = get_mip_dims(w, h, d, k)
-
-                    if fmt == arbytmap.FORMAT_P8:
-                        tex_block.append(
-                            array('B', pixel_data[off: off + mw*mh]))
-                        off += len(tex_block[-1])
-                    else:
-                        off = arbytmap.bitmap_io.bitmap_bytes_to_array(
-                            pixel_data, off, tex_block, fmt, mw, mh, md)
-
-                # skip the xbox alignment padding to get to the next texture
-                if is_xbox:
-                    size, mod = off - start_off, CUBEMAP_PADDING
-                    off += (mod - (size % mod))%mod
-
-            if is_xbox and b.type.enum_name == "cubemap":
+            tex_block = self.get_bitmap_pixels(i, tag)
+            if self.is_xbox_bitmap(b) and typ == "CUBE":
                 template = tuple(tex_block)
-                j = 0
+                i = 0
                 for f in (0, 2, 1, 3, 4, 5):
                     for m in range(0, (b.mipmaps + 1)*6, 6):
-                        tex_block[m + f] = template[j]
-                        j += 1
+                        tex_block[m + f] = template[i]
+                        i += 1
 
-            tex_info['sub_bitmap_count'] = bitmap_count
             textures.append((tex_block, tex_info))
 
         return textures
@@ -286,6 +515,90 @@ class Halo2BitmapDisplayButton(HaloBitmapDisplayButton):
         return 0
 
 
+class Halo3BitmapDisplayFrame(HaloBitmapDisplayFrame):
+    cubemap_cross_mapping = BitmapDisplayFrame.cubemap_cross_mapping
+
+    def _display_2d_bitmap(self, force=False, bitmap_mapping=None):
+        image_ct = len(self.get_images())
+        if bitmap_mapping is None and self.active_image_handler.tex_type == "2D":
+            bitmap_mapping = []
+            column_ct = image_ct // 4
+            for i in range(4 * (column_ct > 1)):
+                bitmap_mapping.append(list(i * column_ct + j for
+                                           j in range(column_ct)))
+
+            if column_ct * 4 < image_ct:
+                bitmap_mapping.append(list(range(column_ct * 4, image_ct)))
+
+        HaloBitmapDisplayFrame._display_2d_bitmap(self, force, bitmap_mapping)
+
+
+class Halo3BitmapDisplayButton(HaloBitmapDisplayButton):
+    display_frame_class = Halo3BitmapDisplayFrame
+
+    def get_base_address(self, tag):
+        return 0
+
+    def get_bitmap_pixels(self, bitmap_index, tag):
+        bitmap = tag.data.tagdata.bitmaps.STEPTREE[bitmap_index]
+        is_meta_tag = not hasattr(tag, "tags_dir")
+
+        off = bitmap.pixels_offset
+        pixel_data = tag.data.tagdata.processed_pixel_data.data
+
+        w, h, d = bitmap.width, bitmap.height, bitmap.depth
+        tiled = bitmap.format_flags.tiled
+        fmt = FORMAT_NAME_MAP[bitmap.format.data]
+
+        # xbox bitmaps are stored all mip level faces first, then
+        # the next mip level, whereas pc is the other way. Xbox
+        # bitmaps also have padding between each mipmap and bitmap.
+        bitmap_count = 1
+        mipmap_count = bitmap.mipmaps + 1
+        if bitmap.type.enum_name == "cubemap":
+            bitmap_count = 6
+        elif bitmap.type.enum_name == "multipage_2d":
+            bitmap_count = d
+            d = 1
+
+        tex_block = []
+        if fmt == arbytmap.FORMAT_P8_BUMP:
+            fmt = arbytmap.FORMAT_A8
+
+        for i in range(mipmap_count):
+            pixel_data_size = get_h3_pixel_bytes_size(fmt, w, h, d, i, tiled)
+            for j in range(bitmap_count):
+                off = arbytmap.bitmap_io.bitmap_bytes_to_array(
+                    pixel_data, off, tex_block, fmt,
+                    1, 1, 1, pixel_data_size)
+
+        return tex_block
+
+    def get_textures(self, tag):
+        textures = HaloBitmapDisplayButton.get_textures(self, tag)
+
+        bitmaps = tag.data.tagdata.bitmaps.STEPTREE
+        for i in range(len(bitmaps)):
+            bitmap = bitmaps[i]
+            tex_info = textures[i][1]
+
+            if bitmap.type.enum_name == "multipage_2d":
+                tex_info.update(depth=1, texture_type=TYPE_NAME_MAP[0],
+                                sub_bitmap_count=tex_info["depth"])
+
+            # update the texture info
+            tex_info.update(
+                packed_width_calc=get_virtual_dimension,
+                packed_height_calc=get_virtual_dimension,
+                target_packed_width_calc=get_virtual_dimension,
+                target_packed_height_calc=get_virtual_dimension,
+                big_endian=True, target_big_endian=True,
+                tiled=bitmap.format_flags.tiled,
+                tile_mode=False, tile_method="DXGI")
+
+        return textures
+
+
 class HaloBitmapTagFrame(ContainerFrame):
     bitmap_display_button_class = HaloBitmapDisplayButton
 
@@ -321,10 +634,21 @@ class Halo2BitmapTagFrame(HaloBitmapTagFrame):
     bitmap_display_button_class = Halo2BitmapDisplayButton
 
 
+class Halo3BitmapTagFrame(HaloBitmapTagFrame):
+    bitmap_display_button_class = Halo3BitmapDisplayButton
+
+
 class HaloColorEntry(NumberEntryFrame):
 
+    def set_modified(self, *args):
+        if self.node is None or self.needs_flushing:
+            return
+        elif self.entry_string.get() != self.last_flushed_val:
+            self.set_needs_flushing()
+            self.set_edited()
+
     def flush(self, *args):
-        if self._flushing or not self.needs_flushing:
+        if self.node is None or self._flushing or not self.needs_flushing:
             return
 
         try:
@@ -418,6 +742,15 @@ class HaloUInt32ColorPickerFrame(ColorPickerFrame):
         self._initialized = True
         self.populate()
 
+    def load_child_node_data(self):
+        for chan_char in self.desc['COLOR_CHANNELS']:
+            chan = channel_name_map[chan_char]
+            node_val = int(getattr(self, chan) * 255.0 + 0.5)
+            w = self.f_widgets.get(self.f_widget_ids_map.get(chan, None), None)
+            if w:
+                w.load_node_data(self.node, node_val, chan_char,
+                                 self.color_descs[chan_char])
+
     @property
     def visible_field_count(self):
         try:
@@ -443,14 +776,12 @@ class HaloUInt32ColorPickerFrame(ColorPickerFrame):
         if undo:
             nodes = state.undo_node
 
-        inject_color('a', int(nodes['a'] * 255.0 + 0.5), parent, attr_index)
-        inject_color('r', int(nodes['r'] * 255.0 + 0.5), parent, attr_index)
-        inject_color('g', int(nodes['g'] * 255.0 + 0.5), parent, attr_index)
-        inject_color('b', int(nodes['b'] * 255.0 + 0.5), parent, attr_index)
+        for c in 'argb':
+            inject_color(c, nodes[c], parent, attr_index)
 
         if w is not None:
             try:
-                if w.desc is not state.desc:
+                if w.desc != state.desc:
                     return
 
                 w.node = parent[attr_index]
@@ -459,24 +790,6 @@ class HaloUInt32ColorPickerFrame(ColorPickerFrame):
                 w.set_edited()
             except Exception:
                 print(format_exc())
-
-    def reload(self):
-        self.node = self.parent[self.attr_index]
-        if hasattr(self, 'color_btn'):
-            if self.disabled:
-                self.color_btn.config(state=tk.DISABLED)
-            else:
-                self.color_btn.config(state=tk.NORMAL)
-
-            self.color_btn.config(bg=self.get_color()[1])
-
-        f_widgets = self.f_widgets
-        f_widget_ids_map = self.f_widget_ids_map
-        for chan_char in self.desc['COLOR_CHANNELS']:
-            chan = channel_name_map[chan_char]
-            w = f_widgets[f_widget_ids_map[chan]]
-            w.node = int(getattr(self, chan) * 255.0 + 0.5)
-            w.reload()
 
     def populate(self):
         content = self
@@ -487,14 +800,9 @@ class HaloUInt32ColorPickerFrame(ColorPickerFrame):
                                highlightthickness=0, bg=self.default_bg_color)
 
         self.content = content
-        # clear the f_widget_ids list
-        del self.f_widget_ids[:]
-        del self.f_widget_ids_map
-        del self.f_widget_ids_map_inv
-
-        f_widget_ids = self.f_widget_ids
-        f_widget_ids_map = self.f_widget_ids_map = {}
-        f_widget_ids_map_inv = self.f_widget_ids_map_inv = {}
+        self.f_widget_ids = []
+        self.f_widget_ids_map = {}
+        self.f_widget_ids_map_inv = {}
 
         # destroy all the child widgets of the content
         if isinstance(self.f_widgets, dict):
@@ -520,28 +828,41 @@ class HaloUInt32ColorPickerFrame(ColorPickerFrame):
             node_val = int(getattr(self, chan) * 255.0 + 0.5)
             # make an entry widget for each color channel
             w = HaloColorEntry(self.content, f_widget_parent=self,
-                               desc=self.color_descs[chan_char],
-                               node=node_val, vert_oriented=False,
+                               desc=self.color_descs[chan_char], node=node_val,
+                               parent=self.node, vert_oriented=False,
                                tag_window=self.tag_window, attr_index=chan_char)
 
             wid = id(w)
-            f_widget_ids.append(wid)
-            f_widget_ids_map[chan] = wid
-            f_widget_ids_map_inv[wid] = chan
+            self.f_widget_ids.append(wid)
+            self.f_widget_ids_map[chan] = wid
+            self.f_widget_ids_map_inv[wid] = chan
             if self.tooltip_string:
                 w.tooltip_string = self.tooltip_string
 
         self.color_btn = tk.Button(
             self.content, width=4, command=self.select_color,
-            bd=self.button_depth, bg=self.get_color()[1])
-
-        if self.disabled:
-            self.color_btn.config(state=tk.DISABLED)
-        else:
-            self.color_btn.config(state=tk.NORMAL)
+            bd=self.button_depth, bg=self.get_color()[1],
+            state=tk.DISABLED if self.disabled else tk.NORMAL)
 
         self.build_f_widget_cache()
         self.pose_fields()
+
+    def reload(self):
+        if self.parent is None:
+            return
+
+        self.node = self.parent[self.attr_index]
+        if hasattr(self, 'color_btn'):
+            if self.disabled:
+                self.color_btn.config(state=tk.DISABLED)
+            else:
+                self.color_btn.config(state=tk.NORMAL)
+
+            self.color_btn.config(bg=self.get_color()[1])
+
+        self.load_child_node_data()
+        for wid in self.f_widget_ids:
+            self.f_widgets[wid].reload()
 
     def pose_fields(self):
         ContainerFrame.pose_fields(self)
@@ -549,48 +870,62 @@ class HaloUInt32ColorPickerFrame(ColorPickerFrame):
 
     @property
     def alpha(self):
+        if self.node is None: return 0.0
         return extract_color('a', self.node) / 255.0
 
     @alpha.setter
     def alpha(self, new_val):
+        if self.node is None: return
         inject_color('a', int(new_val * 255.0 + 0.5),
                      self.parent, self.attr_index)
         self.node = self.parent[self.attr_index]
 
     @property
     def red(self):
+        if self.node is None: return 0.0
         return extract_color('r', self.node) / 255.0
 
     @red.setter
     def red(self, new_val):
+        if self.node is None: return
         inject_color('r', int(new_val * 255.0 + 0.5),
                      self.parent, self.attr_index)
         self.node = self.parent[self.attr_index]
 
     @property
     def green(self):
+        if self.node is None: return 0.0
         return extract_color('g', self.node) / 255.0
 
     @green.setter
     def green(self, new_val):
+        if self.node is None: return
         inject_color('g', int(new_val * 255.0 + 0.5),
                      self.parent, self.attr_index)
         self.node = self.parent[self.attr_index]
 
     @property
     def blue(self):
+        if self.node is None: return 0.0
         return extract_color('b', self.node) / 255.0
 
     @blue.setter
     def blue(self, new_val):
+        if self.node is None: return
         inject_color('b', int(new_val * 255.0 + 0.5),
                      self.parent, self.attr_index)
         self.node = self.parent[self.attr_index]
 
 
 class DependencyFrame(ContainerFrame):
+    open_btn = None
+    browse_btn = None
+    preview_btn = None
 
     def browse_tag(self):
+        if self.node is None:
+            return
+
         try:
             try:
                 tags_dir = self.tag_window.tag.tags_dir
@@ -651,12 +986,15 @@ class DependencyFrame(ContainerFrame):
                     tag_class=orig_tag_class, filepath=self.node.filepath))
 
             self.node.filepath = tag_path
-            self.set_edited()
             self.reload()
+            self.set_edited()
         except Exception:
             print(format_exc())
 
     def open_tag(self):
+        if self.node is None:
+            return
+
         t_w = self.tag_window
         try:
             tag, app = t_w.tag, t_w.app_root
@@ -684,18 +1022,20 @@ class DependencyFrame(ContainerFrame):
             except AttributeError:
                 pass
 
-            app.set_handler(new_handler)
+            app.set_active_handler(new_handler)
             app.load_tags(filepaths=filepath + ext)
         except Exception:
             print(format_exc())
         finally:
-            app.set_handler(cur_handler)
+            app.set_active_handler(cur_handler)
 
     def get_dependency_tag(self):
+        if self.node is None:
+            return
+
         t_w = self.tag_window
         try:
-            tags_dir, app, handler = t_w.tag.tags_dir,\
-                                     t_w.app_root, t_w.handler
+            tags_dir, app, handler = t_w.tag.tags_dir, t_w.app_root, t_w.handler
         except AttributeError:
             return
 
@@ -744,6 +1084,9 @@ class DependencyFrame(ContainerFrame):
         self.preview_btn.show_window(None, self.tag_window.app_root)
 
     def validate_filepath(self, *args):
+        if self.node is None:
+            return
+
         desc = self.desc
         wid = self.f_widget_ids_map.get(desc['NAME_MAP']['filepath'])
         widget = self.f_widgets.get(wid)
@@ -776,9 +1119,6 @@ class DependencyFrame(ContainerFrame):
 
     def pose_fields(self):
         ContainerFrame.pose_fields(self)
-
-        node = self.node
-        desc = node.desc
         picker = self.widget_picker
         tag_window = self.tag_window
 
@@ -793,7 +1133,7 @@ class DependencyFrame(ContainerFrame):
             self, width=5, text='Open', command=self.open_tag, **btn_kwargs)
         self.preview_btn = None
         try:
-            names = node.tag_class.NAME_MAP.keys()
+            names = self.desc[0]['NAME_MAP'].keys()
             is_bitmap_dependency = len(names) == 2 and "bitmap" in names
         except Exception:
             is_bitmap_dependency = False
@@ -816,7 +1156,8 @@ class DependencyFrame(ContainerFrame):
         for wid in self.f_widget_ids:
             w = self.f_widgets[wid]
             sub_desc = w.desc
-            if w.attr_index == 0 and sub_desc['ENTRIES'] <= 2:
+            if not self.all_visible and (w.attr_index == 0 and
+                                         sub_desc['ENTRIES'] <= 2):
                 w.pack_forget()
             elif sub_desc.get('NAME') == 'filepath':
                 self.write_trace(w.entry_string, self.validate_filepath)
@@ -833,13 +1174,11 @@ class DependencyFrame(ContainerFrame):
     def reload(self):
         '''Resupplies the nodes to the widgets which display them.'''
         try:
-            node = self.node
-            desc = self.desc
             f_widgets = self.f_widgets
 
-            field_indices = range(len(node))
+            field_indices = range(self.desc['ENTRIES'])
             # if the node has a steptree node, include its index in the indices
-            if hasattr(node, 'STEPTREE'):
+            if 'STEPTREE' in self.desc:
                 field_indices = tuple(field_indices) + ('STEPTREE',)
 
             f_widget_ids_map = self.f_widget_ids_map
@@ -851,9 +1190,12 @@ class DependencyFrame(ContainerFrame):
             # if any of the descriptors are different between
             # the sub-nodes of the previous and new sub-nodes,
             # then this widget will need to be repopulated.
+            sub_node = None
             for i in field_indices:
-                sub_node = node[i]
-                sub_desc = desc[i]
+                sub_desc = self.desc[i]
+                if hasattr(self.node, "__getitem__"):
+                    sub_node = self.node[i]
+
                 if hasattr(sub_node, 'desc'):
                     sub_desc = sub_node.desc
 
@@ -872,29 +1214,45 @@ class DependencyFrame(ContainerFrame):
                     self.populate()
                     return
 
-            for wid in self.f_widget_ids:
-                w = f_widgets[wid]
+            if self.node is not None:
+                for wid in self.f_widget_ids:
+                    w = f_widgets[wid]
 
-                w.parent, w.node = node, node[w.attr_index]
-                w.reload()
+                    w.parent, w.node = self.node, self.node[w.attr_index]
+                    w.reload()
 
             self.validate_filepath()
         except Exception:
             print(format_exc())
 
+    def set_disabled(self, disable=True):
+        disable = disable or not self.editable
+        if self.node is None and not disable:
+            return
+
+        if bool(disable) != self.disabled:
+            for w in (self.open_btn, self.browse_btn, self.preview_btn):
+                if w:
+                    w.config(state=tk.DISABLED if disable else tk.NORMAL)
+
+        ContainerFrame.set_disabled(self, disable)
+
 
 class HaloRawdataFrame(RawdataFrame):
 
     def delete_node(self):
+        if None in (self.parent, self.node):
+            return
+
         undo_node = self.node
         self.node = self.parent[self.attr_index] = self.node[0:0]
+        self.set_edited()
+
         self.edit_create(undo_node=undo_node, redo_node=self.node)
 
-        # until i come up with a better method, i'll have to rely on
-        # reloading the root field widget so sizes will be updated
+        # reload the parent field widget so sizes will be updated
         try:
             self.f_widget_parent.reload()
-            self.set_edited()
         except Exception:
             print(format_exc())
             print("Could not reload after deleting data.")
@@ -929,45 +1287,42 @@ class HaloScriptSourceFrame(HaloRawdataFrame):
     def field_ext(self): return '.hsc'
 
 
-class HaloScriptTextFrame(TextFrame):
+class HaloScriptTextFrame(ComputedTextFrame):
     syntax  = None
     strings = None
 
-    def __init__(self, *args, **kwargs):
-        TextFrame.__init__(self, *args, **kwargs)
-        tag_data = self.parent.parent.parent.parent
-        self.syntax  = reclaimer.hsc.get_hsc_data_block(
-            tag_data.script_syntax_data.data)
-        self.strings = tag_data.script_string_data.data.decode("latin-1")
-        self.reload()
+    def get_text(self):
+        if self.parent is None:
+            return ""
 
-    def export_node(self): pass
-    def import_node(self): pass
-    def build_replace_map(self): pass
-    def flush(self, *a, **kw): pass
-    def set_edited(self, *a, **kw): pass
-    def set_needs_flushing(self, *a, **kw): pass
-
-    def reload(self):
-        try:
-            if None in (self.strings, self.syntax):
-                return
-
-            typ = "script"
-            if "global" in self.f_widget_parent.node.NAME:
-                typ = "global"
-
+        if None in (self.strings, self.syntax):
             tag_data = self.parent.parent.parent.parent
-            new_text = reclaimer.hsc.hsc_bytecode_to_string(
-                    self.syntax, self.strings, self.f_widget_parent.attr_index,
-                    tag_data.scripts.STEPTREE, tag_data.globals.STEPTREE, typ)
+            self.syntax  = reclaimer.hsc.get_hsc_data_block(
+                tag_data.script_syntax_data.data)
+            self.strings = tag_data.script_string_data.data.decode("latin-1")
 
-            self.data_text.delete(1.0, tk.END)
-            self.data_text.insert(1.0, new_text)
-        except Exception:
-            print(format_exc())
+        if None in (self.strings, self.syntax):
+            return
 
-    populate = reload
+        typ = "script"
+        if "global" in self.f_widget_parent.node.NAME:
+            typ = "global"
+
+        tag_data = self.parent.parent.parent.parent
+        new_text = reclaimer.hsc.hsc_bytecode_to_string(
+                self.syntax, self.strings, self.f_widget_parent.attr_index,
+                tag_data.scripts.STEPTREE, tag_data.globals.STEPTREE, typ)
+        return new_text
+
+
+class HaloHudMessageTextFrame(ComputedTextFrame):
+    def get_text(self):
+        if self.parent is None:
+            return ""
+
+        tag_data = self.parent.parent.parent.parent
+        message_index = self.parent.parent.index(self.parent)
+        return parse_hmt_message(tag_data, message_index)[0]
 
 
 class SoundSampleFrame(HaloRawdataFrame):
@@ -1050,13 +1405,12 @@ class SoundSampleFrame(HaloRawdataFrame):
             self.parent.parse(rawdata=rawdata, attr_index=index)
             self.node = self.parent[index]
 
+            self.set_edited()
             self.edit_create(undo_node=undo_node, redo_node=self.node)
 
-            # until i come up with a better method, i'll have to rely on
-            # reloading the root field widget so sizes will be updated
+            # reload the parent field widget so sizes will be updated
             try:
                 self.f_widget_parent.reload()
-                self.set_edited()
             except Exception:
                 print(format_exc())
                 print("Could not reload after importing sound data.")
@@ -1139,6 +1493,9 @@ class SoundSampleFrame(HaloRawdataFrame):
 
 
 class ReflexiveFrame(DynamicArrayFrame):
+    export_all_btn = None
+    import_all_btn = None
+
     def __init__(self, *args, **kwargs):
         DynamicArrayFrame.__init__(self, *args, **kwargs)
 
@@ -1146,6 +1503,7 @@ class ReflexiveFrame(DynamicArrayFrame):
             bg=self.button_color, fg=self.text_normal_color,
             disabledforeground=self.text_disabled_color,
             bd=self.button_depth,
+            state=tk.DISABLED if self.disabled else tk.NORMAL
             )
 
         self.import_all_btn = tk.Button(
@@ -1170,9 +1528,24 @@ class ReflexiveFrame(DynamicArrayFrame):
                   self.duplicate_btn, self.insert_btn, self.add_btn):
             w.pack(side="right", padx=(0, 4), pady=(2, 2))
 
+    def set_disabled(self, disable=True):
+        disable = disable or not self.editable
+        if self.node is None and not disable:
+            return
+
+        if bool(disable) != self.disabled:
+            new_state = tk.DISABLED if disable else tk.NORMAL
+            for w in (self.export_all_btn, self.import_all_btn):
+                if w:
+                    w.config(state=new_state)
+
+        DynamicArrayFrame.set_disabled(self, disable)
+
     def cache_options(self):
         node, desc = self.node, self.desc
         dyn_name_path = desc.get(DYN_NAME_PATH)
+        if node is None:
+            dyn_name_path = ""
 
         options = {}
         if dyn_name_path:
@@ -1243,49 +1616,50 @@ class ReflexiveFrame(DynamicArrayFrame):
         except Exception:
             return
         w.import_node()
-        self.set_edited()
 
 
 # replace the DynamicEnumFrame with one that has a specialized option generator
-class DynamicEnumFrame(DynamicEnumFrame):
+def halo_dynamic_enum_cache_options(self):
+    desc = self.desc
+    options = {0: "-1: NONE"}
 
-    def cache_options(self):
-        desc = self.desc
-        options = {0: "-1: NONE"}
-
-        dyn_name_path = desc.get(DYN_NAME_PATH)
-        if not dyn_name_path:
-            print("Missing DYN_NAME_PATH path in dynamic enumerator.")
-            print(self.parent.get_root().def_id, self.name)
-            print("Tell Moses about this.")
-            self.option_cache = options
-            return
-
-        try:
-            p_out, p_in = dyn_name_path.split(DYN_I)
-
-            # We are ALWAYS going to go to the parent, so we need to slice
-            if p_out.startswith('..'): p_out = p_out.split('.', 1)[-1]
-            array = self.parent.get_neighbor(p_out)
-            for i in range(len(array)):
-                name = array[i].get_neighbor(p_in)
-                if isinstance(name, list):
-                    name = repr(name).strip("[").strip("]")
-                else:
-                    name = str(name)
-
-                if p_in.endswith('.filepath'):
-                    # if it is a dependency filepath
-                    options[i + 1] = '%s. %s' % (
-                        i, name.replace('/', '\\').split('\\')[-1])
-                options[i + 1] = '%s. %s' % (i, name)
-        except Exception:
-            print(format_exc())
-            print("Guess something got mistyped. Tell Moses about this.")
-            dyn_name_path = False
-
-        try:
-            self.sel_menu.max_index = len(options) - 1
-        except Exception:
-            pass
+    dyn_name_path = desc.get(DYN_NAME_PATH)
+    if self.node is None:
+        return
+    elif not dyn_name_path:
+        print("Missing DYN_NAME_PATH path in dynamic enumerator.")
+        print(self.parent.get_root().def_id, self.name)
+        print("Tell Moses about this.")
         self.option_cache = options
+        return
+
+    try:
+        p_out, p_in = dyn_name_path.split(DYN_I)
+
+        # We are ALWAYS going to go to the parent, so we need to slice
+        if p_out.startswith('..'): p_out = p_out.split('.', 1)[-1]
+        array = self.parent.get_neighbor(p_out)
+        for i in range(len(array)):
+            name = array[i].get_neighbor(p_in)
+            if isinstance(name, list):
+                name = repr(name).strip("[").strip("]")
+            else:
+                name = str(name)
+
+            if p_in.endswith('.filepath'):
+                # if it is a dependency filepath
+                options[i + 1] = '%s. %s' % (
+                    i, name.replace('/', '\\').split('\\')[-1])
+            options[i + 1] = '%s. %s' % (i, name)
+    except Exception:
+        print(format_exc())
+        print("Guess something got mistyped. Tell Moses about this.")
+        dyn_name_path = False
+
+    try:
+        self.sel_menu.max_index = len(options) - 1
+    except Exception:
+        pass
+    self.option_cache = options
+
+DynamicEnumFrame.cache_options = halo_dynamic_enum_cache_options

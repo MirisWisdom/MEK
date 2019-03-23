@@ -13,13 +13,17 @@ from reclaimer.constants import *
 # that are built that use them will have them in their descriptor entries.
 inject_halo_constants()
 
+from binilla.handler import Handler
 from binilla.app_window import *
 from binilla.util import do_subprocess, is_main_frozen, get_cwd
 from reclaimer.hek.handler import HaloHandler
+from reclaimer.h3.handler import Halo3Handler
 from reclaimer.os_v3_hek.handler import OsV3HaloHandler
 from reclaimer.os_v4_hek.handler import OsV4HaloHandler
 from reclaimer.misc.handler import MiscHaloLoader
 from reclaimer.stubbs.handler import StubbsHandler
+
+import mozzarilla
 
 from mozzarilla.config_def import config_def, guerilla_workspace_def
 from mozzarilla.widget_picker import *
@@ -55,7 +59,7 @@ this_curr_dir = get_cwd(__file__)
 
 class Mozzarilla(Binilla):
     app_name = 'Mozzarilla'
-    version = '1.4.1'
+    version = "%s.%s.%s" % mozzarilla.__version__
     log_filename = 'mozzarilla.log'
     debug = 0
 
@@ -67,13 +71,16 @@ class Mozzarilla(Binilla):
     config_def  = config_def
     config_version = 2
 
-    handlers = (
+    handler_classes = (
         HaloHandler,
         OsV3HaloHandler,
         OsV4HaloHandler,
         MiscHaloLoader,
         StubbsHandler,
+        Halo3Handler,
         )
+
+    handlers = ()
 
     handler_names = (
         "Halo 1",
@@ -81,6 +88,7 @@ class Mozzarilla(Binilla):
         "Halo 1 OS v4",
         "Halo 1 Misc",
         "Stubbs the Zombie",
+        "Halo 3"
         )
 
     # names of the handlers that MUST load tags from within their tags_dir
@@ -89,9 +97,21 @@ class Mozzarilla(Binilla):
         "Halo 1 OS v3",
         "Halo 1 OS v4",
         "Stubbs the Zombie",
+        "Halo 3"
         ))
 
     tags_dirs = ()
+
+    about_module_names = (
+        "arbytmap",
+        "binilla",
+        "mozzarilla",
+        "reclaimer",
+        "supyr_struct",
+        "threadsafe_tkinter",
+        )
+
+    about_messages = ()
 
     _curr_handler_index  = 0
     _curr_tags_dir_index = 0
@@ -114,16 +134,27 @@ class Mozzarilla(Binilla):
         # config file will fail to be created as updating
         # the config requires using methods in the handler.
         kwargs['handler'] = MiscHaloLoader(debug=self.debug)
+        try:
+            with open(os.path.join(self.curr_dir, "tad.gsm"[::-1]), 'r', -1, "037") as f:
+                setattr(self, 'segassem_tuoba'[::-1], list(l for l in f))
+        except Exception:
+            pass
+
         self.tags_dir_relative = set(self.tags_dir_relative)
         self.tags_dirs = ["%s%stags%s" % (this_curr_dir, PATHDIV, PATHDIV)]
+        self.handlers = list({} for i in range(len(self.handler_classes)))
+        self.handler_names = list(self.handler_names)
 
         Binilla.__init__(self, *args, **kwargs)
         try:
             try:
-                self.iconbitmap(join(this_curr_dir, 'mozzarilla.ico'))
+                self.icon_filepath = join(this_curr_dir, 'mozzarilla.ico')
+                self.iconbitmap(self.icon_filepath)
             except Exception:
-                self.iconbitmap(join(this_curr_dir, 'icons', 'mozzarilla.ico'))
+                self.icon_filepath = join(join(this_curr_dir, 'icons', 'mozzarilla.ico'))
+                self.iconbitmap(self.icon_filepath)
         except Exception:
+            self.icon_filepath = ""
             print("Could not load window icon.")
 
         self.file_menu.insert_command("Exit", label="Load guerilla config",
@@ -150,11 +181,19 @@ class Mozzarilla(Binilla):
         # make the tools and tag set menus
         self.tools_menu = tk.Menu(self.main_menu, tearoff=0)
         self.compile_menu = tk.Menu(self.main_menu, tearoff=0)
-        self.defs_menu = tk.Menu(self.main_menu, tearoff=0)
-
+        self.defs_menu = tk.Menu(self.main_menu, tearoff=0,
+                                 postcommand=self.generate_defs_menu)
+        
+        self.main_menu.delete(0, "end")  # clear the menu
+        self.main_menu.add_cascade(label="File",    menu=self.file_menu)
+        self.main_menu.add_cascade(label="Settings", menu=self.settings_menu)
+        self.main_menu.add_cascade(label="Windows", menu=self.windows_menu)
+        if self.debug_mode:
+            self.main_menu.add_cascade(label="Debug", menu=self.debug_menu)
         self.main_menu.add_cascade(label="Tag set", menu=self.defs_menu)
         self.main_menu.add_cascade(label="Tools", menu=self.tools_menu)
         self.main_menu.add_cascade(label="Compile Tag", menu=self.compile_menu)
+        self.main_menu.add_command(label="About", command=self.show_about_window)
         try:
             if e_c.IS_WIN and not is_main_frozen():
                 import hek_pool
@@ -163,19 +202,16 @@ class Mozzarilla(Binilla):
         except ImportError:
             pass
 
-        for i in range(len(self.handler_names)):
-            self.defs_menu.add_command(command=lambda i=i:
-                                       self.select_defs(i, manual=True))
-
         self.tools_menu.add_command(
-            label="Dependency viewer", command=self.show_dependency_viewer)
+            label="Tag dependency viewer / zipper", command=self.show_dependency_viewer)
         self.tools_menu.add_command(
-            label="Tags directory scanner", command=self.show_tag_scanner)
+            label="Tags directory error locator", command=self.show_tag_scanner)
         self.tools_menu.add_separator()
         self.tools_menu.add_command(
             label="Search and replace", command=self.show_search_and_replace)
         self.tools_menu.add_command(
-            label="Scenario sauce scrubber", command=self.show_sauce_removal_window)
+            label="Scenario Open Sauce remover",
+            command=self.show_sauce_removal_window)
         self.tools_menu.add_separator()
         self.tools_menu.add_command(
             label="Bitmap converter",
@@ -203,8 +239,6 @@ class Mozzarilla(Binilla):
             label="String_list / unicode_string_list from txt", command=self.strings_from_txt)
 
         self.defs_menu.add_separator()
-        self.handlers = list(self.handlers)
-        self.handler_names = list(self.handler_names)
 
         self.select_defs(manual=False)
         self.tool_windows = {}
@@ -213,23 +247,16 @@ class Mozzarilla(Binilla):
         self.make_window_panes()
         self.make_directory_frame(self.window_panes)
         self.make_io_text(self.window_panes)
+        self.apply_style()
+
+        if self.directory_frame is not None:
+            self.directory_frame.highlight_tags_dir(self.tags_dir)
 
         try:
             if self.config_file.data.header.flags.load_last_workspace:
                 self.load_last_workspace()
         except AttributeError:
             pass
-
-        if self.directory_frame is not None:
-            self.directory_frame.highlight_tags_dir(self.tags_dir)
-        self.apply_style()
-
-    @property
-    def tags_dir(self):
-        try:
-            return self.tags_dirs[self._curr_tags_dir_index]
-        except IndexError:
-            return None
 
     @property
     def data_dir(self):
@@ -242,11 +269,151 @@ class Mozzarilla(Binilla):
         except IndexError:
             return None
 
+    @property
+    def tags_dir(self):
+        try:
+            return self.tags_dirs[self._curr_tags_dir_index]
+        except IndexError:
+            return None
+
     @tags_dir.setter
     def tags_dir(self, new_val):
-        handler = self.handlers[self._curr_handler_index]
+        assert isinstance(new_val, str)
         new_val = join(sanitize_path(new_val), '')  # ensure it ends with a \
-        self.tags_dirs[self._curr_tags_dir_index] = handler.tagsdir = new_val
+        self.tags_dirs[self._curr_tags_dir_index] = new_val
+
+    def get_tags_dir_index(self, tags_dir):
+        try:
+            tags_dir = join(sanitize_path(tags_dir), '')
+            return self.tags_dirs.index(tags_dir)
+        except Exception:
+            return None
+
+    @property
+    def handler_name(self):
+        if self._curr_handler_index in range(len(self.handler_names)):
+            return self.handler_names[self._curr_handler_index]
+        return None
+
+    def get_handler_index(self, handler):
+        try:
+            return self.handler_classes.index(type(handler))
+        except Exception:
+            return None
+
+    def get_handler(self, index=None, tags_dir=None, create_if_not_exists=True):
+        try:
+            if index is None:
+                index = self._curr_handler_index
+
+            if not tags_dir:
+                tags_dir = self.tags_dir
+
+            if isinstance(index, str):
+                index = self.handler_names.index(index)
+
+            tags_dir = join(sanitize_path(tags_dir), '')
+            if not self.handlers[index].get(tags_dir.lower(), None):
+                if create_if_not_exists:
+                    self.create_handlers(tags_dir, index)
+                else:
+                    return None
+
+            return self.handlers[index][tags_dir.lower()]
+        except Exception:
+            return None
+
+    def create_handlers(self, tags_dir, handler_indices=()):
+        tags_dir = join(sanitize_path(tags_dir), '')
+        tags_dir_key = tags_dir.lower()
+        if isinstance(handler_indices, int):
+            handler_indices = (handler_indices, )
+        elif not handler_indices:
+            handler_indices = range(len(self.handler_classes))
+
+        for i in handler_indices:
+            if isinstance(i, str):
+                i = self.handler_names.index(i)
+
+            handlers_by_dir = self.handlers[i]
+            if handlers_by_dir.get(tags_dir_key, None):
+                continue
+
+            handler = self.handler_classes[i](debug=self.debug)
+            handler.tagsdir = tags_dir
+            handlers_by_dir[tags_dir_key] = handler
+
+    def set_active_handler(self, handler=None, index=None, tags_dir=None):
+        if handler is not None:
+            if not isinstance(handler, Handler):
+                raise TypeError("Invalid type for handler argument. "
+                                "Must be of type %s" % Handler)
+            elif index is not None or tags_dir is not None:
+                raise ValueError("Provide either a handler or a handler "
+                                 "index and tags_dir, not all three.")
+
+            index = self.get_handler_index(handler)
+            tags_dir = handler.tagsdir
+            if index is None:
+                raise TypeError("Provided Handler is not recognized.")
+        else:
+            if not tags_dir:
+                tags_dir = self.tags_dir
+            elif not isinstance(tags_dir, str):
+                raise TypeError("Invalid type for tags_dir argument. Must be "
+                                "of type %s, not %s" % (str, type(tags_dir)))
+
+            if index is None:
+                index = self._curr_handler_index
+            elif isinstance(index, str):
+                index = self.handler_names.index(index)
+            elif not isinstance(index, int):
+                raise TypeError("Invalid type for index argument. Must be of "
+                                "type %s or %s, not %s" % (str, int, type(index)))
+
+            handler = self.get_handler(index, tags_dir)
+
+        if None in (index, tags_dir):
+            return
+
+        tags_dir_index = self.get_tags_dir_index(tags_dir)
+        self.handler = handler
+        self._curr_handler_index = index
+        if tags_dir_index is None:
+            self.tags_dir = tags_dir
+        else:
+            self.switch_tags_dir(index=tags_dir_index, manual=False)
+
+    def select_defs(self, menu_index=None, manual=True):
+        if menu_index is None:
+            menu_index = self._curr_handler_index
+            # make sure the current handler index is valid
+            if self.handler_name is None:
+                menu_index = 0
+
+        handler = self.get_handler(menu_index, create_if_not_exists=False)
+        if not handler or handler is not self.handler:
+            if manual:
+                print("Changing tag set to %s" % self.handler_names[menu_index])
+                self.io_text.update_idletasks()
+
+            self.set_active_handler(index=menu_index)
+            try:
+                self.config_file.data.mozzarilla.selected_handler.data = menu_index
+            except AttributeError:
+                pass
+
+            if manual:
+                print("    Finished")
+
+    def generate_defs_menu(self):
+        self.defs_menu.delete(0, "end")  # clear the menu
+        for i in range(len(self.handler_names)):
+            label = self.handler_names[i]
+            if i == self._curr_handler_index:
+                label += u' \u2713'
+            self.defs_menu.add_command(label=label, command=lambda i=i:
+                                       self.select_defs(i, manual=True))
 
     def add_tags_dir(self, e=None, tags_dir=None, manual=True):
         if tags_dir is None:
@@ -257,7 +424,7 @@ class Mozzarilla(Binilla):
             return
 
         tags_dir = join(sanitize_path(tags_dir), '')
-        if tags_dir in self.tags_dirs:
+        if self.get_tags_dir_index(tags_dir) is not None:
             if manual:
                 print("That tags directory already exists.")
             return
@@ -270,7 +437,6 @@ class Mozzarilla(Binilla):
 
         if manual:
             self.last_load_dir = tags_dir
-            curr_index = self._curr_tags_dir_index
             print("Tags directory is currently:\n    %s\n" % self.tags_dir)
 
     def remove_tags_dir(self, e=None, index=None, manual=True):
@@ -294,6 +460,7 @@ class Mozzarilla(Binilla):
         self.switch_tags_dir(index=new_index, manual=False)
 
         if manual:
+            self.last_load_dir = self.tags_dir
             print("Tags directory is currently:\n    %s\n" % self.tags_dir)
 
     def set_tags_dir(self, e=None, tags_dir=None, manual=True):
@@ -312,9 +479,12 @@ class Mozzarilla(Binilla):
         if self.directory_frame is not None:
             self.directory_frame.set_root_dir(tags_dir)
             self.directory_frame.highlight_tags_dir(self.tags_dir)
+
         self.tags_dir = tags_dir
+        self.set_active_handler()
 
         if manual:
+            self.last_load_dir = self.tags_dir
             print("Tags directory is currently:\n    %s\n" % self.tags_dir)
 
     def switch_tags_dir(self, e=None, index=None, manual=True):
@@ -324,14 +494,10 @@ class Mozzarilla(Binilla):
             return
 
         self._curr_tags_dir_index = index
-        self.handler.tagsdir = self.tags_dir
+        self.set_active_handler()
 
         if self.directory_frame is not None:
             self.directory_frame.highlight_tags_dir(self.tags_dir)
-
-        for handler in self.handlers:
-            try: handler.tagsdir = self.tags_dir
-            except Exception: pass
 
         if manual:
             self.last_load_dir = self.tags_dir
@@ -356,6 +522,7 @@ class Mozzarilla(Binilla):
         self._curr_tags_dir_index = 0
         for tags_dir in tags_dirs:
             self.add_tags_dir(tags_dir=tags_dir.path, manual=False)
+
         self.switch_tags_dir(
             index=min(mozz.last_tags_dir, len(self.tags_dirs)), manual=False)
 
@@ -367,15 +534,91 @@ class Mozzarilla(Binilla):
         if not self.tags_dir:
             self.tags_dir = self.curr_dir + "%stags%s" % (PATHDIV, PATHDIV)
 
-        for handler in self.handlers:
-            try: handler.tagsdir = self.tags_dir
-            except Exception: pass
+    def record_open_tags(self):
+        try:
+            open_tags = self.config_file.data.mozzarilla.open_mozz_tags
+            tags_dirs = self.config_file.data.mozzarilla.tags_dirs
+            del open_tags[:]
+        except Exception:
+            print(format_exc())
+            return
+
+        for wid in sorted(self.tag_windows):
+            try:
+                w = self.tag_windows[wid]
+                tag, handler = w.tag, w.handler
+
+                # dont store tags that arent from the current handler
+                if tag in (self.config_file, None):
+                    continue
+
+                tags_dir_index = self.get_tags_dir_index(handler.tagsdir)
+                handler_index = self.get_handler_index(handler)
+                if None in (tags_dir_index, handler_index):
+                    continue
+
+                open_tags.append()
+                open_tag = open_tags[-1]
+                header = open_tag.header
+
+                if w.state() == 'withdrawn':
+                    header.flags.minimized = True
+
+                pos_x, pos_y = w.winfo_x(), w.winfo_y()
+                width, height = w.geometry().split('+')[0].split('x')[:2]
+
+                header.offset_x, header.offset_y = pos_x, pos_y
+                header.width, header.height = int(width), int(height)
+                header.tags_dir_index = tags_dir_index
+                header.handler_index = handler_index
+
+                open_tag.def_id, open_tag.path = tag.def_id, tag.filepath
+            except Exception:
+                print(format_exc())
 
     def load_last_workspace(self):
-        if self._mozzarilla_initialized:
-            Binilla.load_last_workspace(self)
+        if not self._mozzarilla_initialized:
+            return
+
+        try:
+            mozz = self.config_file.data.mozzarilla
+            open_tags = mozz.open_mozz_tags
+            tags_dirs = [b.path for b in mozz.tags_dirs]
+        except Exception:
+            print(format_exc())
+            return
+
+        print("Loading last workspace...")
+        self.io_text.update_idletasks()
+        for open_tag in open_tags:
+            try:
+                header = open_tag.header
+                self.set_active_handler(
+                    index=header.handler_index,
+                    tags_dir=tags_dirs[header.tags_dir_index])
+
+                windows = self.load_tags(filepaths=open_tag.path,
+                                         def_id=open_tag.def_id)
+                if not windows:
+                    continue
+
+                if header.flags.minimized:
+                    windows[0].withdraw()
+                    self.selected_tag = None
+
+                windows[0].geometry("%sx%s+%s+%s" % (
+                    header.width, header.height,
+                    header.offset_x, header.offset_y))
+            except Exception:
+                print(format_exc())
+
+        print("    Finished")
 
     def load_guerilla_config(self):
+        if self.handler_name not in self.tags_dir_relative:
+            print("Change the current tag set.")
+            return
+
         fp = askopenfilename(initialdir=self.last_load_dir, parent=self,
                              title="Select the tag to load",
                              filetypes=(('Guerilla config', '*.cfg'),
@@ -385,21 +628,21 @@ class Mozzarilla(Binilla):
             return
 
         self.last_load_dir = dirname(fp)
+        tags_dir = os.path.join(dirname(fp), "tags", "")
+        if not os.path.exists(tags_dir):
+            print("Specified guerilla.cfg has no corresponding tags directory.")
+            return
+
         workspace = guerilla_workspace_def.build(filepath=fp)
+        tags_dir = join(sanitize_path(tags_dir), '')
+        if self.get_tags_dir_index(tags_dir) is None:
+            print("Adding tags directory:\n    %s" % tags_dir)
+            self.add_tags_dir(tags_dir=tags_dir)
 
-        pad_x = self.io_text.winfo_rootx() - self.winfo_x()
-        pad_y = self.io_text.winfo_rooty() - self.winfo_y()
-
-        tl_corner = workspace.data.window_header.t_l_corner
-        br_corner = workspace.data.window_header.b_r_corner
-
-        self.geometry("%sx%s+%s+%s" % (
-            br_corner.x - tl_corner.x - pad_x,
-            br_corner.y - tl_corner.y - pad_y,
-            tl_corner.x, tl_corner.y))
+        self.set_active_handler(tags_dir=tags_dir)
 
         for tag in workspace.data.tags:
-            if not tag.is_valid_tag:
+            if not(tag.is_valid_tag and tag.filepath):
                 continue
 
             windows = self.load_tags(tag.filepath)
@@ -411,8 +654,7 @@ class Mozzarilla(Binilla):
             tl_corner = tag.window_header.t_l_corner
             br_corner = tag.window_header.b_r_corner
 
-            self.place_window_relative(w, pad_x + tl_corner.x,
-                                          pad_y + tl_corner.y)
+            self.place_window_relative(w, tl_corner.x, tl_corner.y)
             w.geometry("%sx%s" % (br_corner.x - tl_corner.x,
                                   br_corner.y - tl_corner.y))
 
@@ -422,8 +664,6 @@ class Mozzarilla(Binilla):
         if tags_dir is None:
             return Binilla.load_tags(self, filepaths, def_id)
 
-        if isinstance(filepaths, tk.Event):
-            filepaths = None
         if filepaths is None:
             filetypes = [('All', '*')]
             defs = self.handler.defs
@@ -443,14 +683,12 @@ class Mozzarilla(Binilla):
                 filepaths = (filepaths, )
 
         sani = sanitize_path
-        handler_name = self.handler_names[self._curr_handler_index]
-
         sanitized_paths = [sani(path) for path in filepaths]
 
         # make sure all the chosen tag paths are relative
         # to the current tags directory if they must be
         last_load_dir = self.last_load_dir
-        if handler_name in self.tags_dir_relative:
+        if self.handler_name in self.tags_dir_relative:
             for i in range(len(sanitized_paths)):
                 path = sanitized_paths[i]
                 if not path:
@@ -498,83 +736,6 @@ class Mozzarilla(Binilla):
         self.def_selector_window = dsw
         self.place_window_relative(self.def_selector_window, 30, 50)
 
-    def make_config(self, filepath=None):
-        if filepath is None:
-            filepath = self.config_path
-
-        # create the config file from scratch
-        self.config_file = self.config_def.build()
-        self.config_file.filepath = filepath
-
-        data = self.config_file.data
-
-        # make sure these have as many entries as they're supposed to
-        for block in (data.directory_paths, data.widgets.depths, data.colors):
-            block.extend(len(block.NAME_MAP))
-
-        tags_dirs = data.mozzarilla.tags_dirs
-        for tags_dir in self.tags_dirs:
-            tags_dirs.append()
-            tags_dirs[-1].path = tags_dir
-
-        self.update_config()
-
-        c_hotkeys = data.hotkeys
-        c_tag_window_hotkeys = data.tag_window_hotkeys
-
-        for k_set, b in ((default_hotkeys, c_hotkeys),
-                         (default_tag_window_hotkeys, c_tag_window_hotkeys)):
-            default_keys = k_set
-            hotkeys = b
-            for combo, method in k_set.items():
-                hotkeys.append()
-                keys = hotkeys[-1].combo
-
-                modifier, key = read_hotkey_string(combo)
-                keys.modifier.set_to(modifier)
-                keys.key.set_to(key)
-
-                hotkeys[-1].method.set_to(method)
-
-    def make_tag_window(self, tag, *, focus=True, window_cls=None,
-                        is_new_tag=False):
-        if window_cls is None:
-            window_cls = HaloTagWindow
-        w = Binilla.make_tag_window(self, tag, focus=focus,
-                                    window_cls=window_cls,
-                                    is_new_tag=is_new_tag)
-        self.update_tag_window_title(w)
-        try:
-            try:
-                w.iconbitmap(join(this_curr_dir, 'mozzarilla.ico'))
-            except Exception:
-                w.iconbitmap(join(this_curr_dir, 'icons', 'mozzarilla.ico'))
-        except Exception:
-            pass
-
-        return w
-
-    def make_window_panes(self):
-        self.window_panes = tk.PanedWindow(
-            self.root_frame, sashrelief='raised', sashwidth=8,
-            bd=self.frame_depth, bg=self.frame_bg_color)
-        self.window_panes.pack(anchor='nw', fill='both', expand=True)
-
-    def make_io_text(self, master=None):
-        if not self._initialized:
-            return
-        if master is None:
-            master = self.root_frame
-        Binilla.make_io_text(self, master)
-
-    def make_directory_frame(self, master=None):
-        if not self._initialized:
-            return
-        if master is None:
-            master = self.root_frame
-        self.directory_frame = DirectoryFrame(self)
-        self.directory_frame.pack(expand=True, fill='both')
-
     def new_tag(self, e=None):
         if self.def_selector_window:
             return
@@ -586,10 +747,9 @@ class Mozzarilla(Binilla):
         self.place_window_relative(self.def_selector_window, 30, 50)
 
     def save_tag(self, tag=None):
-        if isinstance(tag, tk.Event):
-            tag = None
         if tag is None:
             if self.selected_tag is None:
+                print("Cannot save(no tag is selected).")
                 return
             tag = self.selected_tag
 
@@ -603,10 +763,9 @@ class Mozzarilla(Binilla):
         return Binilla.save_tag(self, tag)
 
     def save_tag_as(self, tag=None, filepath=None):
-        if isinstance(tag, tk.Event):
-            tag = None
         if tag is None:
             if self.selected_tag is None:
+                print("Cannot save(no tag is selected).")
                 return
             tag = self.selected_tag
 
@@ -661,118 +820,63 @@ class Mozzarilla(Binilla):
         self.update_tag_window_title(w)
         return tag
 
-    def get_handler(self, handler_name=None, initialize=True):
-        try:
-            menu_index = self.handler_names.index(handler_name)
-            handler = self.handlers[menu_index]
+    def save_all(self, e=None):
+        '''
+        Saves all currently loaded tags to their files.
+        '''
+        for handler_set in self.handlers:
+            for handler in handler_set.values():
+                if not getattr(handler, "tags", None):
+                    continue
 
-            if isinstance(handler, type) and initialize:
-                self.handlers[menu_index] = handler = handler(debug=self.debug)
+                tags = handler.tags
+                for def_id in tags:
+                    tag_coll = tags[def_id]
+                    for tag_path in tag_coll:
+                        try:
+                            self.save_tag(tag_coll[tag_path])
+                        except Exception:
+                            print(format_exc())
+                            print("Exception occurred while trying to save '%s'" %
+                                  tag_path)
 
-            return handler
-        except Exception:
-            return None
+    def make_config(self, filepath=None):
+        if filepath is None:
+            filepath = self.config_path
 
-    def select_defs(self, menu_index=None, manual=True):
-        if menu_index is None:
-            menu_index = self._curr_handler_index
-            try:
-                # make sure the current handler index is valid
-                self.handler_names[menu_index]
-            except Exception:
-                menu_index = 0
+        # create the config file from scratch
+        self.config_file = self.config_def.build()
+        self.config_file.filepath = filepath
 
-        try:
-            handler_name = self.handler_names[menu_index]
-        except Exception:
-            print(format_exc())
-            handler_name = None
+        data = self.config_file.data
 
-        handler = self.get_handler(handler_name, False)
-        if handler is None or handler is self.handler:
-            return
+        # make sure these have as many entries as they're supposed to
+        for block in (data.directory_paths, data.widgets.depths, data.colors):
+            block.extend(len(block.NAME_MAP))
 
-        if manual:
-            print("Changing tag set to %s" % handler_name)
-            self.io_text.update_idletasks()
+        tags_dirs = data.mozzarilla.tags_dirs
+        for tags_dir in self.tags_dirs:
+            tags_dirs.append()
+            tags_dirs[-1].path = tags_dir
 
-        if isinstance(handler, type):
-            self.handlers[menu_index] = handler(debug=self.debug)
+        self.update_config()
 
-        self.handler = self.handlers[menu_index]
-        self._curr_handler_index = menu_index
-        for i in range(len(self.handler_names)):
-            self.defs_menu.entryconfig(i, label=self.handler_names[i])
+        c_hotkeys = data.hotkeys
+        c_tag_window_hotkeys = data.tag_window_hotkeys
 
-        self.defs_menu.entryconfig(self._curr_handler_index,
-                                   label=("%s %s" % (handler_name, u'\u2713')))
+        for k_set, b in ((default_hotkeys, c_hotkeys),
+                         (default_tag_window_hotkeys, c_tag_window_hotkeys)):
+            default_keys = k_set
+            hotkeys = b
+            for combo, method in k_set.items():
+                hotkeys.append()
+                keys = hotkeys[-1].combo
 
-        if manual:
-            print("    Finished")
+                modifier, key = read_hotkey_string(combo)
+                keys.modifier.set_to(modifier)
+                keys.key.set_to(key)
 
-        self.config_file.data.mozzarilla.selected_handler.data = menu_index
-
-    def set_handler(self, handler=None, index=None, name=None):
-        if handler is not None:
-            handler_index = self.handlers.index(handler)
-            self._curr_handler_index = handler_index
-            self.handler = handler
-        elif index is not None:
-            self._curr_handler_index = handler_index
-            self.handler = self.handlers[handler_index]
-        elif name is not None:
-            handler_index = self.handler_names.index(name)
-            self._curr_handler_index = handler_index
-            self.handler = self.handlers[handler_index]
-
-    def show_tool_window(self, window_name, window_class,
-                         needs_tag_refs=False):
-        w = self.tool_windows.get(window_name)
-        if w is not None:
-            try: del self.tool_windows[window_name]
-            except Exception: pass
-            try: w.destroy()
-            except Exception: pass
-            return
-
-        if needs_tag_refs and not hasattr(self.handler, 'tag_ref_cache'):
-            print("Change the current tag set.")
-            return
-
-        self.tool_windows[window_name] = w = window_class(self)
-        w.window_name = window_name
-        self.place_window_relative(w, 30, 50); w.focus_set()
-
-    def show_dependency_viewer(self, e=None):
-        self.show_tool_window("dependency_window", DependencyWindow, True)
-
-    def show_tag_scanner(self, e=None):
-        self.show_tool_window("tag_scanner_window", TagScannerWindow, True)
-
-    def show_bitmap_converter_window(self, e=None):
-        self.show_tool_window("show_bitmap_converter_window", BitmapConverterWindow)
-
-    def show_data_extraction_window(self, e=None):
-        self.show_tool_window("data_extraction_window", DataExtractionWindow, True)
-
-    def show_model_compiler_window(self, e=None):
-        self.show_tool_window("model_compiler_window", ModelCompilerWindow, True)
-
-    def show_search_and_replace(self, e=None):
-        self.show_tool_window("s_and_r_window", SearchAndReplaceWindow)
-
-    def show_sauce_removal_window(self, e=None):
-        self.show_tool_window("sauce_removal_window", SauceRemovalWindow)
-
-    def create_hek_pool_window(self, e=None):
-        try:
-            launcher = Thread(
-                target=do_subprocess, daemon=True, args=("pythonw", ),
-                kwargs=dict(exec_args=("-m", "hek_pool.run"),
-                            proc_controller=ProcController(abandon=True)))
-            launcher.start()
-        except Exception:
-            print("Could not open HEK Pool")
+                hotkeys[-1].method.set_to(method)
 
     def update_config(self, config_file=None):
         if config_file is None:
@@ -823,8 +927,7 @@ class Mozzarilla(Binilla):
         try:
             if tag is self.config_file or not tags_dir:
                 return
-            handler_name = self.handler_names[self._curr_handler_index]
-            if handler_name not in self.tags_dir_relative:
+            if self.handler_name not in self.tags_dir_relative:
                 window.update_title()
                 return
 
@@ -842,12 +945,14 @@ class Mozzarilla(Binilla):
                 else:
                     tags_dir_str = tags_dir_str[-2]
 
-            handler_i = self.handlers.index(window.handler)
+            handler_i = self.get_handler_index(window.handler)
 
             title = "[%s][%s][%s]" % (
                 self.handler_names[handler_i], tags_dir_str, tag.rel_filepath)
         except Exception:
-            pass
+            print(format_exc())
+            title = window.title()
+
         window.update_title(title)
 
     def apply_style(self, seen=None):
@@ -882,6 +987,94 @@ class Mozzarilla(Binilla):
                 print(format_exc())
         except AttributeError: print(format_exc())
         except Exception: print(format_exc())
+
+    def make_tag_window(self, tag, *, focus=True, window_cls=None,
+                        is_new_tag=False):
+        if window_cls is None:
+            window_cls = HaloTagWindow
+        w = Binilla.make_tag_window(self, tag, focus=focus,
+                                    window_cls=window_cls,
+                                    is_new_tag=is_new_tag)
+        self.update_tag_window_title(w)
+        try:
+            try:
+                w.iconbitmap(join(this_curr_dir, 'mozzarilla.ico'))
+            except Exception:
+                w.iconbitmap(join(this_curr_dir, 'icons', 'mozzarilla.ico'))
+        except Exception:
+            pass
+
+        return w
+
+    def make_window_panes(self):
+        self.window_panes = tk.PanedWindow(
+            self.root_frame, sashrelief='raised', sashwidth=8,
+            bd=self.frame_depth, bg=self.frame_bg_color)
+        self.window_panes.pack(anchor='nw', fill='both', expand=True)
+
+    def make_io_text(self, master=None):
+        if not self._initialized:
+            return
+        if master is None:
+            master = self.root_frame
+        Binilla.make_io_text(self, master)
+
+    def make_directory_frame(self, master=None):
+        if not self._initialized:
+            return
+        if master is None:
+            master = self.root_frame
+        self.directory_frame = DirectoryFrame(self)
+        self.directory_frame.pack(expand=True, fill='both')
+
+    def show_tool_window(self, window_name, window_class,
+                         needs_tag_refs=False):
+        w = self.tool_windows.get(window_name)
+        if w is not None:
+            try: del self.tool_windows[window_name]
+            except Exception: pass
+            try: w.destroy()
+            except Exception: pass
+            return
+
+        if needs_tag_refs and not hasattr(self.handler, 'tag_ref_cache'):
+            print("Change the current tag set.")
+            return
+
+        self.tool_windows[window_name] = w = window_class(self)
+        w.window_name = window_name
+        self.place_window_relative(w, 30, 50); w.focus_set()
+
+    def show_dependency_viewer(self, e=None):
+        self.show_tool_window("dependency_window", DependencyWindow, True)
+
+    def show_tag_scanner(self, e=None):
+        self.show_tool_window("tag_scanner_window", TagScannerWindow, True)
+
+    def show_bitmap_converter_window(self, e=None):
+        self.show_tool_window("show_bitmap_converter_window", BitmapConverterWindow)
+
+    def show_data_extraction_window(self, e=None):
+        self.show_tool_window("data_extraction_window", DataExtractionWindow, True)
+
+    def show_model_compiler_window(self, e=None):
+        self.show_tool_window("model_compiler_window", ModelCompilerWindow, True)
+
+    def show_search_and_replace(self, e=None):
+        self.show_tool_window("s_and_r_window", SearchAndReplaceWindow)
+
+    def show_sauce_removal_window(self, e=None):
+        self.show_tool_window("sauce_removal_window", SauceRemovalWindow)
+
+    def create_hek_pool_window(self, e=None):
+        try:
+            launcher = Thread(
+                target=do_subprocess, daemon=True, args=("pythonw", ),
+                kwargs=dict(exec_args=("-m", "hek_pool.run"),
+                            proc_controller=ProcController(abandon=True)))
+            launcher.start()
+        except Exception:
+            print("Could not open HEK Pool")
 
     def bitmap_from_dds(self, e=None):
         bitmap_from_dds(self)
