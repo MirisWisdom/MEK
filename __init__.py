@@ -3,5 +3,5 @@
 # ##############
 __author__ = "Devin Bobadilla"
 #           YYYY.MM.DD
-__date__ = "2019.03.21"
-__version__ = (1, 2, 0)
+__date__ = "2019.04.01"
+__version__ = (1, 2, 1)

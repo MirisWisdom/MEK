@@ -78,6 +78,32 @@ program_files_dir = char + program_files_dir
 halo_dir = join(program_files_dir, 'Microsoft Games\\Halo Custom Edition')
 
 
+def patch_tool_model_data_limit(tool_path, backup=True):
+    # knowledge of how to do this patch was provided by GoofballMichelle
+    return do_executable_patch(
+        tool_path,
+        region_bounds=((0x54d40, 0x54d83), ),
+        orig_hashes=('ab740fbef571f568361e2f33d2ed25ed', ),
+        patched_hashes=('4c36ea35da8509548620fa2a5128efc2', ),
+        patches=((0x54D57, b'\x00\x00\x00\x60'), ),
+        backup=backup
+        )
+
+
+def patch_tool_map_size_limit(tool_path, backup=True):
+    # knowledge of how to do this patch was provided by GoofballMichelle
+    return do_executable_patch(
+        tool_path,
+        region_bounds=((0x53160, 0x53254), ),
+        orig_hashes=('e29ed96cbbadb90aec40652c42d9bad5', ),
+        patched_hashes=('0ed3dbd6e86aefcba65fcb481369a3b5', ),
+        patches=((0x5316B, b'\x8B\xD8\x90'),
+                 (0x531BF, b'\x8B\xC3\x90'),
+                 (0x531D2, b'\xEB')),
+        backup=backup
+        )
+
+
 def fix_ogg_encoder_dlls(cwd):
     # replace the bad and broken ogg dll's with working ones
     dll_zip_path = join(curr_dir, OGG_DLL_ZIP_NAME)
@@ -138,7 +164,7 @@ def null_physics_jms_model_data(cwd, cmd_args):
                 # get the number of values to read
                 vals_to_read = int(line) * vals_per_block
                 continue
-                
+
             vals_to_read -= 1
             if not vals_to_read:
                 vals_to_read = None
@@ -181,6 +207,8 @@ class HekPool(tk.Tk):
     supress_tool_beta_errors = None
     null_physics_model_data = None
     install_ogg_dlls = None
+    patch_tool_model_data_limit = None
+    patch_tool_map_size_limit = None
     proc_limit = None
 
     last_load_dir = halo_dir
@@ -241,6 +269,8 @@ class HekPool(tk.Tk):
         self.supress_tool_beta_errors = tk.BooleanVar(self, 1)
         self.null_physics_model_data = tk.BooleanVar(self, 1)
         self.install_ogg_dlls = tk.BooleanVar(self, 1)
+        self.patch_tool_model_data_limit = tk.BooleanVar(self, 0)
+        self.patch_tool_map_size_limit = tk.BooleanVar(self, 0)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
@@ -313,23 +343,32 @@ class HekPool(tk.Tk):
         self.file_menu.add_command(label="Exit", command=self.close)
 
 
-        self.settings_menu.add("checkbutton", variable=self.clear_log,
-                               label="Clear debug.txt's before processing")
-        self.settings_menu.add("checkbutton", variable=self.open_log,
-                               label="Open debug.txt's after processing")
-        self.settings_menu.add("checkbutton",
-                               variable=self.smart_assist_on_rclick,
-                               label="Enable smart-assist when right-clicking")
+        self.settings_menu.add(
+            "checkbutton", variable=self.clear_log,
+            label="Clear debug.txt's before processing")
+        self.settings_menu.add(
+            "checkbutton", variable=self.open_log,
+            label="Open debug.txt's after processing")
+        self.settings_menu.add(
+            "checkbutton", variable=self.smart_assist_on_rclick,
+            label="Enable smart-assist when right-clicking")
         self.settings_menu.add_separator()
-        self.settings_menu.add("checkbutton",
-                               variable=self.supress_tool_beta_errors,
-                               label="Fix toolbeta.map error")
-        self.settings_menu.add("checkbutton",
-                               variable=self.null_physics_model_data,
-                               label='Fix physics.jms breaking "collision-geometry" command')
-        self.settings_menu.add("checkbutton",
-                               variable=self.install_ogg_dlls,
-                               label="Install fixed ogg encoder dlls(backs up current ones)")
+        self.settings_menu.add(
+            "checkbutton", variable=self.supress_tool_beta_errors,
+            label="Fix toolbeta.map error")
+        self.settings_menu.add(
+            "checkbutton", variable=self.null_physics_model_data,
+            label='Fix physics.jms breaking "collision-geometry" command')
+        self.settings_menu.add_separator()
+        self.settings_menu.add(
+            "checkbutton", variable=self.install_ogg_dlls,
+            label="Install fixed ogg encoder dlls(backs up current ones)")
+        self.settings_menu.add(
+            "checkbutton", variable=self.patch_tool_model_data_limit,
+            label="Upgrade tool.exe vertex-index buffer from 32MB to 96MB(backs up tool.exe)")
+        self.settings_menu.add(
+            "checkbutton", variable=self.patch_tool_map_size_limit,
+            label="Remove tool.exe map size limit(backs up tool.exe)")
 
 
         self.help_menu.add_command(label="Readme",
@@ -1097,16 +1136,12 @@ class HekPool(tk.Tk):
 
         self.tool_paths = [b.path for b in config_data.tool_paths]
         self.curr_tool_index = header.last_tool_index - 1
-        self.select_tool_path(self.curr_tool_index)
-
         self.proc_limit.set(str(max(header.proc_limit, 1)))
-        self.open_log.set(header.flags.open_log)
-        self.smart_assist_on_rclick.set(header.flags.smart_assist_on_rclick)
-        self.supress_tool_beta_errors.set(header.flags.supress_tool_beta_errors)
-        self.null_physics_model_data.set(header.flags.null_physics_model_data)
-        self.install_ogg_dlls.set(header.flags.install_ogg_dlls)
-        self.clear_log.set(header.flags.clear_log)
 
+        for attr_name in header.flags.NAME_MAP:
+            getattr(self, attr_name).set(bool(getattr(header.flags, attr_name)))
+
+        self.select_tool_path(self.curr_tool_index)
         self.geometry("%sx%s+%s+%s" %
                       (self.app_width,    self.app_height,
                        self.app_offset_x, self.app_offset_y))
@@ -1132,12 +1167,8 @@ class HekPool(tk.Tk):
         header.parse(attr_index='date_modified')
         header.last_tool_index = max(self.curr_tool_index + 1, 0)
         header.proc_limit = max(int(self.proc_limit.get()), 1)
-        header.flags.open_log = self.open_log.get()
-        header.flags.smart_assist_on_rclick = self.smart_assist_on_rclick.get()
-        header.flags.supress_tool_beta_errors = self.supress_tool_beta_errors.get()
-        header.flags.null_physics_model_data = self.null_physics_model_data.get()
-        header.flags.install_ogg_dlls = self.install_ogg_dlls.get()
-        header.flags.clear_log = self.clear_log.get()
+        for attr_name in header.flags.NAME_MAP:
+            setattr(header.flags, attr_name, getattr(self, attr_name).get())
 
         for s in app_window.NAME_MAP.keys():
             try: app_window[s] = __oga__(self, s)
@@ -1627,6 +1658,32 @@ class HekPool(tk.Tk):
             tool_path = self.get_tool_path()
             loc_vars["cwd"] = dirname(tool_path).replace('/', '\\')
             processes, proc_limit = self.processes, self.proc_limit
+
+            if self.patch_tool_model_data_limit.get():
+                result = patch_tool_model_data_limit(tool_path)
+                if result is True:
+                    messagebox.showerror(
+                        "Patch unsuccessful",
+                        "Could not increase vertex-index buffer size from 32MB to 96MB in tool.exe",
+                        parent=self)
+                elif result is False:
+                    messagebox.showinfo(
+                        "Patch successful",
+                        "Successfully increased vertex-index buffer size from 32MB to 96MB in tool.exe",
+                        parent=self)
+
+            if self.patch_tool_map_size_limit.get():
+                result = patch_tool_map_size_limit(tool_path)
+                if result is True:
+                    messagebox.showerror(
+                        "Patch unsuccessful",
+                        "Could not remove max map size limit from tool.exe",
+                        parent=self)
+                elif result is False:
+                    messagebox.showinfo(
+                        "Patch successful",
+                        "Successfully removed max map size limit from tool.exe",
+                        parent=self)
 
             if self.install_ogg_dlls.get():
                 fix_ogg_encoder_dlls(loc_vars["cwd"])
