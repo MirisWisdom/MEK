@@ -84,8 +84,8 @@ def patch_tool_model_data_limit(tool_path, backup=True):
         tool_path,
         region_bounds=((0x54d40, 0x54d83), ),
         orig_hashes=('ab740fbef571f568361e2f33d2ed25ed', ),
-        patched_hashes=('4c36ea35da8509548620fa2a5128efc2', ),
-        patches=((0x54D57, b'\x00\x00\x00\x60'), ),
+        patched_hashes=('1a92ed4e16096e828416ebaacd8c5dff', ),
+        patches=((0x54D57, b'\x00\x00\x00\x06'), ),
         backup=backup
         )
 
@@ -97,9 +97,9 @@ def patch_tool_map_size_limit(tool_path, backup=True):
         region_bounds=((0x53160, 0x53254), ),
         orig_hashes=('e29ed96cbbadb90aec40652c42d9bad5', ),
         patched_hashes=('0ed3dbd6e86aefcba65fcb481369a3b5', ),
-        patches=((0x5316B, b'\x8B\xD8\x90'),
-                 (0x531BF, b'\x8B\xC3\x90'),
-                 (0x531D2, b'\xEB')),
+        patches=((0x5316B, b'\x8b\xd8\x90'),
+                 (0x531BF, b'\x8b\xc3\x90'),
+                 (0x531D2, b'\xeb')),
         backup=backup
         )
 
