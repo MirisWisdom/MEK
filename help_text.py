@@ -491,10 +491,12 @@ TOOL_COMMAND_HELP = constants.FrozenDict({
 
 DIRECTIVES_HELP = {
     "k": (
-        "Tells Pool to keep Tool instances open, even after they finish processing.",
+        ("Tells Pool to keep Tool instances open, even after they finish "
+         "processing. This remains in effect until #c is used."),
         ),
     "c": (
-        "Tells Pool to close Tool instances as soon as they finish processing.",
+        ("Tells Pool to close Tool instances as soon as they finish "
+         "processing. This remains in effect until #k is used."),
         ),
     "cwd": (
         "Changes the current working directory, allowing Tool to operate on "
@@ -533,8 +535,11 @@ DIRECTIVES_HELP = {
          "Name of the executable to run."),
         ),
     "w": (
-        "Tells Pool to wait until all currently running Tool instances "
-        "are closed before continuing executing commands and directives.",
+        "Tells Pool to wait a specified amount of time before continuing "
+        "executing commands and directives.",
+        ("time", "float",
+         "Amount of time to wait in seconds. If not provided, waits "
+         "until all currently running commands have finished."),
         ),
     }
 

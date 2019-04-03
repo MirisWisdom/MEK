@@ -556,11 +556,15 @@ class HekPool(tk.Tk):
         for c in raw_cmd_str:
             if i > posx:
                 break
-            elif find_start:
-                if c == start_char and find_start == 1:
-                    find_start = 2
-                elif c != ' ' and find_start == 2:
-                    find_start = False
+            elif not find_start:
+                pass
+            elif c == start_char and find_start == 1:
+                find_start = 2
+            elif c != ' ' and find_start == 2:
+                find_start = False
+
+            if find_start:
+                pass
             elif c == ' ' and not in_str:
                 if param_str:
                     arg_index += 1
@@ -1689,7 +1693,8 @@ class HekPool(tk.Tk):
                 fix_ogg_encoder_dlls(loc_vars["cwd"])
 
             i, curr_max_proc_ct = start, 0
-            wait_on_cmds, cmds_started, skip_ct, direc_ct = False, 0, 0, 0
+            wait_time, wait_on_cmds = 0, False
+            cmds_started, skip_ct, direc_ct = 0, 0, 0
             completed, processes, cmd_args_dict = {}, {}, dict(k=False)
             self.processes = processes
             while i <= stop and not self._stop_processing:
@@ -1699,6 +1704,10 @@ class HekPool(tk.Tk):
 
                 if wait_on_cmds:
                     sleep(0.1)
+                    continue
+                elif wait_time > 0:
+                    sleep(wait_time)
+                    wait_time = 0
                     continue
                 elif curr_proc_ct >= int(proc_limit.get()):
                     # continually execute processes until the max quota is hit
@@ -1777,7 +1786,12 @@ class HekPool(tk.Tk):
                                 processes=processes)
                         cmds_started += 1
                     elif typ == 'w':
-                        wait_on_cmds = True
+                        try:
+                            wait_time = float(vals[0])
+                            wait_on_cmds = False
+                        except Exception:
+                            wait_time = 0
+                            wait_on_cmds = True
                     else:
                         self.set_line_style(i, "error")
                 else:

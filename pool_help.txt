@@ -38,7 +38,7 @@ The argument types are as follows:
 #############
 
   c
-    Tells Pool to close Tool instances as soon as they finish processing.
+    Tells Pool to close Tool instances as soon as they finish processing. This remains in effect until #k is used.
 
     #  ARGUMENTS
     ############
@@ -65,7 +65,7 @@ The argument types are as follows:
 
 
   k
-    Tells Pool to keep Tool instances open, even after they finish processing.
+    Tells Pool to keep Tool instances open, even after they finish processing. This remains in effect until #c is used.
 
     #  ARGUMENTS
     ############
@@ -103,11 +103,12 @@ The argument types are as follows:
 
 
   w
-    Tells Pool to wait until all currently running Tool instances are closed before continuing executing commands and directives.
+    Tells Pool to wait a specified amount of time before continuing executing commands and directives.
 
     #  ARGUMENTS
     ############
-    None
+    <time>  (float)
+        Amount of time to wait in seconds. If not provided, waits until all currently running commands have finished.
 
 
 

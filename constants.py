@@ -115,7 +115,9 @@ DIRECTIVES = FrozenDict({
     "run": (
         ("exec-path", ) + FILE_MACRO,
         ),
-    "w": (),
+    "w": (
+        ("time", ) + FLOAT_MACRO,
+        ),
     })
 
 TOOL_COMMANDS = FrozenDict({
