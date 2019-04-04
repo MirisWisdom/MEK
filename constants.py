@@ -105,6 +105,10 @@ DIRECTIVES = FrozenDict({
     "cwd": (
         ("directory", ) + DIR_MACRO,
         ),
+    "debug": (
+        ("enable", ) + BOOL_MACRO,
+        ("time", "float", "0.0", (0, float("inf"))),
+        ),
     "set": (
         ("var-name", )  + STR_NO_PAREN_MACRO,
         ("var-value", ) + STR_MACRO,

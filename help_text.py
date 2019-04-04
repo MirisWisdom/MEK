@@ -506,6 +506,13 @@ DIRECTIVES_HELP = {
          "The directory to set as the current working directory.\n"
          "This is an absolute path, meaning it is not relative to anything."),
         ),
+    "debug": (
+        "Turns debug mode on or off. In debug mode, a dummy process is run "
+        "any time a tool command or the run directive is used. Each dummy "
+        "process will run for the length of time specified.",
+        ("enable", "bool", "Enable debug mode?"),
+        ("time", "float", "Amount of time to wait in seconds."),
+        ),
     "set": (
         "Adds a variable to a list that can be used for text replacements. "
         "To use the variable, you must put arrow braces around it.\n"
@@ -536,7 +543,7 @@ DIRECTIVES_HELP = {
         ),
     "w": (
         "Tells Pool to wait a specified amount of time before continuing "
-        "executing commands and directives.",
+        "executing commands and directives. The \"time\" argument is optional.",
         ("time", "float",
          "Amount of time to wait in seconds. If not provided, waits "
          "until all currently running commands have finished."),

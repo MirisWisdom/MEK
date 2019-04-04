@@ -77,6 +77,7 @@ for char in 'CDEFGHIJKLMNOPQRSTUVWXYZ':
 program_files_dir = char + program_files_dir
 halo_dir = join(program_files_dir, 'Microsoft Games\\Halo Custom Edition')
 
+VALID_DIRECTIVES = tuple(DIRECTIVES)
 
 def patch_tool_model_data_limit(tool_path, backup=True):
     # knowledge of how to do this patch was provided by GoofballMichelle
@@ -716,8 +717,8 @@ class HekPool(tk.Tk):
             if opts:
                 message += '\n\nValid values for this argument are:\n'
                 if typ == "float":
-                    message += "    Numbers that are >= %s and <= %s" % (
-                        float_to_str(opts[0]), float_to_str(opts[1]))
+                    message += "    %s <= %s <= %s" % (
+                        float_to_str(opts[0]), name, float_to_str(opts[1]))
                 else:
                     for opt in opts:
                         message += "    %s\n" % opt
@@ -1309,10 +1310,15 @@ class HekPool(tk.Tk):
 
         def proc_wrapper(app, line, *args, **kwargs):
             try:
-                proc_c = kwargs.get("proc_controller")
+                dummy     = kwargs.pop("dummy", False)
+                dummy_timer   = kwargs.pop("dummy_timer", 0.0)
+                proc_c    = kwargs.get("proc_controller")
                 processes = kwargs.pop("processes", {})
                 completed = kwargs.pop("completed", {})
-                do_subprocess(*args, **kwargs)
+                if dummy:
+                    sleep(dummy_timer)
+                else:
+                    do_subprocess(*args, **kwargs)
             except Exception:
                 print(format_exc())
 
@@ -1485,7 +1491,7 @@ class HekPool(tk.Tk):
             return True
 
         cwd = join(loc_vars.get('cwd', '').lower(), '')
-
+        cmd_args = [s.strip('"') for s in cmd_args]
         if len(cmd_args) < 2:
             # no arguments for the command, so nothing to compare
             pass
@@ -1519,7 +1525,7 @@ class HekPool(tk.Tk):
             # that must be completed before this one can be run.
             for proc_i, proc_info in tuple(self.processes.items()):
                 if not proc_info: continue
-                proc_args = proc_info['exec_args']
+                proc_args = [s.strip('"') for s in proc_info['exec_args']]
                 proc_type = proc_args[0]
                 proc_bsp_path = ''
                 proc_scnr_paths = set()
@@ -1553,7 +1559,7 @@ class HekPool(tk.Tk):
                     proc_scnr_paths.add(proc_args[2].lower())
                 elif proc_type not in (
                         "build-cpp-definition", "build-packed-file", "help",
-                        "runtime-cache-view", "windows-font"):
+                        "dummy_timer-cache-view", "windows-font"):
                     # a command that edits tags or wasnt properly formed.
                     # NOT safe to run!
                     return False
@@ -1694,6 +1700,7 @@ class HekPool(tk.Tk):
 
             i, curr_max_proc_ct = start, 0
             wait_time, wait_on_cmds = 0, False
+            debug_mode, debug_timer = False, 0
             cmds_started, skip_ct, direc_ct = 0, 0, 0
             completed, processes, cmd_args_dict = {}, {}, dict(k=False)
             self.processes = processes
@@ -1732,7 +1739,7 @@ class HekPool(tk.Tk):
 
                     typ  = None if len(exec_args) == 1 else exec_args[1]
                     vals = () if len(exec_args) == 2 else exec_args[2:]
-                    if typ not in DIRECTIVES:
+                    if typ not in VALID_DIRECTIVES:
                         # malformed directive
                         self.set_line_style(i, "error")
                         i += 1
@@ -1769,6 +1776,12 @@ class HekPool(tk.Tk):
                             loc_vars[vals[0]] = vals[1]
                         else:
                             self.set_line_style(i, "error")
+                    elif typ == "debug":
+                        try:
+                            debug_mode = bool(eval(vals[0]))
+                            debug_timer = max(0, float(eval(vals[1])))
+                        except Exception:
+                            pass
                     elif typ == "del":
                         if vals and vals[0] != 'cwd':
                             loc_vars.pop(vals[0], None)
@@ -1782,8 +1795,8 @@ class HekPool(tk.Tk):
                             self.set_line_style(i, "processing")
                             self._start_process(
                                 i, join(cwd, vals.pop(0).strip('"')), vals,
-                                cwd=cwd, completed=completed,
-                                processes=processes)
+                                cwd=cwd, completed=completed, dummy=debug_mode,
+                                processes=processes, dummy_timer=debug_timer)
                         cmds_started += 1
                     elif typ == 'w':
                         try:
@@ -1826,7 +1839,7 @@ class HekPool(tk.Tk):
                             curr_max_proc_ct = curr_proc_ct
                             continue
 
-                        print('\n\n"%s"' % tool_path,
+                        print('\n"%s"' % tool_path,
                               ''.join(" %s" % a for a in exec_args))
                         self.commands_text.see("%s.0" % i)
                         curr_max_proc_ct = 0
@@ -1837,7 +1850,7 @@ class HekPool(tk.Tk):
                         if self._stop_processing:
                             completed[i] = {}
                             self.set_line_style(i, "processed")
-                        else:
+                        elif not debug_mode:
                             if self.supress_tool_beta_errors.get():
                                 toolbeta_path = join(cwd, "toolbeta.map")
                                 try:
@@ -1859,15 +1872,15 @@ class HekPool(tk.Tk):
                                     cmd_type in ("collision-geometry", "physics")):
                                 null_physics_jms_model_data(cwd, exec_args)
 
-                            self._start_process(i, tool_path,
-                                                exec_args, cmd_args, cwd=cwd,
-                                                completed=completed,
-                                                processes=processes)
-
+                        if not self._stop_processing:
                             # set the command's text to the 'processing' color
                             self.set_line_style(i, "processing")
+                            self._start_process(
+                                i, tool_path, exec_args, cmd_args, cwd=cwd,
+                                completed=completed, processes=processes,
+                                dummy=debug_mode, dummy_timer=debug_timer)
 
-                        cmds_started += 1
+                            cmds_started += 1
                     else:
                         self.set_line_style(i, "error")
 

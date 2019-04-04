@@ -17,6 +17,11 @@ from supyr_struct.defs.util import *
 from traceback import format_exc
 
 
+POS_INF = float("inf")
+NEG_INF = float("-inf")
+FLOAT_PREC  = 23*log(2, 10)
+
+
 def is_main_frozen():
    return (hasattr(sys, "frozen") or hasattr(sys, "importers")
            or imp.is_frozen("__main__"))
@@ -28,13 +33,18 @@ def get_cwd(module=None):
    return os.path.dirname(__file__ if module is None else module)
 
 
-def float_to_str(f, max_sig_figs=23*log(2, 10)):
+def float_to_str(f, max_sig_figs=FLOAT_PREC):
+    if f == POS_INF:
+        return "inf"
+    elif f == NEG_INF:
+        return "-inf"
+    
     sig_figs = -1
     if abs(f) > 0:
         sig_figs = int(round(max_sig_figs - log(abs(f), 10)))
 
     if sig_figs < 0:
-        return str(f).split(".")[0]
+        return ("%f" % f).split(".")[0]
     return (("%" + (".%sf" % sig_figs)) % f).rstrip("0").rstrip(".")
 
 
