@@ -13,7 +13,7 @@ from io import StringIO
 
 from math import log, ceil
 from time import sleep
-from supyr_struct.defs.util import *
+from supyr_struct.util import *
 from traceback import format_exc
 
 
