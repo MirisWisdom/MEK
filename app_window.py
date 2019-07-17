@@ -105,6 +105,18 @@ def patch_tool_map_size_limit(tool_path, backup=True):
         )
 
 
+def patch_tool_tag_indexing(tool_path, backup=True):
+    # knowledge of how to do this patch was provided by GoofballMichelle
+    return do_executable_patch(
+        tool_path,
+        region_bounds=((0x55423, 0x55452), ),
+        orig_hashes=('b4b6e4b6e9835ce20595088e4e5c4407', ),
+        patched_hashes=('e74a1f5ae7c73db2e2dbdf323750334b', ),
+        patches=((0x55451, b'\x00'), ),
+        backup=backup
+        )
+
+
 def file_open_error(master, filepath):
     messagebox.showerror(
         "Failed to open/read/write a file.",
@@ -219,6 +231,7 @@ class HekPool(tk.Tk):
     install_ogg_dlls = None
     patch_tool_model_data_limit = None
     patch_tool_map_size_limit = None
+    patch_tool_tag_indexing = None
     proc_limit = None
 
     last_load_dir = halo_dir
@@ -281,6 +294,7 @@ class HekPool(tk.Tk):
         self.install_ogg_dlls = tk.BooleanVar(self, 1)
         self.patch_tool_model_data_limit = tk.BooleanVar(self, 0)
         self.patch_tool_map_size_limit = tk.BooleanVar(self, 0)
+        self.patch_tool_tag_indexing = tk.BooleanVar(self, 0)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
@@ -379,6 +393,9 @@ class HekPool(tk.Tk):
         self.settings_menu.add(
             "checkbutton", variable=self.patch_tool_map_size_limit,
             label="Remove tool.exe map size limit(backs up tool.exe)")
+        self.settings_menu.add(
+            "checkbutton", variable=self.patch_tool_tag_indexing,
+            label="Disable tool.exe creating language locked campaign and ui maps.")
 
 
         self.help_menu.add_command(label="Readme",
@@ -1705,6 +1722,19 @@ class HekPool(tk.Tk):
                     messagebox.showinfo(
                         "Patch successful",
                         "Successfully removed max map size limit from tool.exe",
+                        parent=self)
+
+            if self.patch_tool_tag_indexing.get():
+                result = patch_tool_tag_indexing(tool_path)
+                if result is True:
+                    messagebox.showerror(
+                        "Patch unsuccessful",
+                        "Could not disable language locking of campaign and ui in tool.exe",
+                        parent=self)
+                elif result is False:
+                    messagebox.showinfo(
+                        "Patch successful",
+                        "Successfully disabled language locking of campaign and ui in tool.exe",
                         parent=self)
 
             if self.install_ogg_dlls.get():
