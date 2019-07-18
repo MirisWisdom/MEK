@@ -267,6 +267,9 @@ class HekPool(tk.Tk):
         "threadsafe_tkinter",
         )
 
+    app_bitmap_filepath = ""
+    icon_filepath = ""
+
     about_messages = ()
 
     def __init__(self, *args, **kwargs):
@@ -299,6 +302,13 @@ class HekPool(tk.Tk):
 
         self.processes = {}
         self.tool_paths = []
+        
+        self.app_bitmap_filepath = os.path.join(curr_dir, 'pool.png')
+        if not os.path.isfile(self.app_bitmap_filepath):
+            self.app_bitmap_filepath = os.path.join(curr_dir, 'icons', 'pool.png')
+        if not os.path.isfile(self.app_bitmap_filepath):
+            self.app_bitmap_filepath = ""
+
         try:
             try:
                 self.icon_filepath = os.path.join(curr_dir, 'pool.ico')
@@ -2177,6 +2187,6 @@ class HekPool(tk.Tk):
 
         self.about_window = AboutWindow(
             self, module_names=self.about_module_names,
-            iconbitmap=self.icon_filepath, app_name=self.app_name,
-            messages=self.about_messages)
+            iconbitmap=self.icon_filepath, appbitmap=self.app_bitmap_filepath,
+            app_name=self.app_name, messages=self.about_messages)
         self.place_window_relative(self.about_window, 30, 50)
