@@ -1,7 +1,16 @@
+import os
+import refinery
 import tkinter as tk
-from binilla.tag_window import *
-from mozzarilla.widget_picker import def_halo_widget_picker
-from supyr_struct.defs.constants import *
+
+from binilla import editor_constants as e_c
+from binilla.windows.tag_window import TagWindow
+
+from mozzarilla.widgets.field_widget_picker import def_halo_widget_picker
+
+from refinery.util import get_cwd
+
+
+curr_dir = get_cwd(refinery.__file__)
 
 
 class MetaWindow(TagWindow):
@@ -23,6 +32,15 @@ class MetaWindow(TagWindow):
         TagWindow.__init__(self, master, tag, *args, **kwargs)
         self.bind('<Shift-MouseWheel>', self.mousewheel_scroll_x)
         self.bind('<MouseWheel>', self.mousewheel_scroll_y)
+
+        try:
+            try:
+                self.iconbitmap(os.path.join(curr_dir, 'refinery.ico'))
+            except Exception:
+                self.iconbitmap(os.path.join(curr_dir, 'icons', 'refinery.ico'))
+        except Exception:
+            if not e_c.IS_LNX:
+                print("Could not load window icon.")
 
     def save(self, **kwargs):
         print("Cannot save meta-data")
@@ -51,6 +69,13 @@ class MetaWindow(TagWindow):
     def all_editable(self):
         try:
             return bool(self.app_root.edit_all_fields.get())
+        except Exception:
+            return False
+
+    @property
+    def use_scenario_names_for_script_names(self):
+        try:
+            return bool(self.app_root.use_scenario_names_for_script_names)
         except Exception:
             return False
 
