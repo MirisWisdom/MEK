@@ -1,6 +1,5 @@
 from supyr_struct.defs.tag_def import TagDef
 from supyr_struct.field_types import *
-from supyr_struct.defs.constants import *
 
 CFG_DIRS = (
     "working_dir",
@@ -24,7 +23,8 @@ config_header = Struct("header",
         "install_ogg_dlls",
         "patch_tool_model_data_limit",
         "patch_tool_map_size_limit",
-        DEFAULT=sum([1<<i for i in (2, 3, 4, 5, 6, 7)]),
+        "patch_tool_tag_indexing",
+        DEFAULT=sum([1<<i for i in (2, 3, 4, 5, 6, 7, 8)]),
         ),
     UInt32("max_undos", DEFAULT=1000),
     Pad(24 - 4*4),

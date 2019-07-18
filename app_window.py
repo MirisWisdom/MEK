@@ -7,8 +7,6 @@ import threadsafe_tkinter as tk
 import tkinter.ttk as ttk
 import zipfile
 
-from traceback import format_exc
-from os.path import basename, exists, isfile, dirname, join, relpath, splitext
 from time import time, sleep
 from threading import Thread
 from tkinter.filedialog import askopenfilenames, askopenfilename,\
@@ -17,18 +15,19 @@ from tkinter.font import Font
 from tkinter import messagebox
 from traceback import format_exc
 
-from supyr_struct.defs.constants import *
+from supyr_struct.defs.constants import PATHDIV
 
 import hek_pool
 
-from hek_pool.constants import *
+from hek_pool import constants as const
 from hek_pool.config_def import config_def, CFG_DIRS
 from hek_pool.help_text import README_TEXT,\
      TOOL_COMMAND_HELP, DIRECTIVES_HELP, generate_help
-from hek_pool.util import *
+from hek_pool.util import ProcController, sanitize_path, do_subprocess,\
+     float_to_str, get_cwd, do_executable_patch
 
 try:
-    from binilla.about_window import AboutWindow
+    from binilla.windows.about_window import AboutWindow
 except ImportError:
     AboutWindow = None
 
@@ -68,16 +67,17 @@ if using_console:
 
 program_files_dir = ':\\Program Files'
 for char in 'CDEFGHIJKLMNOPQRSTUVWXYZ':
-    if exists(char + program_files_dir + ' (x86)'):
+    if os.path.exists(char + program_files_dir + ' (x86)'):
         program_files_dir += ' (x86)'
         break
-    elif exists(char + program_files_dir):
+    elif os.path.exists(char + program_files_dir):
         break
 
 program_files_dir = char + program_files_dir
-halo_dir = join(program_files_dir, 'Microsoft Games\\Halo Custom Edition')
+halo_dir = os.path.join(
+    program_files_dir, 'Microsoft Games\\Halo Custom Edition')
 
-VALID_DIRECTIVES = tuple(DIRECTIVES)
+VALID_DIRECTIVES = tuple(const.DIRECTIVES)
 
 def patch_tool_model_data_limit(tool_path, backup=True):
     # knowledge of how to do this patch was provided by GoofballMichelle
@@ -105,23 +105,43 @@ def patch_tool_map_size_limit(tool_path, backup=True):
         )
 
 
-def fix_ogg_encoder_dlls(cwd):
+def patch_tool_tag_indexing(tool_path, backup=True):
+    # knowledge of how to do this patch was provided by GoofballMichelle
+    return do_executable_patch(
+        tool_path,
+        region_bounds=((0x55423, 0x55452), ),
+        orig_hashes=('b4b6e4b6e9835ce20595088e4e5c4407', ),
+        patched_hashes=('e74a1f5ae7c73db2e2dbdf323750334b', ),
+        patches=((0x55451, b'\x00'), ),
+        backup=backup
+        )
+
+
+def file_open_error(master, filepath):
+    messagebox.showerror(
+        "Failed to open/read/write a file.",
+        'Could not open "%s".\nRun Pool as admin to fix this.' % filepath,
+        parent=master)
+
+
+def fix_ogg_encoder_dlls(master, cwd):
     # replace the bad and broken ogg dll's with working ones
-    dll_zip_path = join(curr_dir, OGG_DLL_ZIP_NAME)
-    if not isfile(dll_zip_path):
+    dll_zip_path = os.path.join(curr_dir, const.OGG_DLL_ZIP_NAME)
+    if not os.path.isfile(dll_zip_path):
         return
 
     try:
         with zipfile.ZipFile(dll_zip_path) as dll_zip:
             for name in ("ogg", "vorbis", "vorbisenc", "vorbisfile"):
                 name += '.dll'
-                fp = join(cwd, name).replace('/', '\\')
+                fp = os.path.join(cwd, name).replace('/', '\\')
                 try:
-                    if isfile(fp) and (dll_zip.getinfo(name).file_size ==
-                                       os.stat(fp).st_size):
+                    if os.path.isfile(fp) and (
+                            dll_zip.getinfo(name).file_size ==
+                            os.stat(fp).st_size):
                         continue
 
-                    if isfile(fp):
+                    if os.path.isfile(fp):
                         try:
                             os.rename(fp, fp + ".ORIG")
                         except Exception:
@@ -133,7 +153,7 @@ def fix_ogg_encoder_dlls(cwd):
                     with dll_zip.open(name) as zf, open(fp, "wb+") as f:
                         f.write(zf.read())
                 except Exception:
-                    self.file_open_error(fp)
+                    file_open_error(master, fp)
                     raise
     except Exception:
         print(format_exc())
@@ -144,8 +164,9 @@ def null_physics_jms_model_data(cwd, cmd_args):
         return
 
     cmd_type, obje_dir = cmd_args[0], cmd_args[1]
-    phys_filepath = join(cwd, "data", obje_dir, 'physics', 'physics.jms')
-    if not isfile(phys_filepath):
+    phys_filepath = os.path.join(
+        cwd, "data", obje_dir, 'physics', 'physics.jms')
+    if not os.path.isfile(phys_filepath):
         return
 
     try:
@@ -210,11 +231,12 @@ class HekPool(tk.Tk):
     install_ogg_dlls = None
     patch_tool_model_data_limit = None
     patch_tool_map_size_limit = None
+    patch_tool_tag_indexing = None
     proc_limit = None
 
     last_load_dir = halo_dir
     working_dir = curr_dir
-    commands_lists_dir = join(curr_dir, "cmd_lists")
+    commands_lists_dir = os.path.join(curr_dir, "cmd_lists")
 
     tool_paths = ()
 
@@ -245,6 +267,9 @@ class HekPool(tk.Tk):
         "threadsafe_tkinter",
         )
 
+    app_bitmap_filepath = ""
+    icon_filepath = ""
+
     about_messages = ()
 
     def __init__(self, *args, **kwargs):
@@ -272,16 +297,24 @@ class HekPool(tk.Tk):
         self.install_ogg_dlls = tk.BooleanVar(self, 1)
         self.patch_tool_model_data_limit = tk.BooleanVar(self, 0)
         self.patch_tool_map_size_limit = tk.BooleanVar(self, 0)
+        self.patch_tool_tag_indexing = tk.BooleanVar(self, 0)
         self.proc_limit = tk.StringVar(self, 1)
 
         self.processes = {}
         self.tool_paths = []
+        
+        self.app_bitmap_filepath = os.path.join(curr_dir, 'pool.png')
+        if not os.path.isfile(self.app_bitmap_filepath):
+            self.app_bitmap_filepath = os.path.join(curr_dir, 'icons', 'pool.png')
+        if not os.path.isfile(self.app_bitmap_filepath):
+            self.app_bitmap_filepath = ""
+
         try:
             try:
-                self.icon_filepath = join(curr_dir, 'pool.ico')
+                self.icon_filepath = os.path.join(curr_dir, 'pool.ico')
                 self.iconbitmap(self.icon_filepath)
             except Exception:
-                self.icon_filepath = join(join(curr_dir, 'icons', 'pool.ico'))
+                self.icon_filepath = os.path.join(curr_dir, 'icons', 'pool.ico')
                 self.iconbitmap(self.icon_filepath)
         except Exception:
             self.icon_filepath = ""
@@ -370,6 +403,9 @@ class HekPool(tk.Tk):
         self.settings_menu.add(
             "checkbutton", variable=self.patch_tool_map_size_limit,
             label="Remove tool.exe map size limit(backs up tool.exe)")
+        self.settings_menu.add(
+            "checkbutton", variable=self.patch_tool_tag_indexing,
+            label="Disable tool.exe creating language locked campaign and ui maps(backs up tool.exe)")
 
 
         self.help_menu.add_command(label="Readme",
@@ -380,7 +416,7 @@ class HekPool(tk.Tk):
         ''' LOAD THE CONFIG '''
         if self.config_file is not None:
             pass
-        elif isfile(self.config_path):
+        elif os.path.isfile(self.config_path):
             # load the config file
             try:
                 self.load_config()
@@ -392,14 +428,16 @@ class HekPool(tk.Tk):
             self.make_config()
 
         if not self.tool_paths:
-            if isfile(join(halo_dir, "tool.exe")):
-                self.add_tool_path(join(halo_dir, "tool.exe"))
-            if isfile(join(halo_dir, "os_tool.exe")):
-                self.add_tool_path(join(halo_dir, "os_tool.exe"))
+            if os.path.isfile(os.path.join(halo_dir, "tool.exe")):
+                self.add_tool_path(os.path.join(halo_dir, "tool.exe"))
+
+            if os.path.isfile(os.path.join(halo_dir, "os_tool.exe")):
+                self.add_tool_path(os.path.join(halo_dir, "os_tool.exe"))
+
             if self.tool_paths:
                 self.config_file.data.header.last_tool_index = len(self.tool_paths)
 
-        if not exists(self.working_dir):
+        if not os.path.exists(self.working_dir):
             try:
                 dirs = self.config_file.data.directory_paths
                 dirs.working_dir.path = dirs.last_load_dir.path =\
@@ -454,7 +492,7 @@ class HekPool(tk.Tk):
         self.proc_limit_frame = tk.LabelFrame(self.buttons_frame,
                                               text="Max parallel processes")
         self.proc_limit_spinbox = tk.Spinbox(
-            self.proc_limit_frame, values=tuple(range(1, MAX_PROCESS_CT + 1)),
+            self.proc_limit_frame, values=tuple(range(1, const.MAX_PROCESS_CT + 1)),
             textvariable=self.proc_limit, state="readonly")
 
         # pack everything
@@ -477,15 +515,16 @@ class HekPool(tk.Tk):
         self.apply_config()
         self.load_actions()
 
-        if isfile(join(self.commands_lists_dir, LAST_CMD_LIST_NAME + '.txt')):
-            self.load_commands_list(LAST_CMD_LIST_NAME)
+        if os.path.isfile(os.path.join(
+                self.commands_lists_dir, const.LAST_CMD_LIST_NAME + '.txt')):
+            self.load_commands_list(const.LAST_CMD_LIST_NAME)
         else:
             self.start_readme()
 
         try:
             generate_help(True)
         except Exception:
-            print(traceback.format_exc())
+            print(format_exc())
 
         if using_console:
             messagebox.showerror(
@@ -496,12 +535,6 @@ class HekPool(tk.Tk):
                 "This will also redirect all tool output to the console, which "
                 "is very hard to read with 3+ tool commands going all at once.",
                 parent=self.commands_text)
-
-    def file_open_error(self, filepath):
-        messagebox.showerror(
-            "Failed to open/read/write a file.",
-            'Could not open "%s".\nRun Pool as admin to fix this.' % filepath,
-            parent=self.commands_text)
 
     def start_readme(self):
         if self._execution_state:
@@ -536,10 +569,10 @@ class HekPool(tk.Tk):
 
         # selecting a command. find out what part of the command
         i, start_char = 0, ';' if disabled else ' '
-        cmd_infos, help_infos = TOOL_COMMANDS, TOOL_COMMAND_HELP
+        cmd_infos, help_infos = const.TOOL_COMMANDS, TOOL_COMMAND_HELP
         if cmd_args[0] == '#':
             i, start_char = 1, '#'
-            cmd_infos, help_infos = DIRECTIVES, DIRECTIVES_HELP
+            cmd_infos, help_infos = const.DIRECTIVES, DIRECTIVES_HELP
 
         # do we need to worry about there possibly being or not being
         # a space between the type char(; or #) and the command type?
@@ -606,7 +639,7 @@ class HekPool(tk.Tk):
             self.post_actions_menu(e)
             return
 
-        cwd = dirname(self.get_tool_path())
+        cwd = os.path.dirname(self.get_tool_path())
         if not cwd:
             cwd = self.working_dir
 
@@ -657,16 +690,16 @@ class HekPool(tk.Tk):
         # Create the widget for a more hand-holdey editing interface
         if typ in ("dir", "file", "file-no-ext"):
             if len(arg_info) >= 4:
-                cwd = join(cwd, arg_info[4])
+                cwd = os.path.join(cwd, arg_info[4])
 
-            start_dir = dirname(join(cwd, cur_val))
-            if not exists(start_dir):
+            start_dir = os.path.dirname(os.path.join(cwd, cur_val))
+            if not os.path.exists(start_dir):
                 start_dir = cwd
 
             start_dir = start_dir.replace('/', '\\')
 
             if typ == "dir":
-                new_val = join(askdirectory(
+                new_val = os.path.join(askdirectory(
                     initialdir=start_dir, parent=self.commands_text,
                     title="Select <%s> for %s" % (name, cmd_type)), '')
             elif typ in ("file", "file-no-ext"):
@@ -675,14 +708,14 @@ class HekPool(tk.Tk):
                     filetypes=tuple(typ_info) + (("All", "*"), ),
                     title="Select <%s> for %s" % (name, cmd_type))
                 if typ == "file-no-ext":
-                    new_val = splitext(new_val)[0]
+                    new_val = os.path.splitext(new_val)[0]
 
             new_val = new_val.replace('/', '\\')
             if not new_val:
                 new_val = None
             else:
                 if cmd_type != "cwd":
-                    new_val = relpath(new_val, cwd)
+                    new_val = os.path.relpath(new_val, cwd)
 
                 new_val = '"%s"' % new_val
 
@@ -756,9 +789,9 @@ class HekPool(tk.Tk):
         return int(self.commands_text.index(tk.END).split('.')[0])
 
     def apply_style(self):
-        def_color = text_tags_colors['default']
+        def_color = const.text_tags_colors['default']
 
-        for style_name, style_vals in text_tags_colors.items():
+        for style_name, style_vals in const.text_tags_colors.items():
             if style_name == "default":
                 continue
             kw = {}
@@ -793,16 +826,16 @@ class HekPool(tk.Tk):
                                 proc_controller=proc_controller)
         except Exception:
             print(format_exc())
-            print("Could not open %s" % HELP_NAME)
+            print("Could not open %s" % const.HELP_NAME)
 
     def edit_style_in_text_editor(self):
         Thread(target=self._edit_style_in_text_editor, daemon=True).start()
 
     def _edit_style_in_text_editor(self):
-        style_path = join(self.working_dir, STYLE_CFG_NAME)
-        if not isfile(style_path):
+        style_path = os.path.join(self.working_dir, const.STYLE_CFG_NAME)
+        if not os.path.isfile(style_path):
             self.save_style()
-            if not isfile(style_path):
+            if not os.path.isfile(style_path):
                 return
 
         try:
@@ -816,16 +849,16 @@ class HekPool(tk.Tk):
             self.apply_style()
         except Exception:
             print(format_exc())
-            print("Could not open %s" % STYLE_CFG_NAME)
+            print("Could not open %s" % const.STYLE_CFG_NAME)
 
     def edit_actions_in_text_editor(self):
         Thread(target=self._edit_actions_in_text_editor, daemon=True).start()
 
     def _edit_actions_in_text_editor(self):
-        actions_path = join(self.working_dir, ACTIONS_CFG_NAME)
-        if not isfile(actions_path):
+        actions_path = os.path.join(self.working_dir, const.ACTIONS_CFG_NAME)
+        if not os.path.isfile(actions_path):
             self.save_actions()
-            if not isfile(actions_path):
+            if not os.path.isfile(actions_path):
                 return
 
         try:
@@ -838,12 +871,12 @@ class HekPool(tk.Tk):
             self.load_actions()
         except Exception:
             print(format_exc())
-            print("Could not open %s" % ACTIONS_CFG_NAME)
+            print("Could not open %s" % const.ACTIONS_CFG_NAME)
 
     def load_actions(self):
         try:
-            actions_path = join(self.working_dir, ACTIONS_CFG_NAME)
-            if not isfile(actions_path):
+            actions_path = os.path.join(self.working_dir, const.ACTIONS_CFG_NAME)
+            if not os.path.isfile(actions_path):
                 return
 
             with open(actions_path, 'r') as f:
@@ -879,8 +912,8 @@ class HekPool(tk.Tk):
             new_actions = ()
 
         sanitized_new_actions = []
-        valid_items = set(tuple(SPECIAL_ACTIONS_KWDS) +
-                          tuple(TOOL_COMMANDS) + tuple(DIRECTIVES))
+        valid_items = set(tuple(const.SPECIAL_ACTIONS_KWDS) +
+                          tuple(const.TOOL_COMMANDS) + tuple(const.DIRECTIVES))
         for item in new_actions:
             if isinstance(item, str):
                 if item in valid_items:
@@ -898,13 +931,13 @@ class HekPool(tk.Tk):
             sanitized_new_actions.append([casc_name] + sanitized_items)
 
         if malformed:
-            print("Could not load %s as it is malformed." % ACTIONS_CFG_NAME)
+            print("Could not load %s as it is malformed." % const.ACTIONS_CFG_NAME)
         else:
-            del ACTION_MENU_LAYOUT[:]
-            ACTION_MENU_LAYOUT.extend(sanitized_new_actions)
+            del const.ACTION_MENU_LAYOUT[:]
+            const.ACTION_MENU_LAYOUT.extend(sanitized_new_actions)
 
     def save_actions(self):
-        fp = join(self.working_dir, ACTIONS_CFG_NAME)
+        fp = os.path.join(self.working_dir, const.ACTIONS_CFG_NAME)
         try:
             with open(fp, 'w') as f:
                 f.write("""
@@ -928,7 +961,7 @@ class HekPool(tk.Tk):
 ;    * ONLY spaces/tabs are on lines containing CLOSING parenthese
 
 """)
-                for item in ACTION_MENU_LAYOUT:
+                for item in const.ACTION_MENU_LAYOUT:
                     if isinstance(item, str):
                         f.write('\n%s\n' % item)
                         continue
@@ -940,19 +973,19 @@ class HekPool(tk.Tk):
                     f.write("    )\n")
 
                 f.write("\n\n; All Tool commands:\n;\n")
-                for cmd_name in sorted(TOOL_COMMANDS):
+                for cmd_name in sorted(const.TOOL_COMMANDS):
                     f.write(";     %s\n" % cmd_name)
 
                 f.write("\n\n; All Pool directives:\n;\n")
-                for dir_name in sorted(DIRECTIVES):
+                for dir_name in sorted(const.DIRECTIVES):
                     f.write(";     %s\n" % dir_name)
 
                 f.write("\n\n; All special action keywords:\n;\n")
-                for name in sorted(SPECIAL_ACTIONS_KWDS):
+                for name in sorted(const.SPECIAL_ACTIONS_KWDS):
                     f.write(";     %s\n" % name)
-                    f.write(";         %s\n" % SPECIAL_ACTIONS_KWDS[name])
+                    f.write(";         %s\n" % const.SPECIAL_ACTIONS_KWDS[name])
         except Exception:
-            self.file_open_error(fp)
+            file_open_error(self.commands_text, fp)
 
     def do_clipboard_action(self, event_type):
         cmd_text = self.commands_text
@@ -1004,13 +1037,15 @@ class HekPool(tk.Tk):
             self.commands_lists_dir = folder
 
     def get_commands_list_names(self):
-        if exists(join(self.commands_lists_dir, '')):
+        if os.path.exists(os.path.join(self.commands_lists_dir, '')):
             return
 
         list_names = []
         for root, dirs, files in os.walk(self.commands_lists_dir):
             for filename in sorted(files):
-                list_names.append(relpath(join(root), self.commands_lists_dir))
+                list_names.append(
+                    os.path.relpath(
+                        os.path.join(root), self.commands_lists_dir))
 
         return list_names
 
@@ -1043,18 +1078,21 @@ class HekPool(tk.Tk):
                 title="Select a command list to load",
                 filetypes=(("Text file", "*.txt"), ("All", "*")),)
         else:
-            if not exists(join(self.commands_lists_dir, '')):
+            if not os.path.exists(
+                    os.path.join(self.commands_lists_dir, '')):
                 return
-            filepath = join(self.commands_lists_dir, "%s.txt" % list_name)
+            filepath = os.path.join(
+                self.commands_lists_dir, "%s.txt" % list_name)
 
-        if not isfile(filepath):
+        if not os.path.isfile(filepath):
             return
 
         with open(filepath, 'r') as f:
             data = f.read()
 
-        cmd_list_name = splitext(basename(filepath))[0]
-        if cmd_list_name != LAST_CMD_LIST_NAME:
+        cmd_list_name = os.path.splitext(
+            os.path.basename(filepath))[0]
+        if cmd_list_name != const.LAST_CMD_LIST_NAME:
             self.curr_commands_list_name = cmd_list_name
 
         self.commands_text.delete('1.0', tk.END)
@@ -1070,13 +1108,13 @@ class HekPool(tk.Tk):
             filetypes=(("Text file", "*.txt"), ("All", "*")),)
 
         if fp:
-            path, ext = splitext(sanitize_path(fp))
+            path, ext = os.path.splitext(sanitize_path(fp))
             if not ext: ext = ".txt"
             self.save_commands_list(path + ext)
 
     def save_commands_list(self, filepath=None, directory=None, filename=None):
         if filepath:
-            directory = dirname(filepath)
+            directory = os.path.dirname(filepath)
         else:
             if filename is None:
                 if self.curr_commands_list_name is None:
@@ -1086,14 +1124,14 @@ class HekPool(tk.Tk):
             if directory is None:
                 directory = self.commands_lists_dir
 
-            filepath = join(directory, filename + '.txt')
+            filepath = os.path.join(directory, filename + '.txt')
 
-        if directory and not exists(directory):
+        if directory and not os.path.exists(directory):
             os.makedirs(directory)
 
         # use r+ mode rather than w if the file exists since it might be hidden.
         # apparently on windows the w mode will fail to open hidden files.
-        mode = 'r+' if isfile(filepath) else 'w'
+        mode = 'r+' if os.path.isfile(filepath) else 'w'
         try:
             with open(filepath, mode) as f:
                 f.truncate(0)
@@ -1103,18 +1141,19 @@ class HekPool(tk.Tk):
                     data = data[:-1]
                 f.write(data)
         except Exception:
-            self.file_open_error(filepath)
+            file_open_error(self.commands_text, filepath)
             return
 
         self._unsaved_edits = False
-        if filename == LAST_CMD_LIST_NAME:
+        if filename == const.LAST_CMD_LIST_NAME:
             try:
                 # make it hidden
                 SetFileAttributesW(filepath, 2)
             except Exception:
                 pass
 
-        self.curr_commands_list_name = splitext(basename(filepath))[0]
+        self.curr_commands_list_name = os.path.splitext(
+            os.path.basename(filepath))[0]
 
     def apply_config(self):
         if not self.config_file:
@@ -1199,7 +1238,7 @@ class HekPool(tk.Tk):
     def load_config(self, filepath=None):
         if filepath is None:
             filepath = self.config_path
-        assert exists(filepath)
+        assert os.path.exists(filepath)
 
         # load the config file
         self.config_file = self.config_def.build(filepath=filepath)
@@ -1211,8 +1250,8 @@ class HekPool(tk.Tk):
 
     def load_style(self):
         try:
-            style_path = join(self.working_dir, STYLE_CFG_NAME)
-            if not isfile(style_path):
+            style_path = os.path.join(self.working_dir, const.STYLE_CFG_NAME)
+            if not os.path.isfile(style_path):
                 return
 
             with open(style_path, 'r') as f:
@@ -1241,12 +1280,12 @@ class HekPool(tk.Tk):
 
         malformed |= not isinstance(new_style, dict)
         if not malformed:
-            for k in text_tags_colors:
+            for k in const.text_tags_colors:
                 if k not in new_style: continue
 
                 malformed |= not(isinstance(new_style[k], dict))
                 if malformed: break
-                colors = text_tags_colors[k]
+                colors = const.text_tags_colors[k]
                 new_colors = new_style[k]
 
                 for c in set(tuple(colors) + tuple(new_colors)):
@@ -1262,12 +1301,12 @@ class HekPool(tk.Tk):
                         new_colors[c] = '#' + new_color
 
         if malformed:
-            print("Could not load %s as it is malformed." % STYLE_CFG_NAME)
+            print("Could not load %s as it is malformed." % const.STYLE_CFG_NAME)
         else:
-            text_tags_colors.update(new_style)
+            const.text_tags_colors.update(new_style)
 
     def save_style(self):
-        fp = join(self.working_dir, STYLE_CFG_NAME)
+        fp = os.path.join(self.working_dir, const.STYLE_CFG_NAME)
         try:
             with open(fp, 'w') as f:
                 f.write(
@@ -1276,15 +1315,15 @@ class HekPool(tk.Tk):
 ; for the specified type of text. For example, lines being processed use the
 ; "processed" colors, while commented lines use the "commented" colors.
 """)
-                for name in sorted(text_tags_colors):
+                for name in sorted(const.text_tags_colors):
                     f.write("\n%s = (\n" % name)
-                    colors = text_tags_colors[name]
+                    colors = const.text_tags_colors[name]
                     for color_name in sorted(colors):
                         f.write('    %s = "%s"\n' %
                                 (color_name, colors[color_name][1:]))
                     f.write("    )\n")
         except Exception:
-            self.file_open_error(fp)
+            file_open_error(self.commands_text, fp)
 
     def make_config(self, filepath=None):
         if filepath is None:
@@ -1363,7 +1402,7 @@ class HekPool(tk.Tk):
             styles[style] = styles.get(style, [])
             styles[style].append(line)
 
-        for color_to_remove in text_tags_colors:
+        for color_to_remove in const.text_tags_colors:
             self.commands_text.tag_remove(color_to_remove, "1.0", tk.END)
 
         for style, lines in styles.items():
@@ -1392,7 +1431,7 @@ class HekPool(tk.Tk):
             pass
         elif disabled:
             style = "commented"
-        elif cmd_str[0] in DIRECTIVE_START_STRS:
+        elif cmd_str[0] in const.DIRECTIVE_START_STRS:
             style = "directive"
 
         return style
@@ -1403,7 +1442,7 @@ class HekPool(tk.Tk):
         else:
             start, end = "%d.0" % line, "%d.end" % line
 
-        for style_to_remove in text_tags_colors:
+        for style_to_remove in const.text_tags_colors:
             self.commands_text.tag_remove(style_to_remove, start, end)
 
         if style:
@@ -1416,7 +1455,7 @@ class HekPool(tk.Tk):
 
         disabled = False
         no_comment_cmd_str = cmd_str
-        for c in COMMENT_START_STRS:
+        for c in const.COMMENT_START_STRS:
             no_comment_cmd_str = no_comment_cmd_str.lstrip(c)
 
         disabled = len(no_comment_cmd_str) != len(cmd_str)
@@ -1487,10 +1526,10 @@ class HekPool(tk.Tk):
 
     def get_can_execute_command(self, cmd_args, loc_vars):
         cmd_type = '' if not cmd_args else cmd_args[0]
-        if not cmd_type or cmd_type in DIRECTIVE_START_STRS:
+        if not cmd_type or cmd_type in const.DIRECTIVE_START_STRS:
             return True
 
-        cwd = join(loc_vars.get('cwd', '').lower(), '')
+        cwd = os.path.join(loc_vars.get('cwd', '').lower(), '')
         cmd_args = [s.strip('"') for s in cmd_args]
         if len(cmd_args) < 2:
             # no arguments for the command, so nothing to compare
@@ -1509,14 +1548,14 @@ class HekPool(tk.Tk):
                     "structure-breakable-surfaces", "structure-lens-flares"):
                 bsp_path = cmd_args[1].lower()
             elif cmd_type == 'structure':
-                bsp_path = join(cmd_args[1].lower(), '' if
+                bsp_path = os.path.join(cmd_args[1].lower(), '' if
                                 len(cmd_args) < 3 else cmd_args[2].lower())
             else:
                 scnr_path = cmd_args[1].lower()
                 scnr_paths.add(scnr_path)
                 if cmd_type == 'lightmaps' and len(cmd_args) > 2:
-                    bsp_path = join(dirname(scnr_path),
-                                    cmd_args[2].lower())
+                    bsp_path = os.path.join(os.path.dirname(scnr_path),
+                                            cmd_args[2].lower())
                 elif cmd_type == "merge-scenery":
                     scnr_paths.add(cmd_args[2].lower())
 
@@ -1529,7 +1568,7 @@ class HekPool(tk.Tk):
                 proc_type = proc_args[0]
                 proc_bsp_path = ''
                 proc_scnr_paths = set()
-                if join(proc_info.get('cwd', '').lower(), '') != cwd:
+                if os.path.join(proc_info.get('cwd', '').lower(), '') != cwd:
                     # not the same cwd. safe to run.
                     continue
                 elif ('build-cache-file' in proc_type and
@@ -1549,11 +1588,11 @@ class HekPool(tk.Tk):
                 elif proc_type == "lightmaps" and len(proc_args) > 2:
                     proc_scnr_path = proc_args[1].lower()
                     proc_scnr_paths.add(proc_scnr_path)
-                    proc_bsp_path = join(dirname(proc_scnr_path),
-                                         proc_args[2].lower())
+                    proc_bsp_path = os.path.join(
+                        os.path.dirname(proc_scnr_path), proc_args[2].lower())
                 elif proc_type == "structure" and len(proc_args) > 2:
-                    proc_bsp_path = join(proc_args[1].lower(),
-                                         proc_args[2].lower())
+                    proc_bsp_path = os.path.join(
+                        proc_args[1].lower(), proc_args[2].lower())
                 elif proc_type == "merge-scenery" and len(proc_args) > 2:
                     proc_scnr_paths.add(proc_args[1].lower())
                     proc_scnr_paths.add(proc_args[2].lower())
@@ -1587,7 +1626,7 @@ class HekPool(tk.Tk):
                 # not enough args to check
                 return True
 
-            path_arg = join(cmd_args[path_arg_i].lower(), '')
+            path_arg = os.path.join(cmd_args[path_arg_i].lower(), '')
             for proc_i, proc_info in self.processes.items():
                 if not proc_info: continue
                 proc_args = proc_info['exec_args']
@@ -1595,29 +1634,29 @@ class HekPool(tk.Tk):
 
                 if "build-cache-file" in proc_type:
                     return False
-                elif (join(proc_info.get('cwd', '').lower(), '') != cwd or
+                elif (os.path.join(proc_info.get('cwd', '').lower(), '') != cwd or
                         proc_type != cmd_type or len(proc_args) <= path_arg_i):
                     # not the same cwd, a different command, or not enough args.
                     # safe to run(i think).
                     pass
-                elif join(proc_args[path_arg_i].lower(), '') == path_arg:
+                elif os.path.join(proc_args[path_arg_i].lower(), '') == path_arg:
                     # same cwd, command type, and directory. NOT safe to run!
                     return False
         elif cmd_type in ("animations", "bitmaps", "compile-shader-postprocess",
                           "hud-messages", "model", "collision-geometry",
                           "physics", "sounds", "strings", "unicode-strings"):
-            dir_arg = join(cmd_args[1].lower(), '')
+            dir_arg = os.path.join(cmd_args[1].lower(), '')
             for proc_i, proc_info in self.processes.items():
                 if not proc_info: continue
                 proc_type, proc_args = proc_info['exec_args'][0],\
                                        proc_info['exec_args'][1:]
                 if "build-cache-file" in proc_type:
                     return False
-                elif (join(proc_info.get('cwd', '').lower(), '') != cwd or
+                elif (os.path.join(proc_info.get('cwd', '').lower(), '') != cwd or
                         not proc_args):
                     # not the same cwd, or no args. safe to run.
                     pass
-                elif join(proc_args[0].lower(), '') != dir_arg:
+                elif os.path.join(proc_args[0].lower(), '') != dir_arg:
                     # different target directory. safe to run
                     pass
                 elif proc_type != cmd_type:
@@ -1666,7 +1705,7 @@ class HekPool(tk.Tk):
             if stop is None:  stop  = self.get_command_count()
 
             tool_path = self.get_tool_path()
-            loc_vars["cwd"] = dirname(tool_path).replace('/', '\\')
+            loc_vars["cwd"] = os.path.dirname(tool_path).replace('/', '\\')
             processes, proc_limit = self.processes, self.proc_limit
 
             if self.patch_tool_model_data_limit.get():
@@ -1695,8 +1734,21 @@ class HekPool(tk.Tk):
                         "Successfully removed max map size limit from tool.exe",
                         parent=self)
 
+            if self.patch_tool_tag_indexing.get():
+                result = patch_tool_tag_indexing(tool_path)
+                if result is True:
+                    messagebox.showerror(
+                        "Patch unsuccessful",
+                        "Could not disable language locking of campaign and ui in tool.exe",
+                        parent=self)
+                elif result is False:
+                    messagebox.showinfo(
+                        "Patch successful",
+                        "Successfully disabled language locking of campaign and ui in tool.exe",
+                        parent=self)
+
             if self.install_ogg_dlls.get():
-                fix_ogg_encoder_dlls(loc_vars["cwd"])
+                fix_ogg_encoder_dlls(self.commands_text, loc_vars["cwd"])
 
             i, curr_max_proc_ct = start, 0
             wait_time, wait_on_cmds = 0, False
@@ -1732,7 +1784,7 @@ class HekPool(tk.Tk):
                     # same number of processes as last checked. don't
                     # need to check self.get_can_execute_command again
                     continue
-                elif exec_args[0] in DIRECTIVE_START_STRS:
+                elif exec_args[0] in const.DIRECTIVE_START_STRS:
                     # directive to change some variable
                     self.commands_text.see("%s.0" % i)
                     direc_ct += 1
@@ -1794,8 +1846,8 @@ class HekPool(tk.Tk):
                         else:
                             self.set_line_style(i, "processing")
                             self._start_process(
-                                i, join(cwd, vals.pop(0).strip('"')), vals,
-                                cwd=cwd, completed=completed, dummy=debug_mode,
+                                i, os.path.join(cwd, vals.pop(0).strip('"')),
+                                vals, cwd=cwd, completed=completed, dummy=debug_mode,
                                 processes=processes, dummy_timer=debug_timer)
                         cmds_started += 1
                     elif typ == 'w':
@@ -1810,7 +1862,7 @@ class HekPool(tk.Tk):
                 else:
                     # this is a command we can actually execute!
 
-                    log_path = join(cwd, 'debug.txt')
+                    log_path = os.path.join(cwd, 'debug.txt')
                     if log_path not in log_paths:
                         if clear_log:
                             try:
@@ -1830,8 +1882,8 @@ class HekPool(tk.Tk):
                         exec_args = [cmd_type] + new_exec_args
 
                     req_arg_ct = -1
-                    if cmd_type in TOOL_COMMANDS:
-                        req_arg_ct = len(TOOL_COMMANDS[cmd_type])
+                    if cmd_type in const.TOOL_COMMANDS:
+                        req_arg_ct = len(const.TOOL_COMMANDS[cmd_type])
 
                     if len(exec_args) - 1 == req_arg_ct:
                         if not self.get_can_execute_command(exec_args, loc_vars):
@@ -1852,15 +1904,16 @@ class HekPool(tk.Tk):
                             self.set_line_style(i, "processed")
                         elif not debug_mode:
                             if self.supress_tool_beta_errors.get():
-                                toolbeta_path = join(cwd, "toolbeta.map")
+                                toolbeta_path = os.path.join(cwd, "toolbeta.map")
                                 try:
-                                    if not isfile(toolbeta_path):
+                                    if not os.path.isfile(toolbeta_path):
                                         try:
                                             with open(toolbeta_path, 'w') as f:
                                                 f.write("I shouldn't have had to do this...")
                                                 f.flush()
                                         except Exception:
-                                            self.file_open_error(toolbeta_path)
+                                            file_open_error(
+                                                self.commands_text, toolbeta_path)
                                             raise
 
                                         if SetFileAttributesW:
@@ -1914,7 +1967,7 @@ class HekPool(tk.Tk):
             sleep(0.1)
 
         for log_path in log_paths:
-            if not isfile(log_path): continue
+            if not os.path.isfile(log_path): continue
             try: self._start_process(None, TEXT_EDITOR_NAME, (log_path, ))
             except Exception: pass
 
@@ -1932,9 +1985,9 @@ class HekPool(tk.Tk):
                 print(format_exc())
 
     def generate_actions_menu(self):
-        if self._action_opt_cache == ACTION_MENU_LAYOUT:
-            for i in range(len(ACTION_MENU_LAYOUT)):
-                item, state = ACTION_MENU_LAYOUT[i], tk.DISABLED
+        if self._action_opt_cache == const.ACTION_MENU_LAYOUT:
+            for i in range(len(const.ACTION_MENU_LAYOUT)):
+                item, state = const.ACTION_MENU_LAYOUT[i], tk.DISABLED
                 if item not in ("<<cut>>", "<<copy>>", "<<paste>>"):
                     continue
                 elif ((item == "<<paste>>" and self.check_can_paste()) or
@@ -1946,10 +1999,10 @@ class HekPool(tk.Tk):
             return
 
         self.actions_menu.delete(0, "end")
-        self._action_opt_cache = list(ACTION_MENU_LAYOUT)
+        self._action_opt_cache = list(const.ACTION_MENU_LAYOUT)
 
         # generate the options for actions_menu
-        for item in ACTION_MENU_LAYOUT:
+        for item in const.ACTION_MENU_LAYOUT:
             if isinstance(item, str):
                 if item == "<<divider>>":
                     self.actions_menu.add_separator()
@@ -2064,14 +2117,14 @@ class HekPool(tk.Tk):
                 title="Select Tool executables",
                 filetypes=(("Tool", "*.exe"), ("All", "*")),):
             fp = sanitize_path(fp)
-            self.last_load_dir = dirname(fp)
+            self.last_load_dir = os.path.dirname(fp)
             self.add_tool_path(fp)
 
     def insert_action(self, temp_type):
-        if temp_type in TOOL_COMMANDS:
-            params = TOOL_COMMANDS.get(temp_type, ())
-        elif temp_type in DIRECTIVES:
-            params = DIRECTIVES.get(temp_type, ())
+        if temp_type in const.TOOL_COMMANDS:
+            params = const.TOOL_COMMANDS.get(temp_type, ())
+        elif temp_type in const.DIRECTIVES:
+            params = const.DIRECTIVES.get(temp_type, ())
             temp_type = "# " + temp_type
         else:
             return
@@ -2095,7 +2148,7 @@ class HekPool(tk.Tk):
         try:
             if self.commands_text.get('1.0', tk.END).\
                  replace('\n', '').replace(' ', ''):
-                self.save_commands_list(filename=LAST_CMD_LIST_NAME)
+                self.save_commands_list(filename=const.LAST_CMD_LIST_NAME)
         except Exception:
             print(format_exc())
 
@@ -2134,6 +2187,6 @@ class HekPool(tk.Tk):
 
         self.about_window = AboutWindow(
             self, module_names=self.about_module_names,
-            iconbitmap=self.icon_filepath, app_name=self.app_name,
-            messages=self.about_messages)
+            iconbitmap=self.icon_filepath, appbitmap=self.app_bitmap_filepath,
+            app_name=self.app_name, messages=self.about_messages)
         self.place_window_relative(self.about_window, 30, 50)
