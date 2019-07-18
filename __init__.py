@@ -5,8 +5,8 @@ from supyr_struct import field_type_methods, blocks, tag, buffer
 # ##############
 __author__ = "Devin Bobadilla"
 #           YYYY.MM.DD
-__date__ = "2019.03.21"
-__version__ = (1, 2, 0)
+__date__ = "2019.07.05"
+__version__ = (1, 3, 0)
 
 
 
@@ -48,14 +48,17 @@ del common_descs
 from supyr_struct.field_types import *
 from supyr_struct.defs.block_def import BlockDef
 from supyr_struct.defs.tag_def import TagDef
-from supyr_struct.defs.util import fcc
+from supyr_struct.util import fcc
 
 
 # expose the most useful classes and objects
 __all__ = [
-    'buffer', 'field_types', 'field_type_methods', 'tag', 'blocks', 'defs',
+    'buffer', 'exceptions', 'field_types', 'field_type_methods', 'tag', 'util',
+    'blocks', 'defs',
 
-    'BlockDef', 'TagDef', 'fcc',
+    'BlockDef', 'TagDef',
+    'fcc',  # DEPRECIATED
+
     # hierarchy and structure
     'Container', 'Array', 'WhileArray', 'Struct', 'QuickStruct', 'QStruct',
     'BBitStruct', 'LBitStruct', 'Union', 'Switch', 'StreamAdapter',
@@ -114,7 +117,7 @@ __all__ = [
     # float and long int timestamps
     'FloatTimestamp', 'DoubleTimestamp', 'Timestamp32', 'Timestamp64',
     # enumerators and booleans
-    'UEnumBig', 'SEnumBig', 'BoolBig', 'StrAsciiEnum',
+    'UEnumBig', 'SEnumBig', 'BoolBig', 'StrAsciiEnum', 'StrUtf8Enum',
     'UEnum16', 'UEnum24', 'UEnum32', 'UEnum64', 'Bool16', 'Bool24',
     'SEnum16', 'SEnum24', 'SEnum32', 'SEnum64', 'Bool32', 'Bool64',
     # integers and float arrays

@@ -4,8 +4,14 @@ UnionBlocks are used in the same situations one would use them in
 while programming in C or C++. They allow multiple structures to
 be stored in the space of one, but only one may be active at a time.
 '''
-from .block import *
-from ..buffer import BytesBuffer, BytearrayBuffer
+from sys import getsizeof
+
+from supyr_struct.blocks.block import Block
+from supyr_struct.defs.constants import DEF_SHOW, SHOW_SETS, UNNAMED,\
+     NODE_PRINT_INDENT, TYPE, NAME, SIZE, NoneType
+from supyr_struct.exceptions import DescEditError, BinsizeError
+from supyr_struct.buffer import BytesBuffer, BytearrayBuffer,\
+     get_rawdata_context
 
 
 class UnionBlock(Block, BytearrayBuffer):
@@ -381,7 +387,7 @@ class UnionBlock(Block, BytearrayBuffer):
             # If they are smaller, some of the most significant bytes
             # arent used, which in big endian are the first bytes.
             u_type.serializer(u_node, self, None, self, 0,
-                              desc.get(size) - u_desc.get(size))
+                              desc.get(SIZE) - u_desc.get(SIZE))
         else:
             u_type.serializer(u_node, self, None, self)
 
@@ -534,30 +540,30 @@ class UnionBlock(Block, BytearrayBuffer):
             self[:] = initdata
             return  # return early
 
-        rawdata = get_rawdata(**kwargs)
         desc = object.__getattribute__(self, "desc")
-
-        if rawdata is not None:
-            # parse the block from rawdata
-            try:
-                kwargs.update(parent=self.parent, desc=desc,
-                              node=self, rawdata=rawdata)
-                kwargs.pop('filepath', None)
-                desc['TYPE'].parser(**kwargs)
-                return  # return early
-            except Exception as e:
-                a = e.args[:-1]
-                e_str = "\n"
+        writable = kwargs.pop('writable', False)
+        with get_rawdata_context(writable=writable, **kwargs) as rawdata:
+            if rawdata is not None:
+                # parse the block from rawdata
                 try:
-                    e_str = e.args[-1] + e_str
-                except IndexError:
-                    pass
-                e.args = a + (e_str + "Error occurred while " +
-                              "attempting to parse %s." % type(self),)
-                raise e
-        elif kwargs.get('init_attrs', True):
-            # initialize the UnionBlock's bytearray data
-            self[:] = desc.get('DEFAULT', b'\x00'*desc['SIZE'])
+                    kwargs.update(parent=self.parent, desc=desc,
+                                  node=self, rawdata=rawdata)
+                    kwargs.pop('filepath', None)
+                    desc['TYPE'].parser(**kwargs)
+                    return  # return early
+                except Exception as e:
+                    a = e.args[:-1]
+                    e_str = "\n"
+                    try:
+                        e_str = e.args[-1] + e_str
+                    except IndexError:
+                        pass
+                    e.args = a + (e_str + "Error occurred while " +
+                                  "attempting to parse %s." % type(self),)
+                    raise e
+            elif kwargs.get('init_attrs', True):
+                # initialize the UnionBlock's bytearray data
+                self[:] = desc.get('DEFAULT', b'\x00'*desc['SIZE'])
 
     # overriding BytearrayBuffer methods with ones that work for a UnionBlock
     def read(self, count=None):

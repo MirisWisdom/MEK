@@ -3,10 +3,13 @@ Targa image file definitions
 
 Structures were pieced together from various online sources
 '''
-from supyr_struct.defs.tag_def import *
-from supyr_struct.defs.constants import *
+from supyr_struct.defs.tag_def import TagDef
+from supyr_struct.defs.common_descs import remaining_data_length
+from supyr_struct.field_types import *
 from supyr_struct.buffer import BytearrayBuffer
-from .objs import tga
+from supyr_struct.defs.bitmaps.objs import tga
+
+__all__ = ("tga_def", "get", )
 
 
 def get(): return tga_def
@@ -147,7 +150,7 @@ def serialize_rle_stream(parent, buffer, **kwargs):
                 comp_pixels.write(bytes([127 + rle_len]) + packet)
 
                 # if the next read returns nothing, there are not more pixels
-                if len(curr_pixel) != bpp:
+                if len(next_pixel) != bpp:
                     break
             else:
                 # this should be a raw packet
@@ -166,6 +169,10 @@ def serialize_rle_stream(parent, buffer, **kwargs):
 
                 # write the header and the packet to comp_pixels
                 comp_pixels.write(bytes([len(packet)//bpp - 1]) + packet)
+
+                # if the next read returns nothing, there are not more pixels
+                if len(curr_pixel) != bpp:
+                    break
 
         # slice the compressed pixels off at when the last write was
         comp_pixels = comp_pixels[:comp_pixels.tell()]

@@ -29,8 +29,8 @@ from types import FunctionType
 from supyr_struct.field_type_methods import *
 from supyr_struct.buffer import BytesBuffer, BytearrayBuffer
 from supyr_struct import blocks
-from supyr_struct.defs.constants import *
-from supyr_struct.defs.util import *
+from supyr_struct.defs.constants import NAME, SIZE, TYPE, ENTRIES,\
+     byteorder_char
 from supyr_struct.defs.frozen_dict import FrozenDict
 
 # ######################################
@@ -114,7 +114,7 @@ __all__ = [
     'UEnumBig', 'SEnumBig', 'BoolBig',
     'UEnum16', 'UEnum24', 'UEnum32', 'UEnum64', 'Bool16', 'Bool24',
     'SEnum16', 'SEnum24', 'SEnum32', 'SEnum64', 'Bool32', 'Bool64',
-    'StrAsciiEnum',
+    'StrAsciiEnum', 'StrUtf8Enum',
 
     # integers and float arrays
     'UInt16Array', 'SInt16Array', 'UInt32Array', 'SInt32Array',
@@ -615,7 +615,7 @@ class FieldType():
                     "big and little endian\nmust both be provided " +
                     "under the keys '>' and '<' respectively.")
             # make the first encoding the endianness of the system
-            self.enc = enc[byteorder_char]
+            self.enc = enc['<']
             self.endian = byteorder_char
 
         if self.is_container and self.is_struct:
@@ -796,7 +796,7 @@ class FieldType():
 
         desc[TYPE] = self
 
-        '''Remove '0  # ' from this line to enable adding descriptor
+        '''Remove '0  #' from this line to enable adding descriptor
         entries to the descriptor rather than overwriting old ones.'''
         i = 0  # desc.get(ENTRIES, 0)
         # add all the positional arguments to the descriptor
@@ -860,7 +860,7 @@ class FieldType():
         '''
         return self.sizecalc_func(self, *args, **kwargs)
 
-    def not_imp(*args, **kwargs):
+    def not_imp(self, *args, **kwargs):
         raise NotImplementedError(
             "This operation not implemented in the %s FieldType." % self.name)
 
@@ -1268,12 +1268,15 @@ BStrRawUtf32, LStrRawUtf32 = StrRawUtf32.big, StrRawUtf32.little
 
 StrHex = FieldType(base=StrAscii, name="StrHex", sizecalc=str_hex_sizecalc,
                    decoder=decode_string_hex, encoder=encode_string_hex)
+
 StrAsciiEnum = FieldType(name='StrAsciiEnum', base=StrRawAscii,
                          is_block=True, is_data=True, sanitizer=enum_sanitizer,
                          sizecalc=sizecalc_wrapper(len_sizecalc),
                          node_cls=blocks.EnumBlock, data_cls=str,
                          encoder=encoder_wrapper(encode_string),
                          decoder=decoder_wrapper(decode_string))
+StrUtf8Enum = FieldType(name='StrUtf8Enum', base=StrAsciiEnum,
+                        sizecalc=utf_sizecalc, enc='utf8')
 
 for enc in other_enc:
     str_field_types[enc] = FieldType(

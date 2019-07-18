@@ -1,8 +1,8 @@
-from os import remove as _remove,  rename as _rename
-from os.path import commonprefix as _commonprefix, join as _join,\
-     isfile as _isfile, realpath as _realpath
-from .constants import PATHDIV, ALPHA_IDS, ALPHA_NUMERIC_IDS
-from .frozen_dict import FrozenDict
+import os
+
+from supyr_struct.defs.constants import ALPHA_IDS, ALPHA_NUMERIC_IDS,\
+     PATHDIV, BPI
+from supyr_struct.defs.frozen_dict import FrozenDict
 
 
 def fourcc_to_int(value, byteorder='little', signed=False):
@@ -19,8 +19,9 @@ def fourcc_to_int(value, byteorder='little', signed=False):
                           byteorder, signed=signed)
 
 
-def int_to_fourcc(value):
-    return value.to_bytes(4, byteorder='big').decode(encoding='latin-1')
+def int_to_fourcc(value, byteorder='big', signed=False):
+    return value.to_bytes(4, byteorder, signed=signed).decode(
+        encoding='latin-1')
 
 
 # THESE NAMES ARE DEPRECIATED!
@@ -29,43 +30,54 @@ fcc = fourcc_to_int
 fourcc = int_to_fourcc
 
 
-def backup_and_rename_temp(filepath, temppath, backuppath=None):
+def backup_and_rename_temp(filepath, temppath, backuppath=None,
+                           remove_old_backup=False):
     ''''''
-    if backuppath:
-        # if there's already a backup of this tag then we
-        # delete the old tag(not the backup). If there isnt then
-        # we backup the old tag by renaming it to the backup name.
-        if _isfile(filepath):
-            if _isfile(backuppath):
-                _remove(filepath)
-            else:
-                try:
-                    _rename(filepath, backuppath)
-                except Exception:
-                    pass
+    if not backuppath:
+        # Not backing anything up.
+        # Delete any file currently at the output path
+        if os.path.isfile(filepath) and os.path.isfile(temppath):
+            os.remove(filepath)
 
-        # Try to rename the temp files to the new file names.
-        # Restore the backup if we can't rename the temp to the original
-        try:
-            _rename(temppath, filepath)
-        except Exception:
-            try:
-                _rename(backuppath, filepath)
-            except Exception:
-                pass
-            raise IOError(("ERROR: While attempting to save "
-                           "tag, could not rename temp file:\n"
-                           ' ' * BPI + "%s\nto\n" + ' '*BPI + "%s") %
-                          (temppath, filepath))
+        # Rename the temp file to the output path
+        os.rename(temppath, filepath)
         return
 
-    # Not backing anything up.
-    # Delete any file currently at the output path
-    if _isfile(filepath):
-        _remove(filepath)
+    # if there's already a backup of this file then we
+    # delete the old file(not the backup). If there isnt then
+    # we backup the old file by renaming it to the backup name.
+    if not os.path.isfile(filepath):
+        # not overwriting anything. do nothing special
+        pass
+    elif not os.path.isfile(backuppath):
+        # backup doesn't exist. rename the file to its backup path
+        try:
+            os.makedirs(os.path.dirname(backuppath), exist_ok=True)
+            os.rename(filepath, backuppath)
+        except Exception:
+            pass
+    elif remove_old_backup:
+        # backup exists and we're being told to remove it
+        os.remove(backuppath)
+        os.rename(filepath, backuppath)
+    else:
+        # backup exists and we DON'T want to remove it. remove the other
+        os.remove(filepath)
 
-    # Rename the temp file to the output path
-    _rename(temppath, filepath)
+    # Try to rename the temp files to the new file names.
+    # Restore the backup if we can't rename the temp to the original
+    try:
+        os.rename(temppath, filepath)
+        return
+    except Exception:
+        try:
+            os.rename(backuppath, filepath)
+        except Exception:
+            pass
+
+    raise IOError(("ERROR: Could not rename temp file:\n"
+                   ' ' * BPI + "%s\nto\n" + ' '*BPI + "%s") %
+                  (temppath, filepath))
 
 
 def str_to_identifier(string):
@@ -126,11 +138,12 @@ def desc_variant(desc, *replacements):
 
 
 def is_in_dir(path, dir, case_sensitive=True):
+    dir = os.path.join(os.path.realpath(os.path.expanduser(dir)), '')
+    path = os.path.realpath(os.path.expanduser(path))
     if not case_sensitive:
         path = path.lower()
         dir = dir.lower()
-    dir = _join(dir, '')
-    return _commonprefix((_realpath(path), dir)) == dir
+    return os.path.commonprefix((path, dir)) == dir
 
 
 
@@ -140,44 +153,3 @@ if PATHDIV == "/":
 else:
     def sanitize_path(path):
         return path.replace('/', '\\')
-
-
-# #######################################
-# ----      exception classes      ---- #
-# #######################################
-
-
-class SupyrStructError(Exception):
-    pass
-
-
-class IntegrityError(SupyrStructError):
-    pass
-
-
-class SanitizationError(SupyrStructError):
-    pass
-
-
-class DescEditError(SupyrStructError):
-    pass
-
-
-class DescKeyError(SupyrStructError):
-    pass
-
-
-class BinsizeError(SupyrStructError):
-    pass
-
-
-class FieldParseError(SupyrStructError):
-    def __init__(self, *args, **kwargs):
-        self.error_data = []  # used for storing extra data pertaining to the
-        #                       exception so it can be more easily debugged.
-
-
-class FieldSerializeError(SupyrStructError):
-    def __init__(self, *args, **kwargs):
-        self.error_data = []  # used for storing extra data pertaining to the
-        #                       exception so it can be more easily debugged.

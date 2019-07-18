@@ -6,19 +6,22 @@ not required to parse/serialize files, but are a simple way to give
 a parsed structure some file properties. 
 '''
 import shutil
+import os
 
 from copy import copy, deepcopy
-from os import makedirs
-from os.path import dirname, exists, isfile
 from sys import getsizeof
 from traceback import format_exc
 
-from supyr_struct.defs.constants import *
-from supyr_struct.defs.util import *
-from supyr_struct.buffer import get_rawdata
+from supyr_struct.defs.constants import NODE_PRINT_INDENT, BPI, DEF_SHOW,\
+     SHOW_SETS, ALL_SHOW, SIZE_CALC_FAIL, UNPRINTABLE, NODE_CLS, TYPE, PATHDIV
+from supyr_struct.util import backup_and_rename_temp
+from supyr_struct.exceptions import BinsizeError, IntegrityError
+from supyr_struct.buffer import get_rawdata, get_rawdata_context
 
 # linked to through supyr_struct.__init__
 blocks = None
+
+__all__ = ("Tag", )
 
 
 class Tag():
@@ -465,8 +468,9 @@ class Tag():
             return data.serialize(**kwargs)
 
         temp = kwargs.pop('temp', True)
-        backup = kwargs.pop('backup', True)
         buffer = kwargs.pop('buffer', None)
+        backup = kwargs.pop('backup', True)
+        replace_backup = kwargs.pop('replace_backup', False)
 
         calc_pointers = bool(kwargs.pop('calc_pointers', self.calc_pointers))
 
@@ -489,32 +493,28 @@ class Tag():
         if filepath.endswith(PATHDIV):
             raise IOError('filepath must be a path to a file, not a folder.')
 
-        folderpath = dirname(filepath)
         # If the path doesnt exist, create it
-        if not exists(folderpath):
-            makedirs(folderpath)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
         temppath = filepath + ".temp"
-        backuppath = filepath + ".backup"
+        backuppath = kwargs.pop("backuppath", filepath + ".backup")
         if not backup:
             backuppath = None
 
-        # to avoid 'open' failing if windows files are hidden, we
-        # open in 'r+b' mode and truncate if the file exists.
-        mode = 'r+b' if isfile(temppath) else 'w+b'
         # open the file to be written and start writing!
-        with open(temppath, mode) as tagfile:
-            tagfile.truncate(0)
-            # if this is an incomplete object we need to copy the
-            # original file to the path of the new file in order to
-            # fill in the data we don't yet understand/have mapped out'''
+        with get_rawdata_context(filepath=temppath, writable=True) as tagfile:
+            if hasattr(tagfile, "truncate"):
+                tagfile.truncate(0)
 
             # if we need to calculate any pointers, do so
             if calc_pointers:
                 self.set_pointers(kwargs.get('offset', 0))
 
+            # if this is an incomplete object we need to copy the
+            # original file to the path of the new file in order to
+            # fill in the data we don't yet understand/have mapped out
             if self.definition.incomplete:
-                if not(isfile(self.sourcepath)):
+                if not(os.path.isfile(self.sourcepath)):
                     raise IOError("Tag is incomplete and the source " +
                                   "file to fill in the remaining " +
                                   "data cannot be found.")
@@ -545,8 +545,10 @@ class Tag():
                 raise IntegrityError(
                     "Serialized Tag failed its data integrity test:\n" +
                     ' '*BPI + str(self.filepath) + '\nTag may be corrupted.')
+
         if not temp:
             # If we are doing a full save then we try and rename the temp file
-            backup_and_rename_temp(filepath, temppath, backuppath)
+            backup_and_rename_temp(filepath, temppath, backuppath,
+                                   replace_backup)
 
         return filepath

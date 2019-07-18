@@ -34,12 +34,15 @@ be working with the same parameter and return data types.
 from decimal import Decimal
 from math import ceil, log
 from struct import pack, pack_into, unpack
-from sys import byteorder
 from time import mktime, ctime, strptime
 
-from supyr_struct.defs.constants import *
-from supyr_struct.defs.util import *
-from supyr_struct.buffer import *
+from supyr_struct.defs.constants import NAME, UNNAMED, DEFAULT, NODE_CLS,\
+     COMPUTE_READ, COMPUTE_WRITE, COMPUTE_SIZECALC, STEPTREE, TYPE, VALUE_MAP,\
+     VALUE, ENTRIES, SIZE, ATTR_OFFS, OFFSET, NAME_MAP, ALIGN_MAX, ALIGN,\
+     POINTER, SUB_STRUCT, CASES, CASE, ADDED, CASE_MAP, ENCODER, DECODER,\
+     byteorder_char, reserved_bool_enum_names, desc_keywords
+from supyr_struct.exceptions import FieldParseError, FieldSerializeError
+from supyr_struct.buffer import BytearrayBuffer
 
 # linked to through supyr_struct.__init__
 blocks = None
@@ -47,7 +50,6 @@ common_descs = None
 field_types = None
 
 __all__ = [
-    'byteorder_char',
     # Basic routines
 
     # Parsers
@@ -103,9 +105,6 @@ __all__ = [
     # Exception string formatters
     'format_parse_error', 'format_serialize_error'
     ]
-
-# for use in byteswapping arrays
-byteorder_char = {'little': '<', 'big': '>'}[byteorder]
 
 PARSE_ERROR_HEAD = "\nError occurred while parsing:"
 SERIALIZE_ERROR_HEAD = "\nError occurred while serializing:"
@@ -368,7 +367,7 @@ def container_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
@@ -433,7 +432,7 @@ def array_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
@@ -505,7 +504,7 @@ def while_array_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
@@ -579,7 +578,7 @@ def switch_parser(self, desc, node=None, parent=None, attr_index=None,
 
         return desc['TYPE'].parser(desc, None, parent, attr_index,
                                    rawdata, root_offset, offset, **kwargs)
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         try:
             index = case_i
         except NameError:
@@ -642,7 +641,7 @@ def struct_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
@@ -729,7 +728,7 @@ def quickstruct_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
@@ -787,7 +786,7 @@ def stream_adapter_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset + length_read
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         adapted_stream = locals().get('adapted_stream', rawdata)
         kwargs.update(field_type=self, desc=desc, parent=parent,
                       buffer=adapted_stream, attr_index=attr_index,
@@ -855,14 +854,14 @@ def union_parser(self, desc, node=None, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
         if 'case_i' in locals() and case_i in desc:
             e = format_parse_error(
                 e, field_type=desc[case_i].get(TYPE), desc=desc[case_i],
-                parent=node, attr_index=i, offset=offset, **kwargs)
+                parent=node, attr_index=case_i, offset=offset, **kwargs)
         e = format_parse_error(e, field_type=self, desc=desc,
                                parent=parent, attr_index=attr_index,
                                offset=orig_offset, **kwargs)
@@ -1089,7 +1088,7 @@ def bit_struct_parser(self, desc, node=None, parent=None, attr_index=None,
             offset += structsize
 
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         kwargs.update(buffer=rawdata, root_offset=root_offset)
@@ -1179,7 +1178,7 @@ def container_serializer(self, node, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         desc = locals().get('desc', None)
@@ -1253,7 +1252,7 @@ def array_serializer(self, node, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         desc = locals().get('desc', None)
@@ -1339,7 +1338,7 @@ def struct_serializer(self, node, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         desc = locals().get('desc', None)
@@ -1424,7 +1423,7 @@ def quickstruct_serializer(self, node, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         desc = locals().get('desc', None)
@@ -1485,7 +1484,7 @@ def stream_adapter_serializer(self, node, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset + len(adapted_stream)
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         desc = locals().get('desc', None)
         e = format_serialize_error(
             e, field_type=self, desc=desc, parent=parent, buffer=temp_buffer,
@@ -1522,10 +1521,10 @@ def union_serializer(self, node, parent=None, attr_index=None,
 
         # pass the incremented offset to the caller
         return offset
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         desc = locals().get('desc', None)
         e = format_serialize_error(
-            e, field_type=self, desc=desc, parent=parent, buffer=temp_buffer,
+            e, field_type=self, desc=desc, parent=parent, buffer=writebuffer,
             attr_index=attr_index, root_offset=root_offset, offset=offset,
             **kwargs)
         raise e
@@ -1686,7 +1685,7 @@ def bit_struct_serializer(self, node, parent=None, attr_index=None,
             writebuffer.write(data.to_bytes(structsize, 'big'))
 
         return offset + structsize
-    except Exception as e:
+    except (Exception, KeyboardInterrupt) as e:
         # if the error occurred while parsing something that doesnt have an
         # error report routine built into the function, do it for it.
         desc = locals().get('desc')
@@ -1698,7 +1697,7 @@ def bit_struct_serializer(self, node, parent=None, attr_index=None,
             e = format_serialize_error(e, **kwargs)
 
         kwargs.update(field_type=self, desc=desc, parent=parent,
-                      attr_index=attr_index, offset=orig_offset)
+                      attr_index=attr_index, offset=offset)
         e = format_serialize_error(e, **kwargs)
         raise e
 

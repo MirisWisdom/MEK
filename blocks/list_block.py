@@ -1,7 +1,13 @@
 '''
 '''
 from copy import deepcopy
-from .block import *
+from sys import getsizeof
+
+from supyr_struct.blocks.block import Block
+from supyr_struct.defs.constants import DEF_SHOW, ALL_SHOW, SHOW_SETS,\
+     NODE_PRINT_INDENT, POINTER, UNNAMED, NAME_MAP, STEPTREE, SIZE
+from supyr_struct.exceptions import DescEditError, DescKeyError
+from supyr_struct.buffer import get_rawdata_context
 
 
 class ListBlock(list, Block):
@@ -719,7 +725,7 @@ class ListBlock(list, Block):
         If initdata is supplied and not rawdata nor a filepath, it will be
         used to replace the entries in this ListBlock if attr_index is None.
         If attr_index is instead not None, self[attr_index] will be replaced
-        with init_data.
+        with initdata.
 
         If rawdata, initdata, filepath, and init_attrs are all unsupplied,
         all entries in this list will be initialized with a default value by
@@ -768,92 +774,96 @@ class ListBlock(list, Block):
                        this ListBlock. If supplied, do not supply 'rawdata'.
         '''
         attr_index = kwargs.pop('attr_index', None)
+        initdata = kwargs.pop('initdata', None)
         desc = object.__getattribute__(self, "desc")
 
-        rawdata = get_rawdata(**kwargs)
-        if attr_index is not None:
-            # parsing/initializing just one attribute
-            if isinstance(attr_index, str) and attr_index not in desc:
-                attr_index = desc['NAME_MAP'][attr_index]
+        writable = kwargs.pop('writable', False)
+        with get_rawdata_context(writable=writable, **kwargs) as rawdata:
+            if attr_index is not None:
+                # parsing/initializing just one attribute
+                if isinstance(attr_index, str) and attr_index not in desc:
+                    attr_index = desc['NAME_MAP'][attr_index]
 
-            attr_desc = desc[attr_index]
+                attr_desc = desc[attr_index]
+                if initdata is None:
+                    # we are either parsing the attribute from rawdata or nothing
+                    kwargs.update(desc=attr_desc, parent=self, rawdata=rawdata,
+                                  attr_index=attr_index)
+                    kwargs.pop('filepath', None)
+                    attr_desc['TYPE'].parser(**kwargs)
+                elif isinstance(self[attr_index], Block):
+                    self[attr_index].parse(initdata=initdata)
+                else:
+                    # non-Block initdata was provided for this
+                    # attribute, so just place it in the ListBlock.
+                    self[attr_index] = initdata
 
-            if 'initdata' in kwargs:
-                # if initdata was provided for this attribute
-                # then just place it in this WhileBlock.
-                self[attr_index] = kwargs['initdata']
-            else:
-                # we are either parsing the attribute from rawdata or nothing
-                kwargs.update(desc=attr_desc, parent=self, rawdata=rawdata,
-                              attr_index=attr_index)
-                kwargs.pop('filepath', None)
-                attr_desc['TYPE'].parser(**kwargs)
-            return
-        else:
-            # parsing/initializing all attributes, so clear the block
-            # and create as many elements as it needs to hold
-            list.__init__(self, [None]*desc['ENTRIES'])
+                return
 
-        if rawdata is not None:
-            # parse the ListBlock from raw data
-            try:
-                # we are either parsing the attribute from rawdata or nothing
-                kwargs.update(desc=desc, node=self, rawdata=rawdata)
-                kwargs.pop('filepath', None)
-                desc['TYPE'].parser(**kwargs)
-            except Exception as e:
-                a = e.args[:-1]
-                e_str = "\n"
+            if kwargs.get("clear", True):
+                # parsing/initializing all attributes, so clear the block
+                # and create as many elements as it needs to hold
+                list.__init__(self, [None]*desc['ENTRIES'])
+
+            if rawdata is not None:
+                # parse the ListBlock from raw data
                 try:
-                    e_str = e.args[-1] + e_str
-                except IndexError:
-                    pass
-                e.args = a + (e_str + "Error occurred while " +
-                              "attempting to parse %s." % type(self),)
-                raise e
-        elif kwargs.get('init_attrs', True):
-            # initialize the attributes
-            for i in range(len(self)):
-                desc[i]['TYPE'].parser(desc[i], parent=self, attr_index=i)
+                    # we are either parsing the attribute from rawdata or nothing
+                    kwargs.update(desc=desc, node=self, rawdata=rawdata)
+                    kwargs.pop('filepath', None)
+                    desc['TYPE'].parser(**kwargs)
+                except Exception as e:
+                    a = e.args[:-1]
+                    e_str = "\n"
+                    try:
+                        e_str = e.args[-1] + e_str
+                    except IndexError:
+                        pass
+                    e.args = a + (e_str + "Error occurred while " +
+                                  "attempting to parse %s." % type(self),)
+                    raise e
+            elif kwargs.get('init_attrs', True):
+                # initialize the attributes
+                for i in range(len(self)):
+                    desc[i]['TYPE'].parser(desc[i], parent=self, attr_index=i)
 
-            # Only initialize the STEPTREE if the block has a STEPTREE
-            s_desc = desc.get('STEPTREE')
-            if s_desc:
-                s_desc['TYPE'].parser(s_desc, parent=self,
-                                      attr_index='STEPTREE')
+                # Only initialize the STEPTREE if the block has a STEPTREE
+                s_desc = desc.get('STEPTREE')
+                if s_desc:
+                    s_desc['TYPE'].parser(s_desc, parent=self,
+                                          attr_index='STEPTREE')
+
+        if initdata is None:
+            return
 
         # if an initdata was provided, make sure it can be used
-        initdata = kwargs.get('initdata')
-        assert (initdata is None or
-                (hasattr(initdata, '__iter__') and
-                 hasattr(initdata, '__len__'))), (
-                     "initdata must be an iterable with a length")
+        assert (hasattr(initdata, '__iter__') and
+                hasattr(initdata, '__len__')), (
+                    "If provided, initdata must be an iterable with a length")
 
-        if initdata is not None:
-            if isinstance(initdata, Block):
-                # copy the attributes from initdata into self
-                # by name for each of the attributes, but do
-                # this only if the name exists in both blocks
-                i_name_map = initdata.desc.get(NAME_MAP, ())
-                name_map = desc.get(NAME_MAP, ())
+        if isinstance(initdata, Block):
+            # copy the attributes from initdata into self
+            # by name for each of the attributes, but do
+            # this only if the name exists in both blocks
+            init_name_map = initdata.desc.get(NAME_MAP, ())
+            name_map = desc.get(NAME_MAP, ())
 
-                for name in i_name_map:
-                    if name in name_map:
-                        self[name_map[name]] = initdata[i_name_map[name]]
+            for name in init_name_map:
+                if name in name_map:
+                    self.parse(attr_index=name_map[name],
+                               initdata=initdata[init_name_map[name]])
 
-                # if the initdata has a STEPTREE node, copy it to
-                # this Block if this Block can hold a STEPTREE.
-                try:
-                    self.STEPTREE = initdata.STEPTREE
-                except AttributeError:
-                    pass
-            else:
-                # loop over the ListBlock and copy the entries
-                # from initdata into the ListBlock. Make sure to
-                # loop as many times as the shortest length of the
-                # two so as to prevent IndexErrors.'''
-                for i in range(min(len(self), len(initdata))):
-                    self[i] = initdata[i]
+            # if the initdata has a STEPTREE node, copy it to
+            # this Block if this Block can hold a STEPTREE.
+            if hasattr(self, "STEPTREE") and hasattr(initdata, "STEPTREE"):
+                self.parse(attr_index="STEPTREE", initdata=initdata.STEPTREE)
+        else:
+            # loop over the ListBlock and copy the entries
+            # from initdata into the ListBlock. Make sure to
+            # loop as many times as the shortest length of the
+            # two so as to prevent IndexErrors.'''
+            for i in range(min(len(self), len(initdata))):
+                self[i] = initdata[i]
 
 
 class PListBlock(ListBlock):
