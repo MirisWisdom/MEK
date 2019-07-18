@@ -405,7 +405,7 @@ class HekPool(tk.Tk):
             label="Remove tool.exe map size limit(backs up tool.exe)")
         self.settings_menu.add(
             "checkbutton", variable=self.patch_tool_tag_indexing,
-            label="Disable tool.exe creating language locked campaign and ui maps.")
+            label="Disable tool.exe creating language locked campaign and ui maps(backs up tool.exe)")
 
 
         self.help_menu.add_command(label="Readme",
