@@ -45,8 +45,8 @@ array_counts = Struct("array_counts",
     )
 
 app_window = Struct("app_window",
-    UInt16("app_width", DEFAULT=650),
-    UInt16("app_height", DEFAULT=350),
+    UInt16("app_width", DEFAULT=630),
+    UInt16("app_height", DEFAULT=330),
     SInt16("app_offset_x"),
     SInt16("app_offset_y"),
     SIZE=16,
