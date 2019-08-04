@@ -1,2 +1,10 @@
 syntax: glob
-__pycache__/*
+*__pycache__/*
+*.cfg
+*.log
+*.backup
+*.BACKUP
+*.recent.txt
+pool_actions.txt
+pool_colors.txt
+templates.txt

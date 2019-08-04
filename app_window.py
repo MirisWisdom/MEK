@@ -243,12 +243,6 @@ class HekPool(tk.Tk):
     curr_tool_index = -1
     curr_commands_list_name = None
 
-    '''Window location and size'''
-    app_width = 630
-    app_height = 330
-    app_offset_x = 0
-    app_offset_y = 0
-
     '''Config properties'''
     # holds all the config settings for this application
     config_def = config_def
@@ -273,8 +267,7 @@ class HekPool(tk.Tk):
     about_messages = ()
 
     def __init__(self, *args, **kwargs):
-        for s in ('working_dir', 'config_version',
-                  'app_width', 'app_height', 'app_offset_x', 'app_offset_y'):
+        for s in ('working_dir', 'config_version'):
             if s in kwargs:
                 object.__setattr__(self, s, kwargs.pop(s))
         try:
@@ -325,8 +318,6 @@ class HekPool(tk.Tk):
 
         self.title('%s v%s' % (self.app_name, self.version))
         self.minsize(width=450, height=150)
-        self.geometry("%sx%s" % (630, 330))
-        self.update()
         self.protocol("WM_DELETE_WINDOW", self.close)
 
         self.bind('<Control-o>', lambda e=None: self.load_commands_list())
@@ -1166,9 +1157,6 @@ class HekPool(tk.Tk):
 
         __osa__ = object.__setattr__
         __tsa__ = type.__setattr__
-        for s in app_window.NAME_MAP.keys():
-            try: __osa__(self, s, app_window[s])
-            except IndexError: pass
 
         for s in ('max_undos', ):
             try: __osa__(self, s, header[s])
@@ -1186,9 +1174,16 @@ class HekPool(tk.Tk):
             getattr(self, attr_name).set(bool(getattr(header.flags, attr_name)))
 
         self.select_tool_path(self.curr_tool_index)
+
+        if app_window.app_offset_x not in range(0, self.winfo_screenwidth()):
+            app_window.app_offset_x = 0
+
+        if app_window.app_offset_y not in range(0, self.winfo_screenheight()):
+            app_window.app_offset_y = 0
+
         self.geometry("%sx%s+%s+%s" %
-                      (self.app_width,    self.app_height,
-                       self.app_offset_x, self.app_offset_y))
+                      (app_window.app_width,    app_window.app_height,
+                       app_window.app_offset_x, app_window.app_offset_y))
         self.update()
 
     def update_config(self, config_file=None):
@@ -1203,20 +1198,18 @@ class HekPool(tk.Tk):
         header.version = self.config_version
         __oga__ = object.__getattribute__
 
-        self.app_width = self.winfo_width()
-        self.app_height = self.winfo_height()
-        self.app_offset_x = self.winfo_x()
-        self.app_offset_y = self.winfo_y()
+        w, geom = self.geometry().split("x")
+        h, x, y = geom.split("+")
+        app_window.app_width = int(w)
+        app_window.app_height = int(h)
+        app_window.app_offset_x = int(x)
+        app_window.app_offset_y = int(y)
 
         header.parse(attr_index='date_modified')
         header.last_tool_index = max(self.curr_tool_index + 1, 0)
         header.proc_limit = max(int(self.proc_limit.get()), 1)
         for attr_name in header.flags.NAME_MAP:
             setattr(header.flags, attr_name, getattr(self, attr_name).get())
-
-        for s in app_window.NAME_MAP.keys():
-            try: app_window[s] = __oga__(self, s)
-            except IndexError: pass
 
         # make sure there are enough tagsdir entries in the directory_paths
         if len(CFG_DIRS) > len(dir_paths):
