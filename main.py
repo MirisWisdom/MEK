@@ -128,6 +128,7 @@ class Refinery(tk.Tk, BinillaWidget, RefineryCore):
         # make the tkinter variables
         self.extract_mode = tk.StringVar(self, "tags")
         self.show_all_fields = tk.IntVar(self)
+        self.show_structure_meta = tk.IntVar(self)
         self.edit_all_fields = tk.IntVar(self)
         self.allow_corrupt = tk.IntVar(self)
 
@@ -174,6 +175,7 @@ class Refinery(tk.Tk, BinillaWidget, RefineryCore):
         self.tk_vars = dict(
             extract_mode=self.extract_mode,
             show_all_fields=self.show_all_fields,
+            show_structure_meta=self.show_structure_meta,
             edit_all_fields=self.edit_all_fields,
             allow_corrupt=self.allow_corrupt,
 
@@ -389,10 +391,18 @@ class Refinery(tk.Tk, BinillaWidget, RefineryCore):
         self._initialized = True
 
     def apply_style(self, seen=None):
+        app_window = self.config_file.data.app_window
         super(Refinery, self).apply_style(seen)
         if not self._window_geometry_initialized:
             app_window = self.config_file.data.app_window
             self._window_geometry_initialized = True
+
+            if app_window.app_offset_x not in range(0, self.winfo_screenwidth()):
+                app_window.app_offset_x = 0
+
+            if app_window.app_offset_y not in range(0, self.winfo_screenheight()):
+                app_window.app_offset_y = 0
+
             self.geometry("%sx%s+%s+%s" %
                           (app_window.app_width, app_window.app_height,
                            app_window.app_offset_x, app_window.app_offset_y))
@@ -523,10 +533,12 @@ class Refinery(tk.Tk, BinillaWidget, RefineryCore):
         header.version = self.config_version
 
         if self._initialized:
-            app_window.app_width    = self.winfo_width()
-            app_window.app_height   = self.winfo_height()
-            app_window.app_offset_x = self.winfo_x()
-            app_window.app_offset_y = self.winfo_y()
+            w, geom = self.geometry().split("x")
+            h, x, y = geom.split("+")
+            app_window.app_width = int(w)
+            app_window.app_height = int(h)
+            app_window.app_offset_x = int(x)
+            app_window.app_offset_y = int(y)
 
         # make sure there are enough entries in the paths
         if len(paths.NAME_MAP) > len(paths):
@@ -1023,8 +1035,7 @@ class Refinery(tk.Tk, BinillaWidget, RefineryCore):
             asked.add(map_name)
             map_path = askopenfilename(
                 initialdir=maps_dir, title="Select the %s.map" % map_name,
-                filetypes=((map_name, "*.map"), (map_name, "*.yelo"),
-                           (map_name, "*.vap"), (map_name, "*.map.dtz"),
+                filetypes=((map_name, "*.map"), (map_name, "*.map.dtz"),
                            ("All", "*.*")))
 
             if not map_path:
