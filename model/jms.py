@@ -580,13 +580,36 @@ class JmsModel:
             tri.v1 = get_mapped_vert(tri.v1, tri.v1)
             tri.v2 = get_mapped_vert(tri.v2, tri.v2)
 
+    def get_node_depths(self):
+        node_depths = [-1] * len(self.nodes)
+        if not self.nodes:
+            return node_depths
+
+        node_depths[0] = 0
+
+        seen_hierarchy = set((-1, ))
+        # figure out the hierarchy depth of each node
+        for i in range(len(self.nodes)):
+            child_depth = node_depths[i] + 1
+            child_idx = self.nodes[i].first_child
+            while (child_idx not in seen_hierarchy and
+                   child_idx in range(len(self.nodes))):
+                seen_hierarchy.add(child_idx)
+                node_depths[child_idx] = child_depth
+                child_idx = self.nodes[child_idx].sibling_index
+
+        return node_depths
+
     def verify_nodes_valid(self):
         errors = []
         if len(self.nodes) == 0:
             errors.append("No nodes. Must contain at least one node.")
-        elif len(self.nodes) >= 64:
+            return errors
+
+        if len(self.nodes) >= 64:
             errors.append("Too many nodes. Max count is 64.")
 
+        seen_names = set()
         for i in range(len(self.nodes)):
             n = self.nodes[i]
             if n.first_child >= len(self.nodes):
@@ -595,65 +618,78 @@ class JmsModel:
                 errors.append("Sibling node of node '%s' is invalid." % n.name)
             elif len(n.name) >= 32:
                 errors.append("Node name node '%s' is too long." % n.name)
+            elif n.name.lower() in seen_names:
+                errors.append("Multiple nodes named '%s'." % n.name)
+
+            seen_names.add(n.name.lower())
 
         if self.nodes and self.nodes[0].sibling_index != -1:
             errors.append("Root node must not have siblings.")
 
+        node_depths = self.get_node_depths()
+
+        # make sure the nodes are sorted in increasing hierarchy depth
+        curr_depth = node_depths[0]
+        prev_name = ""
+        for i in range(len(node_depths)):
+            if curr_depth > node_depths[i]:
+                errors.append("Nodes are not sorted by hierarchy depth.")
+                break
+
+            curr_name = self.nodes[i].name
+            if curr_depth != node_depths[i]:
+                curr_depth = node_depths[i]
+            elif curr_name < prev_name:
+                errors.append(("Nodes within depth %s are not sorted "
+                               "alphabetically.") % curr_depth)
+                break
+
+            prev_name = curr_name
+
+        sib_errors = set()
+        child_errors = set()
         seen_hierarchy = set()
         for node in self.nodes:
             sib_idx = node.sibling_index
             child_idx = node.first_child
-            if sib_idx in seen_hierarchy or child_idx in seen_hierarchy:
-                errors.append("Node hierarchy is janked up. " +
-                              "Can't really explain why tho.")
 
-            if sib_idx >= 0:
-                seen_hierarchy.add(sib_idx)
-
-            if child_idx >= 0:
+            if child_idx in child_errors:
+                pass
+            elif child_idx in seen_hierarchy:
+                errors.append(
+                    "Node %s is specified as the child of multiple nodes." %
+                    self.nodes[child_idx].name)
+            elif child_idx >= 0:
                 seen_hierarchy.add(child_idx)
-
-        # TODO: Check hierarchy for non-halo sorting
-        if not errors:
-            # check all nodes to make sure their hierarchy is valid
-            all_seen_siblings = set()
-            all_seen_children = set()
-
-            for node in self.nodes:
-                seen_siblings = set()
                 seen_children = set()
-
-                sib_idx = node.sibling_index
-                child_idx = node.first_child
-
-                if sib_idx >= 0 and sib_idx in all_seen_siblings:
-                    errors.append(("Sibling index in node '%s' is reused " +
-                                   "in another node.") % node.name)
-
-                if child_idx >= 0 and child_idx in all_seen_children:
-                    errors.append(("Child index in node '%s' is reused " +
-                                   "in another node.") % node.name)
-
-                all_seen_siblings.add(sib_idx)
-                all_seen_children.add(child_idx)
-
-                while sib_idx >= 0:
-                    sib_node = self.nodes[sib_idx]
-                    if sib_idx in seen_siblings:
-                        errors.append("Circular reference in siblings " +
-                                      "of node '%s'." % node.name)
-
-                    seen_siblings.add(sib_idx)
-                    sib_idx = sib_node.sibling_index
-
                 while child_idx >= 0:
                     child_node = self.nodes[child_idx]
                     if child_idx in seen_children:
                         errors.append("Circular reference in children " +
                                       "of node '%s'." % node.name)
+                        break
 
                     seen_children.add(child_idx)
                     child_idx = child_node.first_child
+
+            if sib_idx in sib_errors:
+                pass
+            elif sib_idx in seen_hierarchy:
+                errors.append(
+                    "Node %s is specified as the sibling of multiple nodes." %
+                    self.nodes[sib_idx].name)
+            elif sib_idx >= 0:
+                seen_hierarchy.add(sib_idx)
+                seen_siblings = set()
+                while sib_idx >= 0:
+                    sib_node = self.nodes[sib_idx]
+                    if sib_idx in seen_siblings:
+                        errors.append("Circular reference in siblings " +
+                                      "of node '%s'." % node.name)
+                        break
+
+                    seen_siblings.add(sib_idx)
+                    sib_idx = sib_node.sibling_index
 
 
         return errors
@@ -1381,12 +1417,13 @@ def generate_fake_nodes(node_count):
     if node_count <= 0:
         return nodes
 
-    for i in range(node_count):
+    nodes.append(JmsNode("fake_node0", 1, -1))
+    for i in range(1, node_count):
         nodes.append(JmsNode("fake_node%s" % i, -1, i + 1))
 
-    nodes[0].first_child = 1
     nodes[-1].first_child = -1
-    nodes[0].sibling_index = nodes[-1].sibling_index = -1
+    nodes[-1].sibling_index = -1
+    JmsNode.setup_node_hierarchy(nodes)
     return nodes
 
 
