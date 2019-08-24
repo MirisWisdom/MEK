@@ -1,0 +1,25 @@
+MEK MIRROR
+==========
+
+This repository serves as a continuous Git mirror of the MEK and
+associated tools, all developed and maintained by MosesOfEgypt.
+
+  ---------------------------------------------------------------------------------
+  Branch               Upstream
+  -------------------- ------------------------------------------------------------
+  arbytmap             https://bitbucket.org/Moses_of_Egypt/arbytmap
+  binilla              https://bitbucket.org/Moses_of_Egypt/binilla
+  blamio               https://bitbucket.org/Moses_of_Egypt/blamio
+  composer             https://bitbucket.org/Moses_of_Egypt/composer
+  hek_pool             https://bitbucket.org/Moses_of_Egypt/hek_pool
+  mek                  https://bitbucket.org/Moses_of_Egypt/mek
+  mek-essentials       https://bitbucket.org/Moses_of_Egypt/mek-essentials
+  mozzarilla           https://bitbucket.org/Moses_of_Egypt/mozzarilla
+  reclaimer            https://bitbucket.org/Moses_of_Egypt/reclaimer
+  refinery             https://bitbucket.org/Moses_of_Egypt/refinery
+  snippits             https://bitbucket.org/Moses_of_Egypt/snippits
+  supyr_struct         https://bitbucket.org/Moses_of_Egypt/supyr_struct
+  threadsafe_tkinter   https://bitbucket.org/Moses_of_Egypt/threadsafe_tkinter
+  ----------------------------------------------------------------------------------
+
+This repository is updated on an hourly basis in most circumstances.
